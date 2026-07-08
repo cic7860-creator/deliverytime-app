@@ -1,0 +1,7 @@
+Flask
+Flask-SQLAlchemy
+pandas
+openpyxl
+requests
+urllib3
+gunicorn

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>통합 물류 현황판</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; padding: 30px; background-color: #e9ecef; }
+        .header-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; border-bottom: 2px solid #ccc; padding-bottom: 20px; }
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+        .stat-card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-top: 5px solid #007bff; }
+        .driver-name { font-size: 24px; font-weight: bold; margin-bottom: 15px; color: #343a40; }
+        .stat-row { display: flex; justify-content: space-between; font-size: 16px; margin-bottom: 8px; color: #495057; }
+        .highlight { font-weight: bold; color: #dc3545; }
+        .progress-container { width: 100%; background-color: #e9ecef; border-radius: 5px; margin-top: 15px; overflow: hidden; }
+        .progress-bar { height: 20px; background-color: #28a745; text-align: center; line-height: 20px; color: white; font-size: 12px; font-weight: bold; transition: width 0.5s ease-in-out; }
+        .btn-excel { background-color: #198754; color: white; text-decoration: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; font-size: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+    </style>
+</head>
+<body>
+    <div class="header-container">
+        <div>
+            <h1 style="margin:0; color: #2c3e50;">🏢 통합 실시간 배송 현황판</h1>
+            <p style="margin-top:10px; color:#555;">각 센터 소속 기사님별 배송 진척률 모니터링</p>
+        </div>
+        <a href="/download_excel" class="btn-excel">📥 배송시간 다운로드</a>
+    </div>
+
+    <div class="dashboard-grid">
+        {% for name, data in stats.items() %}
+        <div class="stat-card">
+            <div class="driver-name">🚚 {{ name }} 기사님</div>
+            <div class="stat-row">
+                <span>전체 배차:</span>
+                <span>{{ data.total }} 곳</span>
+            </div>
+            <div class="stat-row">
+                <span>완료:</span>
+                <span style="color: #28a745; font-weight: bold;">{{ data.completed }} 곳</span>
+            </div>
+            <div class="stat-row">
+                <span>남은 매장:</span>
+                <span class="highlight">{{ data.remaining }} 곳</span>
+            </div>
+            <div class="progress-container">
+                <div class="progress-bar" style="width: {{ data.progress }}%;">{{ data.progress }}%</div>
+            </div>
+        </div>
+        {% else %}
+            <p style="text-align: center; grid-column: 1 / -1; font-size: 18px; color: #666;">현재 등록된 배차 데이터가 없습니다.</p>
+        {% endfor %}
+    </div>
+</body>
+</html>

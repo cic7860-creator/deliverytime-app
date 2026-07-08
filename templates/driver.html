@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>배송 기사 배차 조회</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; padding: 10px; background-color: #f0f2f5; margin: 0; }
+        .card { background-color: white; border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .card-flex { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+        .info-section { flex: 1; }
+        .store-name-box { background-color: #fff3cd; padding: 8px 10px; margin-bottom: 8px; border-left: 4px solid #ffc107; font-size: 20px; font-weight: bold; color: #1a1a1a; word-break: keep-all; }
+        .store-address { font-size: 16px; color: #222; font-weight: 500; word-break: keep-all; line-height: 1.5; margin-top: 5px; margin-bottom: 5px; }
+        .action-section { width: 110px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; }
+        .seq-form { display: flex; gap: 2px; margin: 0; }
+        .seq-input { width: 45px; padding: 4px; font-size: 14px; text-align: center; border: 1px solid #ccc; box-sizing: border-box; }
+        .btn-seq { background-color: #6c757d; color: white; border: none; padding: 4px 8px; font-size: 13px; cursor: pointer; flex: 1; box-sizing: border-box; }
+        .map-link-btn { display: block; color: white; background-color: #ffe812; color: #3c1e1e; font-size: 13px; text-align: center; text-decoration: none; padding: 8px 0; font-weight: bold; border-radius: 4px; }
+        .btn-complete { background-color: #198754; color: white; border: none; padding: 10px 5px; font-size: 15px; font-weight: bold; cursor: pointer; width: 100%; box-sizing: border-box; }
+        .btn-done { background-color: #adb5bd; color: white; border: none; padding: 10px 5px; font-size: 15px; font-weight: bold; width: 100%; cursor: not-allowed; box-sizing: border-box; }
+        
+        .header-container { display: flex; justify-content: space-between; align-items: center; margin-top: 5px; margin-bottom: 15px; }
+        .course-btn { background-color: #ffe812; color: #3c1e1e; text-decoration: none; padding: 6px 10px; border-radius: 4px; font-size: 13px; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.15); text-align: center; }
+        .center-depart-box { background-color: #e3f2fd; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center; border: 2px solid #90caf9; }
+        
+        /* 💡 [신규] PC 확인용 링크 디자인 스타일 */
+        .pc-link { font-size: 11px; text-align: center; color: #666; text-decoration: underline; margin-top: 2px; display: block; }
+        .pc-link:hover { color: #007bff; }
+    </style>
+</head>
+<body>
+    
+    <div class="header-container">
+        <h3 style="color: #333; margin: 0;">🚚 금일 배차 내역</h3>
+        
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+            {% for chunk in route_chunks %}
+                <div style="display: flex; flex-direction: column;">
+                    <a href="{{ chunk.url }}" class="course-btn">{{ chunk.title }}</a>
+                    <a href="{{ chunk.pc_url }}" target="_blank" class="pc-link">(PC확인용)</a>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <form action="/driver" method="GET" style="display: flex; gap: 8px; margin-bottom: 20px;">
+        <input type="text" name="driver_name" placeholder="기사 이름 입력" value="{{ driver_name or '' }}" required style="flex: 1; padding: 10px; font-size: 15px; border: 1px solid #ccc;">
+        <button type="submit" style="padding: 10px 15px; font-size: 15px; background-color: #0d6efd; color: white; border: none; font-weight:bold;">조회</button>
+    </form>
+    
+    {% if dispatches %}
+        {% set first_item = dispatches[0] %}
+        
+        <div class="center-depart-box">
+            <h4 style="margin-top: 0; margin-bottom: 15px; color: #0d47a1;">🏢 센터 출발 보고</h4>
+            
+            {% if first_item.center_depart_time %}
+                <div style="font-size: 18px; font-weight: bold; color: #2e7d32;">
+                    ✅ 센터 출발 완료 ({{ first_item.center_depart_time.strftime('%H:%M') }})
+                </div>
+            {% else %}
+                <form action="/depart_center" method="POST" onsubmit="return confirm('진짜 센터에서 출발하셨습니까? (현재 시간이 출발 시간으로 기록됩니다.)');">
+                    <input type="hidden" name="driver_name" value="{{ driver_name }}">
+                    <button type="submit" style="background-color: #0d6efd; color: white; border: none; padding: 15px 20px; font-size: 18px; font-weight: bold; border-radius: 8px; width: 100%; margin-bottom: 15px; cursor: pointer;">
+                        🚀 지금 센터에서 출발
+                    </button>
+                </form>
+                
+                <form action="/depart_center" method="POST" style="display: flex; gap: 5px; justify-content: center; align-items: center; background-color: white; padding: 10px; border-radius: 6px;">
+                    <input type="hidden" name="driver_name" value="{{ driver_name }}">
+                    <span style="font-size: 13px; color: #555; font-weight:bold;">혹시 늦게 누르셨나요?</span>
+                    <input type="time" name="manual_time" required style="padding: 5px; border: 1px solid #ccc; border-radius: 4px;">
+                    <button type="submit" style="background-color: #6c757d; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer;">
+                        시간 지정 출발
+                    </button>
+                </form>
+            {% endif %}
+        </div>
+
+        {% for item in dispatches %}
+        <div class="card" {% if item.is_departed %}style="opacity: 0.6; background-color: #f8f9fa;"{% endif %}>
+            <div class="card-flex">
+                <div class="info-section">
+                    <div class="store-name-box">🏢 {{ item.store_name }}</div>
+                    <div class="store-address">주소 : {{ item.store_address }}</div>
+                </div>
+                
+                <div class="action-section">
+                    <form action="/update_seq/{{ item.id }}" method="POST" class="seq-form">
+                        <input type="number" name="new_seq" class="seq-input" value="{{ item.delivery_seq }}" min="1">
+                        <button type="submit" class="btn-seq">변경</button>
+                    </form>
+                    
+                    <a href="https://map.kakao.com/link/search/{{ item.store_address }}" target="_blank" class="map-link-btn">
+                        🗺️ 카카오맵 열기
+                    </a>
+                    
+                    {% if item.is_departed %}
+                        <button class="btn-done" disabled>✅ 처리 완료</button>
+                    {% else %}
+                        <form action="/complete/{{ item.id }}" method="POST" style="margin: 0;" onsubmit="return confirm('{{ item.store_name }} 배송을 완료하시겠습니까?');">
+                            <button type="submit" class="btn-complete">배송 완료 처리</button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% elif driver_name %}
+        <p style="text-align: center; color: #666; font-size: 15px; margin-top:40px;">조회된 배차 내역이 없습니다.</p>
+    {% endif %}
+</body>
+</html>

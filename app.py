@@ -21,7 +21,7 @@ with app.app_context():
 # ==========================================
 # 🔑 카카오 API 설정 영역
 # ==========================================
-KAKAO_API_KEY = 'f70047282a8b7f30cd02fd2cfc00f029'
+KAKAO_API_KEY = '여기에_복사한_REST_API_키를_붙여넣으세요'
 
 def get_coords(address):
     if not address or address.strip() == '':
@@ -33,8 +33,8 @@ def get_coords(address):
         resp = requests.get(url, headers=headers, verify=False).json()
         if resp.get('documents'):
             return resp['documents'][0]['x'], resp['documents'][0]['y']
-    except Exception as e:
-        print(f"❌ [통신 에러] 좌표 변환 실패: {e}")
+    except Exception:
+        pass
     return None, None
 
 def get_driving_time(start_x, start_y, end_x, end_y):
@@ -44,10 +44,9 @@ def get_driving_time(start_x, start_y, end_x, end_y):
         resp = requests.get(url, headers=headers, verify=False).json()
         if resp.get('routes'):
             return resp['routes'][0]['summary']['duration']
-    except Exception as e:
-        print(f"❌ [통신 에러] 내비 서버 연결 실패: {e}")
+    except Exception:
+        pass
     return 40 * 60 
-# ==========================================
 
 @app.route('/')
 def home():
@@ -107,12 +106,30 @@ def admin():
                 db.session.add(dispatch_entry)
             
             db.session.commit()
-            return "🎉 저장 완료! <br><br><a href='/admin'>돌아가기</a>"
+            return redirect(url_for('admin'))
         except Exception as e:
             db.session.rollback()
             return f"오류 발생: {str(e)} <br><br><a href='/admin'>돌아가기</a>"
             
-    return render_template('admin.html')
+    # GET 요청 시 현재 저장된 데이터 목록을 불러옵니다.
+    all_data = Dispatch.query.order_by(Dispatch.delivery_date, Dispatch.driver_name, Dispatch.delivery_seq).all()
+    return render_template('admin.html', dispatches=all_data)
+
+# 💡 [신규] 전체 데이터 초기화(삭제) 라우트
+@app.route('/admin/delete_all', methods=['POST'])
+def delete_all():
+    db.session.query(Dispatch).delete()
+    db.session.commit()
+    return redirect(url_for('admin'))
+
+# 💡 [신규] 개별 배차 데이터 삭제 라우트
+@app.route('/admin/delete/<int:dispatch_id>', methods=['POST'])
+def delete_dispatch(dispatch_id):
+    d = Dispatch.query.get(dispatch_id)
+    if d:
+        db.session.delete(d)
+        db.session.commit()
+    return redirect(url_for('admin'))
 
 @app.route('/driver', methods=['GET'])
 def driver():
@@ -150,7 +167,6 @@ def driver():
             pars_encoded = urllib.parse.quote(json.dumps(pars, ensure_ascii=False))
             kakaonavi_app_url = f"kakaonavi://shareRoute?pars={pars_encoded}"
             
-            # 💡 [신규] 컴퓨터용 백업 링크 생성 (출발센터 -> 해당 조각의 마지막 매장 연결 웹 주소)
             center_addr = dispatches[0].center_address if dispatches[0].center_address else dispatches[0].store_address
             origin_encoded = urllib.parse.quote(center_addr)
             dest_encoded = urllib.parse.quote(dest_d.store_address)
@@ -162,7 +178,7 @@ def driver():
             route_chunks.append({
                 'title': f"📱 코스 ({start_num}~{end_num}번)",
                 'url': kakaonavi_app_url,
-                'pc_url': pc_web_url # PC용 웹 주소 바구니에 담기
+                'pc_url': pc_web_url 
             })
 
     return render_template('driver.html', dispatches=dispatches, driver_name=name, route_chunks=route_chunks)
@@ -223,18 +239,22 @@ def update_seq(dispatch_id):
 
 @app.route('/dashboard')
 def dashboard():
-    all_dispatches = Dispatch.query.all()
+    all_dispatches = Dispatch.query.order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
     stats = {}
     for d in all_dispatches:
         name = d.driver_name
         if name not in stats:
-            stats[name] = {'total': 0, 'completed': 0, 'remaining': 0}
+            # 💡 [신규] 현황판에서 자세히 보기 위해 차량번호와 매장별 디테일 데이터 추가
+            stats[name] = {'total': 0, 'completed': 0, 'remaining': 0, 'vehicle': d.vehicle_num, 'details': []}
         
         stats[name]['total'] += 1
         if d.is_departed:
             stats[name]['completed'] += 1
         else:
             stats[name]['remaining'] += 1
+            
+        # 매장 상세 정보 기록
+        stats[name]['details'].append(d)
             
     for name, data in stats.items():
         if data['total'] > 0:
@@ -247,7 +267,6 @@ def dashboard():
 @app.route('/download_excel')
 def download_excel():
     all_data = Dispatch.query.order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
-    
     data_list = []
     for d in all_data:
         data_list.append({
@@ -264,15 +283,12 @@ def download_excel():
             '완료여부': '완료' if d.is_departed else '대기',
             '상하차시간(분)': d.buffer_time 
         })
-    
     df = pd.DataFrame(data_list)
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='배송시간')
     output.seek(0)
-    
     return send_file(output, download_name="배송시간.xlsx", as_attachment=True)
 
 if __name__ == '__main__':
-    # 💡 [핵심 변경] host='0.0.0.0'을 설정하여 같은 와이파이 안의 스마트폰 접속을 전면 허용합니다!
     app.run(host='0.0.0.0', port=5000, debug=True)

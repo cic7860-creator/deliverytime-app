@@ -2,77 +2,90 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- 💡 [필수] 스마트폰에 맞게 화면 비율을 강제 조정하는 마법의 코드 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>배송 기사 배차 조회</title>
     <style>
-        body { font-family: 'Malgun Gothic', sans-serif; padding: 10px; background-color: #f0f2f5; margin: 0; }
-        .card { background-color: white; border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .card-flex { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
-        .info-section { flex: 1; }
-        .store-name-box { background-color: #fff3cd; padding: 8px 10px; margin-bottom: 8px; border-left: 4px solid #ffc107; font-size: 20px; font-weight: bold; color: #1a1a1a; word-break: keep-all; }
-        .store-address { font-size: 16px; color: #222; font-weight: 500; word-break: keep-all; line-height: 1.5; margin-top: 5px; margin-bottom: 5px; }
-        .action-section { width: 110px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; }
-        .seq-form { display: flex; gap: 2px; margin: 0; }
-        .seq-input { width: 45px; padding: 4px; font-size: 14px; text-align: center; border: 1px solid #ccc; box-sizing: border-box; }
-        .btn-seq { background-color: #6c757d; color: white; border: none; padding: 4px 8px; font-size: 13px; cursor: pointer; flex: 1; box-sizing: border-box; }
-        .map-link-btn { display: block; color: white; background-color: #ffe812; color: #3c1e1e; font-size: 13px; text-align: center; text-decoration: none; padding: 8px 0; font-weight: bold; border-radius: 4px; }
-        .btn-complete { background-color: #198754; color: white; border: none; padding: 10px 5px; font-size: 15px; font-weight: bold; cursor: pointer; width: 100%; box-sizing: border-box; }
-        .btn-done { background-color: #adb5bd; color: white; border: none; padding: 10px 5px; font-size: 15px; font-weight: bold; width: 100%; cursor: not-allowed; box-sizing: border-box; }
+        body { font-family: 'Malgun Gothic', sans-serif; padding: 15px; background-color: #f0f2f5; margin: 0; box-sizing: border-box; }
+        .card { background-color: white; border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         
-        .header-container { display: flex; justify-content: space-between; align-items: center; margin-top: 5px; margin-bottom: 15px; }
-        .course-btn { background-color: #ffe812; color: #3c1e1e; text-decoration: none; padding: 6px 10px; border-radius: 4px; font-size: 13px; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.15); text-align: center; }
-        .center-depart-box { background-color: #e3f2fd; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center; border: 2px solid #90caf9; }
+        /* 💡 모바일 친화적으로 Layout 수정 (화면이 좁아지면 세로로 떨어짐) */
+        .card-flex { display: flex; flex-direction: column; gap: 15px; }
+        @media (min-width: 600px) {
+            .card-flex { flex-direction: row; align-items: flex-start; justify-content: space-between; }
+            .action-section { width: 140px; flex-shrink: 0; }
+        }
+
+        .info-section { flex: 1; width: 100%; }
+        .store-name-box { background-color: #fff3cd; padding: 10px 12px; margin-bottom: 8px; border-left: 5px solid #ffc107; font-size: 18px; font-weight: bold; color: #1a1a1a; word-break: keep-all; border-radius: 4px; }
+        .store-address { font-size: 15px; color: #333; font-weight: 500; word-break: keep-all; line-height: 1.5; margin-top: 5px; }
         
-        /* 💡 [신규] PC 확인용 링크 디자인 스타일 */
-        .pc-link { font-size: 11px; text-align: center; color: #666; text-decoration: underline; margin-top: 2px; display: block; }
-        .pc-link:hover { color: #007bff; }
+        .action-section { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+        .seq-form { display: flex; gap: 5px; margin: 0; width: 100%; }
+        .seq-input { width: 60px; padding: 8px; font-size: 15px; text-align: center; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .btn-seq { background-color: #6c757d; color: white; border: none; padding: 8px; font-size: 14px; cursor: pointer; flex: 1; border-radius: 4px; font-weight: bold; }
+        
+        .map-link-btn { display: block; color: #3c1e1e; background-color: #ffe812; font-size: 15px; text-align: center; text-decoration: none; padding: 12px 0; font-weight: bold; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .btn-complete { background-color: #198754; color: white; border: none; padding: 15px 5px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; box-sizing: border-box; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.15); }
+        .btn-done { background-color: #adb5bd; color: white; border: none; padding: 15px 5px; font-size: 16px; font-weight: bold; width: 100%; cursor: not-allowed; box-sizing: border-box; border-radius: 6px; }
+        
+        .header-container { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
+        .course-btn { background-color: #ffe812; color: #3c1e1e; text-decoration: none; padding: 10px 15px; border-radius: 6px; font-size: 14px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.15); text-align: center; flex: 1; }
+        .pc-link { font-size: 12px; text-align: center; color: #666; text-decoration: underline; margin-top: 4px; display: block; }
+        .center-depart-box { background-color: #e3f2fd; padding: 20px; border-radius: 10px; margin-bottom: 20px; text-align: center; border: 2px solid #90caf9; }
+        
+        .search-form { display: flex; gap: 8px; margin-bottom: 25px; width: 100%; }
+        .search-input { flex: 1; padding: 12px; font-size: 16px; border: 1px solid #ccc; border-radius: 6px; }
+        .search-btn { padding: 12px 20px; font-size: 16px; background-color: #0d6efd; color: white; border: none; font-weight: bold; border-radius: 6px; }
     </style>
 </head>
 <body>
     
     <div class="header-container">
-        <h3 style="color: #333; margin: 0;">🚚 금일 배차 내역</h3>
+        <h2 style="color: #333; margin: 0; font-size: 22px;">🚚 금일 배차 내역</h2>
         
-        <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+        {% if route_chunks %}
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; width: 100%;">
             {% for chunk in route_chunks %}
-                <div style="display: flex; flex-direction: column;">
+                <div style="display: flex; flex-direction: column; flex: 1; min-width: 120px;">
                     <a href="{{ chunk.url }}" class="course-btn">{{ chunk.title }}</a>
                     <a href="{{ chunk.pc_url }}" target="_blank" class="pc-link">(PC확인용)</a>
                 </div>
             {% endfor %}
         </div>
+        {% endif %}
     </div>
 
-    <form action="/driver" method="GET" style="display: flex; gap: 8px; margin-bottom: 20px;">
-        <input type="text" name="driver_name" placeholder="기사 이름 입력" value="{{ driver_name or '' }}" required style="flex: 1; padding: 10px; font-size: 15px; border: 1px solid #ccc;">
-        <button type="submit" style="padding: 10px 15px; font-size: 15px; background-color: #0d6efd; color: white; border: none; font-weight:bold;">조회</button>
+    <form action="/driver" method="GET" class="search-form">
+        <input type="text" name="driver_name" placeholder="기사 이름 입력" value="{{ driver_name or '' }}" required class="search-input">
+        <button type="submit" class="search-btn">조회</button>
     </form>
     
     {% if dispatches %}
         {% set first_item = dispatches[0] %}
         
         <div class="center-depart-box">
-            <h4 style="margin-top: 0; margin-bottom: 15px; color: #0d47a1;">🏢 센터 출발 보고</h4>
+            <h3 style="margin-top: 0; margin-bottom: 15px; color: #0d47a1;">🏢 센터 출발 보고</h3>
             
             {% if first_item.center_depart_time %}
-                <div style="font-size: 18px; font-weight: bold; color: #2e7d32;">
-                    ✅ 센터 출발 완료 ({{ first_item.center_depart_time.strftime('%H:%M') }})
+                <div style="font-size: 18px; font-weight: bold; color: #2e7d32; background: white; padding: 10px; border-radius: 6px;">
+                    ✅ 출발 완료<br>({{ first_item.center_depart_time.strftime('%H:%M') }})
                 </div>
             {% else %}
                 <form action="/depart_center" method="POST" onsubmit="return confirm('진짜 센터에서 출발하셨습니까? (현재 시간이 출발 시간으로 기록됩니다.)');">
                     <input type="hidden" name="driver_name" value="{{ driver_name }}">
-                    <button type="submit" style="background-color: #0d6efd; color: white; border: none; padding: 15px 20px; font-size: 18px; font-weight: bold; border-radius: 8px; width: 100%; margin-bottom: 15px; cursor: pointer;">
+                    <button type="submit" style="background-color: #0d6efd; color: white; border: none; padding: 18px 20px; font-size: 20px; font-weight: bold; border-radius: 8px; width: 100%; margin-bottom: 15px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
                         🚀 지금 센터에서 출발
                     </button>
                 </form>
                 
-                <form action="/depart_center" method="POST" style="display: flex; gap: 5px; justify-content: center; align-items: center; background-color: white; padding: 10px; border-radius: 6px;">
+                <form action="/depart_center" method="POST" style="display: flex; flex-direction: column; gap: 8px; background-color: white; padding: 15px; border-radius: 8px;">
                     <input type="hidden" name="driver_name" value="{{ driver_name }}">
-                    <span style="font-size: 13px; color: #555; font-weight:bold;">혹시 늦게 누르셨나요?</span>
-                    <input type="time" name="manual_time" required style="padding: 5px; border: 1px solid #ccc; border-radius: 4px;">
-                    <button type="submit" style="background-color: #6c757d; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-weight: bold; cursor: pointer;">
-                        시간 지정 출발
-                    </button>
+                    <span style="font-size: 14px; color: #555; font-weight:bold;">혹시 늦게 누르셨나요?</span>
+                    <div style="display: flex; gap: 5px;">
+                        <input type="time" name="manual_time" required style="padding: 10px; border: 1px solid #ccc; border-radius: 4px; flex: 1; font-size: 16px;">
+                        <button type="submit" style="background-color: #6c757d; color: white; border: none; padding: 10px 15px; border-radius: 4px; font-weight: bold; font-size: 15px;">지정 출발</button>
+                    </div>
                 </form>
             {% endif %}
         </div>
@@ -82,13 +95,13 @@
             <div class="card-flex">
                 <div class="info-section">
                     <div class="store-name-box">🏢 {{ item.store_name }}</div>
-                    <div class="store-address">주소 : {{ item.store_address }}</div>
+                    <div class="store-address">📍 {{ item.store_address }}</div>
                 </div>
                 
                 <div class="action-section">
                     <form action="/update_seq/{{ item.id }}" method="POST" class="seq-form">
                         <input type="number" name="new_seq" class="seq-input" value="{{ item.delivery_seq }}" min="1">
-                        <button type="submit" class="btn-seq">변경</button>
+                        <button type="submit" class="btn-seq">순서 변경</button>
                     </form>
                     
                     <a href="https://map.kakao.com/link/search/{{ item.store_address }}" target="_blank" class="map-link-btn">
@@ -96,7 +109,7 @@
                     </a>
                     
                     {% if item.is_departed %}
-                        <button class="btn-done" disabled>✅ 처리 완료</button>
+                        <button class="btn-done" disabled>✅ 배송 완료됨</button>
                     {% else %}
                         <form action="/complete/{{ item.id }}" method="POST" style="margin: 0;" onsubmit="return confirm('{{ item.store_name }} 배송을 완료하시겠습니까?');">
                             <button type="submit" class="btn-complete">배송 완료 처리</button>
@@ -107,7 +120,10 @@
         </div>
         {% endfor %}
     {% elif driver_name %}
-        <p style="text-align: center; color: #666; font-size: 15px; margin-top:40px;">조회된 배차 내역이 없습니다.</p>
+        <div style="text-align: center; margin-top: 50px; color: #666;">
+            <h3 style="margin-bottom: 5px;">앗! 데이터가 없습니다 😢</h3>
+            <p>검색하신 이름으로 배차된 내역이 없거나 삭제되었습니다.</p>
+        </div>
     {% endif %}
 </body>
 </html>

@@ -7,6 +7,7 @@ import urllib.parse
 import requests
 import urllib3
 import json
+import concurrent.futures # 💡 [신규] 초고속 멀티스레딩 처리를 위한 도구
 
 # SSL 보안 경고창 숨기기
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -24,7 +25,6 @@ with app.app_context():
 # ==========================================
 KAKAO_API_KEY = 'f70047282a8b7f30cd02fd2cfc00f029'
 
-# 💡 카카오 API 통신 속도를 5배 이상 높여주는 세션(Session) 객체 생성
 kakao_session = requests.Session()
 
 def get_coords(address):
@@ -69,9 +69,22 @@ def admin():
             df.columns = df.columns.str.replace(' ', '')
             driver_seq_counter = {}
             
-            # 💡 [최적화] 한 번 검색한 주소의 좌표를 기억하는 캐시 사전 (API 호출 횟수 감소)
+            # 💡 [초고속 최적화] 엑셀에 있는 모든 매장 주소 중 중복을 뺀 목록만 먼저 뽑아냅니다.
             address_cache = {}
+            if '매장주소' in df.columns:
+                unique_addresses = df['매장주소'].dropna().astype(str).str.strip().unique()
+                unique_addresses = [addr for addr in unique_addresses if addr]
+                
+                def fetch_coord(addr):
+                    return addr, get_coords(addr)
+                
+                # 10개의 스레드(분신)가 카카오 서버에 동시에 주소를 물어봐서 속도가 엄청나게 빠릅니다!
+                with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+                    results = executor.map(fetch_coord, unique_addresses)
+                    for addr, (sx, sy) in results:
+                        address_cache[addr] = (sx, sy)
 
+            # 그 다음 엑셀 데이터를 DB에 집어넣는 작업 (이미 좌표를 다 구해놔서 순식간에 지나갑니다.)
             for index, row in df.iterrows():
                 raw_date = str(row['배송일자']).strip()
                 clean_date = raw_date.replace('년', '-').replace('월', '-').replace('일', '').replace(' ', '')
@@ -96,12 +109,8 @@ def admin():
                 store_address_val = str(row['매장주소']).strip() if '매장주소' in df.columns and pd.notna(row['매장주소']) else ''
                 buffer_time_val = int(row['상하차시간']) if '상하차시간' in df.columns and pd.notna(row['상하차시간']) else 15
 
-                # 💡 주소 캐시에 좌표가 있으면 재사용하고, 없으면 카카오 API 호출 후 저장
-                if store_address_val in address_cache:
-                    sx, sy = address_cache[store_address_val]
-                else:
-                    sx, sy = get_coords(store_address_val)
-                    address_cache[store_address_val] = (sx, sy)
+                # 아까 빛의 속도로 구해놓은 캐시에서 바로 꺼내 씁니다.
+                sx, sy = address_cache.get(store_address_val, (None, None))
 
                 dispatch_entry = Dispatch(
                     delivery_date=delivery_date,
@@ -124,7 +133,6 @@ def admin():
             db.session.rollback()
             return f"오류 발생: {str(e)} <br><br><a href='/admin'>돌아가기</a>"
             
-    # GET 요청 시 현재 저장된 데이터 목록 불러오기
     all_data = Dispatch.query.order_by(Dispatch.delivery_date, Dispatch.driver_name, Dispatch.delivery_seq).all()
     return render_template('admin.html', dispatches=all_data)
 
@@ -248,7 +256,6 @@ def update_seq(dispatch_id):
         return redirect(url_for('driver', driver_name=dispatch.driver_name))
     return "데이터 없음", 404
 
-# 💡 [신규] 손가락 드래그 앤 드롭 순서 변경 반영 API
 @app.route('/update_order', methods=['POST'])
 def update_order():
     order_data = request.json
@@ -256,7 +263,6 @@ def update_order():
         for index, item_id in enumerate(order_data):
             dispatch = Dispatch.query.get(int(item_id))
             if dispatch:
-                # 드래그된 순서대로 1번부터 새롭게 번호를 매깁니다.
                 dispatch.delivery_seq = index + 1
         db.session.commit()
     return {"status": "success"}

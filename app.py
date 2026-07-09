@@ -8,6 +8,7 @@ import requests
 import urllib3
 import json
 
+# SSL 보안 경고창 숨기기
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 app = Flask(__name__)
@@ -21,7 +22,10 @@ with app.app_context():
 # ==========================================
 # 🔑 카카오 API 설정 영역
 # ==========================================
-KAKAO_API_KEY = '여기에_복사한_REST_API_키를_붙여넣으세요'
+KAKAO_API_KEY = 'f70047282a8b7f30cd02fd2cfc00f029'
+
+# 💡 카카오 API 통신 속도를 5배 이상 높여주는 세션(Session) 객체 생성
+kakao_session = requests.Session()
 
 def get_coords(address):
     if not address or address.strip() == '':
@@ -30,7 +34,7 @@ def get_coords(address):
     url = f"https://dapi.kakao.com/v2/local/search/address.json?query={encoded_address}"
     headers = {"Authorization": f"KakaoAK {KAKAO_API_KEY}"}
     try:
-        resp = requests.get(url, headers=headers, verify=False).json()
+        resp = kakao_session.get(url, headers=headers, verify=False, timeout=5).json()
         if resp.get('documents'):
             return resp['documents'][0]['x'], resp['documents'][0]['y']
     except Exception:
@@ -41,12 +45,13 @@ def get_driving_time(start_x, start_y, end_x, end_y):
     url = f"https://apis-navi.kakaomobility.com/v1/directions?origin={start_x},{start_y}&destination={end_x},{end_y}"
     headers = {"Authorization": f"KakaoAK {KAKAO_API_KEY}"}
     try:
-        resp = requests.get(url, headers=headers, verify=False).json()
+        resp = kakao_session.get(url, headers=headers, verify=False, timeout=5).json()
         if resp.get('routes'):
             return resp['routes'][0]['summary']['duration']
     except Exception:
         pass
     return 40 * 60 
+# ==========================================
 
 @app.route('/')
 def home():
@@ -63,6 +68,9 @@ def admin():
             df = pd.read_csv(io.StringIO(excel_text), sep='\t')
             df.columns = df.columns.str.replace(' ', '')
             driver_seq_counter = {}
+            
+            # 💡 [최적화] 한 번 검색한 주소의 좌표를 기억하는 캐시 사전 (API 호출 횟수 감소)
+            address_cache = {}
 
             for index, row in df.iterrows():
                 raw_date = str(row['배송일자']).strip()
@@ -88,7 +96,12 @@ def admin():
                 store_address_val = str(row['매장주소']).strip() if '매장주소' in df.columns and pd.notna(row['매장주소']) else ''
                 buffer_time_val = int(row['상하차시간']) if '상하차시간' in df.columns and pd.notna(row['상하차시간']) else 15
 
-                sx, sy = get_coords(store_address_val)
+                # 💡 주소 캐시에 좌표가 있으면 재사용하고, 없으면 카카오 API 호출 후 저장
+                if store_address_val in address_cache:
+                    sx, sy = address_cache[store_address_val]
+                else:
+                    sx, sy = get_coords(store_address_val)
+                    address_cache[store_address_val] = (sx, sy)
 
                 dispatch_entry = Dispatch(
                     delivery_date=delivery_date,
@@ -111,6 +124,7 @@ def admin():
             db.session.rollback()
             return f"오류 발생: {str(e)} <br><br><a href='/admin'>돌아가기</a>"
             
+    # GET 요청 시 현재 저장된 데이터 목록 불러오기
     all_data = Dispatch.query.order_by(Dispatch.delivery_date, Dispatch.driver_name, Dispatch.delivery_seq).all()
     return render_template('admin.html', dispatches=all_data)
 

@@ -4,83 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>배송 기사 배차 조회</title>
-    <!-- 💡 드래그 앤 드롭을 위한 Sortable 라이브러리 추가 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <style>
         body { font-family: 'Malgun Gothic', sans-serif; padding: 10px; background-color: #f0f2f5; margin: 0; box-sizing: border-box; }
-        
         .header-container { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
         .course-btn { background-color: #ffe812; color: #3c1e1e; text-decoration: none; padding: 8px; border-radius: 4px; font-size: 13px; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.15); text-align: center; flex: 1; }
         .pc-link { font-size: 11px; text-align: center; color: #666; text-decoration: underline; margin-top: 3px; display: block; }
         .center-depart-box { background-color: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: center; border: 2px solid #90caf9; }
-        
         .search-form { display: flex; gap: 5px; margin-bottom: 20px; width: 100%; }
         .search-input { flex: 1; padding: 10px; font-size: 15px; border: 1px solid #ccc; border-radius: 4px; }
         .search-btn { padding: 10px 15px; font-size: 15px; background-color: #0d6efd; color: white; border: none; font-weight: bold; border-radius: 4px; }
-
-        /* 💡 초밀집 모바일 가로 레이아웃 시작 */
         .item-list { display: flex; flex-direction: column; gap: 5px; }
-        
-        .item { 
-            display: flex; 
-            align-items: center; 
-            background: white; 
-            padding: 8px 5px; 
-            border-radius: 5px; 
-            border-left: 4px solid #0d6efd; 
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
-            gap: 5px;
-        }
-        
-        /* 반투명 처리(완료된 항목) */
+        .item { display: flex; align-items: center; background: white; padding: 8px 5px; border-radius: 5px; border-left: 4px solid #0d6efd; box-shadow: 0 1px 3px rgba(0,0,0,0.1); gap: 5px; }
         .item.completed { opacity: 0.6; border-left-color: #adb5bd; background: #f8f9fa; }
-
-        /* 드래그 앤 드롭 손잡이 */
-        .drag-handle { 
-            font-size: 20px; 
-            color: #adb5bd; 
-            padding: 5px 8px; 
-            cursor: grab; 
-            user-select: none; /* 텍스트 선택 방지 */
-            touch-action: none; /* 모바일 브라우저 기본 스크롤 방지 */
-        }
-        
-        /* 매장 정보 영역 (글씨가 길면 잘리게 처리하여 한 줄 유지) */
-        .info-col { 
-            flex: 1; 
-            min-width: 0; /* flex 버그 방지 */
-            display: flex; 
-            flex-direction: column; 
-            gap: 2px;
-        }
+        .drag-handle { font-size: 20px; color: #adb5bd; padding: 5px 8px; cursor: grab; user-select: none; touch-action: none; }
+        .info-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
         .store-name { font-size: 13px; font-weight: bold; color: #111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .store-addr { font-size: 11px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-        /* 우측 버튼/입력 묶음 영역 */
-        .action-col { 
-            display: flex; 
-            align-items: center; 
-            gap: 4px; 
-            flex-shrink: 0; 
-        }
-
-        /* 좁은 폼 요소들 */
+        .action-col { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
         .compact-form { margin: 0; display: flex; align-items: center; gap: 2px; }
         .seq-input { width: 32px; padding: 5px 2px; font-size: 12px; text-align: center; border: 1px solid #ccc; border-radius: 3px; }
-        
-        /* 버튼 공통 스타일 */
-        .btn-sm { 
-            padding: 6px 8px; 
-            font-size: 12px; 
-            font-weight: bold; 
-            border-radius: 4px; 
-            border: none; 
-            cursor: pointer; 
-            text-align: center; 
-            text-decoration: none;
-            white-space: nowrap;
-        }
-        
+        .btn-sm { padding: 6px 8px; font-size: 12px; font-weight: bold; border-radius: 4px; border: none; cursor: pointer; text-align: center; text-decoration: none; white-space: nowrap; }
         .btn-gray { background-color: #6c757d; color: white; }
         .btn-map { background-color: #ffe812; color: #3c1e1e; }
         .btn-green { background-color: #198754; color: white; }
@@ -88,10 +32,8 @@
     </style>
 </head>
 <body>
-    
     <div class="header-container">
         <h3 style="color: #333; margin: 0;">🚚 {{ driver_name or '금일 배차' }} 내역</h3>
-        
         {% if route_chunks %}
         <div style="display: flex; gap: 5px; flex-wrap: wrap; width: 100%;">
             {% for chunk in route_chunks %}
@@ -113,7 +55,8 @@
         {% set first_item = dispatches[0] %}
         
         <div class="center-depart-box">
-            <h4 style="margin-top: 0; margin-bottom: 10px; color: #0d47a1;">🏢 오산 센터 출발</h4>
+            <!-- 💡 [수정] 오산 센터 출발 -> "센터 출발" 로 공용화 -->
+            <h4 style="margin-top: 0; margin-bottom: 10px; color: #0d47a1;">🏢 센터 출발</h4>
             {% if first_item.center_depart_time %}
                 <div style="font-size: 15px; font-weight: bold; color: #2e7d32; background: white; padding: 8px; border-radius: 4px;">
                     ✅ 출발 완료 ({{ first_item.center_depart_time.strftime('%H:%M') }})
@@ -133,32 +76,20 @@
             {% endif %}
         </div>
 
-        <!-- 💡 초밀집 배차 리스트 (드래그 가능 영역) -->
         <div id="sortable-list" class="item-list">
             {% for item in dispatches %}
             <div class="item {% if item.is_departed %}completed{% endif %}" data-id="{{ item.id }}">
-                
-                <!-- 1. 드래그 핸들 (손가락으로 잡는 부분) -->
                 <div class="drag-handle">☰</div>
-                
-                <!-- 2. 매장 정보 -->
                 <div class="info-col">
                     <div class="store-name">{{ item.delivery_seq }}. {{ item.store_name }}</div>
                     <div class="store-addr">{{ item.store_address }}</div>
                 </div>
-                
-                <!-- 3. 우측 액션 버튼들 -->
                 <div class="action-col">
-                    <!-- 수동 순서 변경 -->
                     <form action="/update_seq/{{ item.id }}" method="POST" class="compact-form">
                         <input type="number" name="new_seq" class="seq-input" value="{{ item.delivery_seq }}" min="1">
                         <button type="submit" class="btn-sm btn-gray">변경</button>
                     </form>
-                    
-                    <!-- 카카오맵 -->
                     <a href="https://map.kakao.com/link/search/{{ item.store_address }}" target="_blank" class="btn-sm btn-map">맵</a>
-                    
-                    <!-- 완료 처리 -->
                     {% if item.is_departed %}
                         <button class="btn-sm btn-done" disabled>완료</button>
                     {% else %}
@@ -171,38 +102,27 @@
             {% endfor %}
         </div>
         
-        <!-- 💡 드래그 앤 드롭을 작동시키는 스크립트 -->
         <script>
-            // 햄버거(☰) 버튼을 잡았을 때만 리스트가 움직이도록 세팅
             new Sortable(document.getElementById('sortable-list'), {
-                handle: '.drag-handle', // 이 손잡이를 눌러야만 드래그 됨 (버튼 오작동 방지)
-                animation: 150, // 부드러운 애니메이션
+                handle: '.drag-handle',
+                animation: 150,
                 onEnd: function (evt) {
-                    // 드래그가 끝난 후 화면에 보이는 순서대로 ID 값을 배열로 만듭니다.
                     let orderArray = [];
                     document.querySelectorAll('.item').forEach(function(el) {
                         orderArray.push(el.getAttribute('data-id'));
                     });
-                    
-                    // 서버로 순서 배열 전송
                     fetch('/update_order', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
+                        headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(orderArray)
                     })
                     .then(response => response.json())
                     .then(data => {
-                        // 성공적으로 저장되면 숫자를 고치기 위해 페이지를 새로고침 합니다.
-                        if(data.status === 'success') {
-                            location.reload();
-                        }
+                        if(data.status === 'success') location.reload();
                     });
                 }
             });
         </script>
-
     {% elif driver_name %}
         <div style="text-align: center; margin-top: 30px; color: #666; font-size: 14px;">
             <p>검색하신 이름으로 배차된 내역이 없거나 삭제되었습니다.</p>

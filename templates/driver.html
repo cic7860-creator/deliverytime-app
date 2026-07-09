@@ -2,54 +2,102 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <!-- 💡 [필수] 스마트폰에 맞게 화면 비율을 강제 조정하는 마법의 코드 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>배송 기사 배차 조회</title>
+    <!-- 💡 드래그 앤 드롭을 위한 Sortable 라이브러리 추가 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <style>
-        body { font-family: 'Malgun Gothic', sans-serif; padding: 15px; background-color: #f0f2f5; margin: 0; box-sizing: border-box; }
-        .card { background-color: white; border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        body { font-family: 'Malgun Gothic', sans-serif; padding: 10px; background-color: #f0f2f5; margin: 0; box-sizing: border-box; }
         
-        /* 💡 모바일 친화적으로 Layout 수정 (화면이 좁아지면 세로로 떨어짐) */
-        .card-flex { display: flex; flex-direction: column; gap: 15px; }
-        @media (min-width: 600px) {
-            .card-flex { flex-direction: row; align-items: flex-start; justify-content: space-between; }
-            .action-section { width: 140px; flex-shrink: 0; }
+        .header-container { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
+        .course-btn { background-color: #ffe812; color: #3c1e1e; text-decoration: none; padding: 8px; border-radius: 4px; font-size: 13px; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.15); text-align: center; flex: 1; }
+        .pc-link { font-size: 11px; text-align: center; color: #666; text-decoration: underline; margin-top: 3px; display: block; }
+        .center-depart-box { background-color: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: center; border: 2px solid #90caf9; }
+        
+        .search-form { display: flex; gap: 5px; margin-bottom: 20px; width: 100%; }
+        .search-input { flex: 1; padding: 10px; font-size: 15px; border: 1px solid #ccc; border-radius: 4px; }
+        .search-btn { padding: 10px 15px; font-size: 15px; background-color: #0d6efd; color: white; border: none; font-weight: bold; border-radius: 4px; }
+
+        /* 💡 초밀집 모바일 가로 레이아웃 시작 */
+        .item-list { display: flex; flex-direction: column; gap: 5px; }
+        
+        .item { 
+            display: flex; 
+            align-items: center; 
+            background: white; 
+            padding: 8px 5px; 
+            border-radius: 5px; 
+            border-left: 4px solid #0d6efd; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+            gap: 5px;
+        }
+        
+        /* 반투명 처리(완료된 항목) */
+        .item.completed { opacity: 0.6; border-left-color: #adb5bd; background: #f8f9fa; }
+
+        /* 드래그 앤 드롭 손잡이 */
+        .drag-handle { 
+            font-size: 20px; 
+            color: #adb5bd; 
+            padding: 5px 8px; 
+            cursor: grab; 
+            user-select: none; /* 텍스트 선택 방지 */
+            touch-action: none; /* 모바일 브라우저 기본 스크롤 방지 */
+        }
+        
+        /* 매장 정보 영역 (글씨가 길면 잘리게 처리하여 한 줄 유지) */
+        .info-col { 
+            flex: 1; 
+            min-width: 0; /* flex 버그 방지 */
+            display: flex; 
+            flex-direction: column; 
+            gap: 2px;
+        }
+        .store-name { font-size: 13px; font-weight: bold; color: #111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .store-addr { font-size: 11px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* 우측 버튼/입력 묶음 영역 */
+        .action-col { 
+            display: flex; 
+            align-items: center; 
+            gap: 4px; 
+            flex-shrink: 0; 
         }
 
-        .info-section { flex: 1; width: 100%; }
-        .store-name-box { background-color: #fff3cd; padding: 10px 12px; margin-bottom: 8px; border-left: 5px solid #ffc107; font-size: 18px; font-weight: bold; color: #1a1a1a; word-break: keep-all; border-radius: 4px; }
-        .store-address { font-size: 15px; color: #333; font-weight: 500; word-break: keep-all; line-height: 1.5; margin-top: 5px; }
+        /* 좁은 폼 요소들 */
+        .compact-form { margin: 0; display: flex; align-items: center; gap: 2px; }
+        .seq-input { width: 32px; padding: 5px 2px; font-size: 12px; text-align: center; border: 1px solid #ccc; border-radius: 3px; }
         
-        .action-section { display: flex; flex-direction: column; gap: 8px; width: 100%; }
-        .seq-form { display: flex; gap: 5px; margin: 0; width: 100%; }
-        .seq-input { width: 60px; padding: 8px; font-size: 15px; text-align: center; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        .btn-seq { background-color: #6c757d; color: white; border: none; padding: 8px; font-size: 14px; cursor: pointer; flex: 1; border-radius: 4px; font-weight: bold; }
+        /* 버튼 공통 스타일 */
+        .btn-sm { 
+            padding: 6px 8px; 
+            font-size: 12px; 
+            font-weight: bold; 
+            border-radius: 4px; 
+            border: none; 
+            cursor: pointer; 
+            text-align: center; 
+            text-decoration: none;
+            white-space: nowrap;
+        }
         
-        .map-link-btn { display: block; color: #3c1e1e; background-color: #ffe812; font-size: 15px; text-align: center; text-decoration: none; padding: 12px 0; font-weight: bold; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .btn-complete { background-color: #198754; color: white; border: none; padding: 15px 5px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; box-sizing: border-box; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.15); }
-        .btn-done { background-color: #adb5bd; color: white; border: none; padding: 15px 5px; font-size: 16px; font-weight: bold; width: 100%; cursor: not-allowed; box-sizing: border-box; border-radius: 6px; }
-        
-        .header-container { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
-        .course-btn { background-color: #ffe812; color: #3c1e1e; text-decoration: none; padding: 10px 15px; border-radius: 6px; font-size: 14px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.15); text-align: center; flex: 1; }
-        .pc-link { font-size: 12px; text-align: center; color: #666; text-decoration: underline; margin-top: 4px; display: block; }
-        .center-depart-box { background-color: #e3f2fd; padding: 20px; border-radius: 10px; margin-bottom: 20px; text-align: center; border: 2px solid #90caf9; }
-        
-        .search-form { display: flex; gap: 8px; margin-bottom: 25px; width: 100%; }
-        .search-input { flex: 1; padding: 12px; font-size: 16px; border: 1px solid #ccc; border-radius: 6px; }
-        .search-btn { padding: 12px 20px; font-size: 16px; background-color: #0d6efd; color: white; border: none; font-weight: bold; border-radius: 6px; }
+        .btn-gray { background-color: #6c757d; color: white; }
+        .btn-map { background-color: #ffe812; color: #3c1e1e; }
+        .btn-green { background-color: #198754; color: white; }
+        .btn-done { background-color: #adb5bd; color: white; cursor: not-allowed; }
     </style>
 </head>
 <body>
     
     <div class="header-container">
-        <h2 style="color: #333; margin: 0; font-size: 22px;">🚚 금일 배차 내역</h2>
+        <h3 style="color: #333; margin: 0;">🚚 {{ driver_name or '금일 배차' }} 내역</h3>
         
         {% if route_chunks %}
-        <div style="display: flex; gap: 8px; flex-wrap: wrap; width: 100%;">
+        <div style="display: flex; gap: 5px; flex-wrap: wrap; width: 100%;">
             {% for chunk in route_chunks %}
-                <div style="display: flex; flex-direction: column; flex: 1; min-width: 120px;">
+                <div style="display: flex; flex-direction: column; flex: 1; min-width: 100px;">
                     <a href="{{ chunk.url }}" class="course-btn">{{ chunk.title }}</a>
-                    <a href="{{ chunk.pc_url }}" target="_blank" class="pc-link">(PC확인용)</a>
+                    <a href="{{ chunk.pc_url }}" target="_blank" class="pc-link">(PC확인)</a>
                 </div>
             {% endfor %}
         </div>
@@ -57,7 +105,7 @@
     </div>
 
     <form action="/driver" method="GET" class="search-form">
-        <input type="text" name="driver_name" placeholder="기사 이름 입력" value="{{ driver_name or '' }}" required class="search-input">
+        <input type="text" name="driver_name" placeholder="기사 이름 조회" value="{{ driver_name or '' }}" required class="search-input">
         <button type="submit" class="search-btn">조회</button>
     </form>
     
@@ -65,63 +113,98 @@
         {% set first_item = dispatches[0] %}
         
         <div class="center-depart-box">
-            <h3 style="margin-top: 0; margin-bottom: 15px; color: #0d47a1;">🏢 센터 출발 보고</h3>
-            
+            <h4 style="margin-top: 0; margin-bottom: 10px; color: #0d47a1;">🏢 오산 센터 출발</h4>
             {% if first_item.center_depart_time %}
-                <div style="font-size: 18px; font-weight: bold; color: #2e7d32; background: white; padding: 10px; border-radius: 6px;">
-                    ✅ 출발 완료<br>({{ first_item.center_depart_time.strftime('%H:%M') }})
+                <div style="font-size: 15px; font-weight: bold; color: #2e7d32; background: white; padding: 8px; border-radius: 4px;">
+                    ✅ 출발 완료 ({{ first_item.center_depart_time.strftime('%H:%M') }})
                 </div>
             {% else %}
-                <form action="/depart_center" method="POST" onsubmit="return confirm('진짜 센터에서 출발하셨습니까? (현재 시간이 출발 시간으로 기록됩니다.)');">
+                <form action="/depart_center" method="POST" onsubmit="return confirm('진짜 센터에서 출발하셨습니까?');">
                     <input type="hidden" name="driver_name" value="{{ driver_name }}">
-                    <button type="submit" style="background-color: #0d6efd; color: white; border: none; padding: 18px 20px; font-size: 20px; font-weight: bold; border-radius: 8px; width: 100%; margin-bottom: 15px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                        🚀 지금 센터에서 출발
+                    <button type="submit" style="background-color: #0d6efd; color: white; border: none; padding: 12px; font-size: 16px; font-weight: bold; border-radius: 6px; width: 100%; margin-bottom: 10px; cursor: pointer;">
+                        🚀 지금 출발
                     </button>
                 </form>
-                
-                <form action="/depart_center" method="POST" style="display: flex; flex-direction: column; gap: 8px; background-color: white; padding: 15px; border-radius: 8px;">
+                <form action="/depart_center" method="POST" style="display: flex; gap: 5px; align-items: center; background: white; padding: 8px; border-radius: 6px;">
                     <input type="hidden" name="driver_name" value="{{ driver_name }}">
-                    <span style="font-size: 14px; color: #555; font-weight:bold;">혹시 늦게 누르셨나요?</span>
-                    <div style="display: flex; gap: 5px;">
-                        <input type="time" name="manual_time" required style="padding: 10px; border: 1px solid #ccc; border-radius: 4px; flex: 1; font-size: 16px;">
-                        <button type="submit" style="background-color: #6c757d; color: white; border: none; padding: 10px 15px; border-radius: 4px; font-weight: bold; font-size: 15px;">지정 출발</button>
-                    </div>
+                    <input type="time" name="manual_time" required style="padding: 5px; border: 1px solid #ccc; border-radius: 3px; flex: 1; font-size: 14px;">
+                    <button type="submit" class="btn-sm btn-gray">시간지정 출발</button>
                 </form>
             {% endif %}
         </div>
 
-        {% for item in dispatches %}
-        <div class="card" {% if item.is_departed %}style="opacity: 0.6; background-color: #f8f9fa;"{% endif %}>
-            <div class="card-flex">
-                <div class="info-section">
-                    <div class="store-name-box">🏢 {{ item.store_name }}</div>
-                    <div class="store-address">📍 {{ item.store_address }}</div>
+        <!-- 💡 초밀집 배차 리스트 (드래그 가능 영역) -->
+        <div id="sortable-list" class="item-list">
+            {% for item in dispatches %}
+            <div class="item {% if item.is_departed %}completed{% endif %}" data-id="{{ item.id }}">
+                
+                <!-- 1. 드래그 핸들 (손가락으로 잡는 부분) -->
+                <div class="drag-handle">☰</div>
+                
+                <!-- 2. 매장 정보 -->
+                <div class="info-col">
+                    <div class="store-name">{{ item.delivery_seq }}. {{ item.store_name }}</div>
+                    <div class="store-addr">{{ item.store_address }}</div>
                 </div>
                 
-                <div class="action-section">
-                    <form action="/update_seq/{{ item.id }}" method="POST" class="seq-form">
+                <!-- 3. 우측 액션 버튼들 -->
+                <div class="action-col">
+                    <!-- 수동 순서 변경 -->
+                    <form action="/update_seq/{{ item.id }}" method="POST" class="compact-form">
                         <input type="number" name="new_seq" class="seq-input" value="{{ item.delivery_seq }}" min="1">
-                        <button type="submit" class="btn-seq">순서 변경</button>
+                        <button type="submit" class="btn-sm btn-gray">변경</button>
                     </form>
                     
-                    <a href="https://map.kakao.com/link/search/{{ item.store_address }}" target="_blank" class="map-link-btn">
-                        🗺️ 카카오맵 열기
-                    </a>
+                    <!-- 카카오맵 -->
+                    <a href="https://map.kakao.com/link/search/{{ item.store_address }}" target="_blank" class="btn-sm btn-map">맵</a>
                     
+                    <!-- 완료 처리 -->
                     {% if item.is_departed %}
-                        <button class="btn-done" disabled>✅ 배송 완료됨</button>
+                        <button class="btn-sm btn-done" disabled>완료</button>
                     {% else %}
-                        <form action="/complete/{{ item.id }}" method="POST" style="margin: 0;" onsubmit="return confirm('{{ item.store_name }} 배송을 완료하시겠습니까?');">
-                            <button type="submit" class="btn-complete">배송 완료 처리</button>
+                        <form action="/complete/{{ item.id }}" method="POST" class="compact-form" onsubmit="return confirm('배송을 완료하시겠습니까?');">
+                            <button type="submit" class="btn-sm btn-green">완료</button>
                         </form>
                     {% endif %}
                 </div>
             </div>
+            {% endfor %}
         </div>
-        {% endfor %}
+        
+        <!-- 💡 드래그 앤 드롭을 작동시키는 스크립트 -->
+        <script>
+            // 햄버거(☰) 버튼을 잡았을 때만 리스트가 움직이도록 세팅
+            new Sortable(document.getElementById('sortable-list'), {
+                handle: '.drag-handle', // 이 손잡이를 눌러야만 드래그 됨 (버튼 오작동 방지)
+                animation: 150, // 부드러운 애니메이션
+                onEnd: function (evt) {
+                    // 드래그가 끝난 후 화면에 보이는 순서대로 ID 값을 배열로 만듭니다.
+                    let orderArray = [];
+                    document.querySelectorAll('.item').forEach(function(el) {
+                        orderArray.push(el.getAttribute('data-id'));
+                    });
+                    
+                    // 서버로 순서 배열 전송
+                    fetch('/update_order', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(orderArray)
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        // 성공적으로 저장되면 숫자를 고치기 위해 페이지를 새로고침 합니다.
+                        if(data.status === 'success') {
+                            location.reload();
+                        }
+                    });
+                }
+            });
+        </script>
+
     {% elif driver_name %}
-        <div style="text-align: center; margin-top: 50px; color: #666;">
-            <h3 style="margin-bottom: 5px;">앗! 데이터가 없습니다 😢</h3>
+        <div style="text-align: center; margin-top: 30px; color: #666; font-size: 14px;">
             <p>검색하신 이름으로 배차된 내역이 없거나 삭제되었습니다.</p>
         </div>
     {% endif %}

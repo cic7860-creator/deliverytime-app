@@ -7,9 +7,8 @@ import urllib.parse
 import requests
 import urllib3
 import json
-import concurrent.futures # 💡 [신규] 초고속 멀티스레딩 처리를 위한 도구
+import concurrent.futures
 
-# SSL 보안 경고창 숨기기
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 app = Flask(__name__)
@@ -51,7 +50,6 @@ def get_driving_time(start_x, start_y, end_x, end_y):
     except Exception:
         pass
     return 40 * 60 
-# ==========================================
 
 @app.route('/')
 def home():
@@ -69,7 +67,6 @@ def admin():
             df.columns = df.columns.str.replace(' ', '')
             driver_seq_counter = {}
             
-            # 💡 [초고속 최적화] 엑셀에 있는 모든 매장 주소 중 중복을 뺀 목록만 먼저 뽑아냅니다.
             address_cache = {}
             if '매장주소' in df.columns:
                 unique_addresses = df['매장주소'].dropna().astype(str).str.strip().unique()
@@ -78,13 +75,11 @@ def admin():
                 def fetch_coord(addr):
                     return addr, get_coords(addr)
                 
-                # 10개의 스레드(분신)가 카카오 서버에 동시에 주소를 물어봐서 속도가 엄청나게 빠릅니다!
                 with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
                     results = executor.map(fetch_coord, unique_addresses)
                     for addr, (sx, sy) in results:
                         address_cache[addr] = (sx, sy)
 
-            # 그 다음 엑셀 데이터를 DB에 집어넣는 작업 (이미 좌표를 다 구해놔서 순식간에 지나갑니다.)
             for index, row in df.iterrows():
                 raw_date = str(row['배송일자']).strip()
                 clean_date = raw_date.replace('년', '-').replace('월', '-').replace('일', '').replace(' ', '')
@@ -109,7 +104,6 @@ def admin():
                 store_address_val = str(row['매장주소']).strip() if '매장주소' in df.columns and pd.notna(row['매장주소']) else ''
                 buffer_time_val = int(row['상하차시간']) if '상하차시간' in df.columns and pd.notna(row['상하차시간']) else 15
 
-                # 아까 빛의 속도로 구해놓은 캐시에서 바로 꺼내 씁니다.
                 sx, sy = address_cache.get(store_address_val, (None, None))
 
                 dispatch_entry = Dispatch(
@@ -217,19 +211,30 @@ def depart_center():
         time_obj = datetime.strptime(manual_time_str, '%H:%M').time()
         depart_dt = datetime.combine(today, time_obj)
         
-    current_time = depart_dt
+    # 💡 [ETA 완벽 수정] 
+    # 출발 시간과 도착 시간을 분리해서 상하차 대기 시간이 주행시간에 꼬이지 않도록 독립적으로 계산합니다!
+    current_departure = depart_dt
+    
     center_addr = dispatches[0].center_address if dispatches[0].center_address else dispatches[0].store_address
     current_x, current_y = get_coords(center_addr)
 
     for d in dispatches:
         d.center_depart_time = depart_dt
+        
+        # 1. 다음 목적지까지의 주행 시간 구하기
         if current_x and current_y and d.store_x and d.store_y:
             duration_sec = get_driving_time(current_x, current_y, d.store_x, d.store_y)
-            current_time = current_time + timedelta(seconds=duration_sec) + timedelta(minutes=d.buffer_time)
+            # 도착 예정 시간 = 출발한 시간 + 주행시간
+            arrival_time = current_departure + timedelta(seconds=duration_sec)
         else:
-            current_time = current_time + timedelta(minutes=d.buffer_time + 25)
+            arrival_time = current_departure + timedelta(minutes=25)
             
-        d.estimated_arrival = current_time
+        d.estimated_arrival = arrival_time
+        
+        # 2. 다음번 이동을 위한 출발 시간 세팅 = 도착 예정 시간 + 이 매장의 상하차 대기 시간
+        current_departure = arrival_time + timedelta(minutes=d.buffer_time)
+        
+        # 3. 출발 좌표 업데이트
         current_x, current_y = d.store_x, d.store_y
         
     db.session.commit()
@@ -290,7 +295,18 @@ def dashboard():
         else:
             data['progress'] = 0
             
-    return render_template('dashboard.html', stats=stats)
+    # 💡 [신규] 전체 차량 대수 및 배송 상태 집계
+    total_vehicles = len(stats)
+    completed_vehicles = sum(1 for data in stats.values() if data['remaining'] == 0)
+    pending_vehicles = total_vehicles - completed_vehicles
+    
+    vehicle_stats = {
+        'total': total_vehicles,
+        'completed': completed_vehicles,
+        'pending': pending_vehicles
+    }
+            
+    return render_template('dashboard.html', stats=stats, vehicle_stats=vehicle_stats)
 
 @app.route('/download_excel')
 def download_excel():

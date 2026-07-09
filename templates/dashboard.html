@@ -6,15 +6,21 @@
     <title>통합 물류 현황판</title>
     <style>
         body { font-family: 'Malgun Gothic', sans-serif; padding: 20px; background-color: #e9ecef; margin: 0; }
-        .header-container { display: flex; flex-direction: column; gap: 15px; margin-bottom: 30px; border-bottom: 2px solid #ccc; padding-bottom: 20px; }
+        .header-container { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; border-bottom: 2px solid #ccc; padding-bottom: 20px; }
         @media (min-width: 768px) {
             .header-container { flex-direction: row; justify-content: space-between; align-items: center; }
         }
         
-        /* 💡 검색 바 스타일 */
+        /* 💡 상단 요약 현황판 스타일 */
+        .summary-dashboard { display: flex; gap: 15px; margin-bottom: 25px; flex-wrap: wrap; }
+        .summary-box { flex: 1; min-width: 150px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: center; border-left: 5px solid #007bff; }
+        .summary-box.completed { border-left-color: #28a745; }
+        .summary-box.pending { border-left-color: #dc3545; }
+        .summary-title { font-size: 14px; color: #6c757d; font-weight: bold; margin-bottom: 5px; }
+        .summary-value { font-size: 28px; font-weight: bold; color: #343a40; }
+
         .search-box { display: flex; gap: 10px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 25px; }
         .search-box input { flex: 1; padding: 12px; font-size: 16px; border: 1px solid #ced4da; border-radius: 4px; }
-        
         .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
         .stat-card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-top: 5px solid #007bff; }
         .driver-name { font-size: 22px; font-weight: bold; margin-bottom: 5px; color: #343a40; }
@@ -24,8 +30,6 @@
         .progress-container { width: 100%; background-color: #e9ecef; border-radius: 5px; margin-top: 15px; overflow: hidden; }
         .progress-bar { height: 20px; background-color: #28a745; text-align: center; line-height: 20px; color: white; font-size: 12px; font-weight: bold; transition: width 0.5s ease-in-out; }
         .btn-excel { background-color: #198754; color: white; text-decoration: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; font-size: 15px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-        
-        /* 💡 상세 정보 토글 영역 스타일 */
         .details-btn { width: 100%; background-color: #f1f3f5; color: #495057; border: 1px solid #dee2e6; padding: 10px; margin-top: 15px; font-weight: bold; border-radius: 4px; cursor: pointer; }
         .details-btn:hover { background-color: #e9ecef; }
         .details-content { display: none; margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 10px; }
@@ -36,15 +40,12 @@
     </style>
     
     <script>
-        // 💡 실시간 기사명/차량번호 검색 자바스크립트
         function filterDashboard() {
             let input = document.getElementById('searchInput').value.toLowerCase();
             let cards = document.getElementsByClassName('stat-card');
-            
             for (let i = 0; i < cards.length; i++) {
                 let name = cards[i].getAttribute('data-name').toLowerCase();
                 let vehicle = cards[i].getAttribute('data-vehicle').toLowerCase();
-                
                 if (name.includes(input) || vehicle.includes(input)) {
                     cards[i].style.display = "";
                 } else {
@@ -53,7 +54,6 @@
             }
         }
 
-        // 💡 상세 정보 열기/닫기 스크립트
         function toggleDetails(id) {
             let element = document.getElementById(id);
             let btn = document.getElementById('btn-' + id);
@@ -71,19 +71,33 @@
     <div class="header-container">
         <div>
             <h1 style="margin:0; color: #2c3e50; font-size: 24px;">🏢 실시간 배송 현황판</h1>
-            <p style="margin-top:5px; color:#555; font-size: 14px;">기사님별 배송 진척률 및 상세 ETA 모니터링</p>
+            <p style="margin-top:5px; color:#555; font-size: 14px;">전체 운행 차량 및 기사님별 배송 진척률</p>
         </div>
         <a href="/download_excel" class="btn-excel">📥 배송시간 다운로드</a>
     </div>
 
-    <!-- 💡 검색 바 -->
+    <!-- 💡 [신규] 상단 요약 현황판 추가 -->
+    <div class="summary-dashboard">
+        <div class="summary-box">
+            <div class="summary-title">전체 운행 차량</div>
+            <div class="summary-value" style="color: #007bff;">{{ vehicle_stats.total }} 대</div>
+        </div>
+        <div class="summary-box completed">
+            <div class="summary-title">모든 배송 완료 (퇴근)</div>
+            <div class="summary-value" style="color: #28a745;">{{ vehicle_stats.completed }} 대</div>
+        </div>
+        <div class="summary-box pending">
+            <div class="summary-title">운행 중 (미배송 있음)</div>
+            <div class="summary-value" style="color: #dc3545;">{{ vehicle_stats.pending }} 대</div>
+        </div>
+    </div>
+
     <div class="search-box">
         <input type="text" id="searchInput" onkeyup="filterDashboard()" placeholder="🔍 기사 이름이나 차량번호를 입력하세요...">
     </div>
 
     <div class="dashboard-grid">
         {% for name, data in stats.items() %}
-        <!-- 카드에 data-name, data-vehicle 속성을 심어서 자바스크립트가 검색할 수 있게 합니다 -->
         <div class="stat-card" data-name="{{ name }}" data-vehicle="{{ data.vehicle }}">
             <div class="driver-name">🚚 {{ name }} 기사님</div>
             <div class="vehicle-num">차량번호: {{ data.vehicle }}</div>
@@ -105,7 +119,6 @@
                 <div class="progress-bar" style="width: {{ data.progress }}%;">{{ data.progress }}%</div>
             </div>
 
-            <!-- 💡 [신규] 매장별 상세 보기 버튼 및 숨겨진 내용 -->
             <button id="btn-detail-{{ loop.index }}" class="details-btn" onclick="toggleDetails('detail-{{ loop.index }}')">매장별 상세정보 보기 ▾</button>
             
             <div id="detail-{{ loop.index }}" class="details-content">
@@ -130,7 +143,6 @@
                 </div>
                 {% endfor %}
             </div>
-
         </div>
         {% else %}
             <p style="text-align: center; grid-column: 1 / -1; font-size: 16px; color: #666; padding: 40px 0;">현재 등록된 배차 데이터가 없습니다.</p>

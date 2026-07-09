@@ -8,17 +8,13 @@
         body { font-family: 'Malgun Gothic', sans-serif; padding: 20px; background-color: #f8f9fa; color: #333; margin: 0; }
         .container { max-width: 1000px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         h2 { margin-top: 0; color: #0d6efd; }
-        
-        /* 💡 상단 빠른 이동 네비게이션 바 */
         .top-nav { background-color: #212529; padding: 15px 20px; border-radius: 6px; margin-bottom: 25px; display: flex; gap: 20px; }
         .top-nav a { color: #f8f9fa; text-decoration: none; font-size: 16px; font-weight: bold; transition: color 0.2s; }
         .top-nav a:hover { color: #0d6efd; }
-        
         textarea { width: 100%; height: 150px; margin-top: 10px; padding: 10px; font-family: monospace; box-sizing: border-box; border: 1px solid #ced4da; border-radius: 4px; }
         .btn { padding: 10px 20px; font-size: 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
         .btn-primary { background-color: #0d6efd; color: white; }
         .btn-danger { background-color: #dc3545; color: white; padding: 8px 15px; font-size: 14px; }
-        
         .section-title { margin-top: 40px; border-bottom: 2px solid #dee2e6; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
         .table-responsive { overflow-x: auto; margin-top: 15px; }
         table { width: 100%; border-collapse: collapse; min-width: 800px; }
@@ -29,8 +25,6 @@
 </head>
 <body>
     <div class="container">
-        
-        <!-- 💡 네비게이션 바 -->
         <div class="top-nav">
             <a href="/admin">🖥️ 데이터 입력 (홈)</a>
             <a href="/driver">📱 기사님 페이지 가기</a>
@@ -47,7 +41,8 @@
         </form>
 
         <div class="section-title">
-            <h3 style="margin: 0;">📋 현재 등록된 배차 내역</h3>
+            <!-- 💡 [신규] 총 등록 건수 표시 -->
+            <h3 style="margin: 0;">📋 현재 등록된 배차 내역 <span style="color:#6c757d; font-size:16px;">(총 {{ dispatches|length }} 건)</span></h3>
             <form action="/admin/delete_all" method="POST" onsubmit="return confirm('정말 모든 배차 데이터를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.');">
                 <button type="submit" class="btn btn-danger">🚨 전체 삭제 (초기화)</button>
             </form>

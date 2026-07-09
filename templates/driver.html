@@ -4,27 +4,35 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>배송 기사 배차 조회</title>
+    <!-- 💡 드래그 앤 드롭을 위한 Sortable 라이브러리 추가 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <style>
         body { font-family: 'Malgun Gothic', sans-serif; padding: 10px; background-color: #f0f2f5; margin: 0; box-sizing: border-box; }
+        
         .header-container { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
-        .course-btn { background-color: #ffe812; color: #3c1e1e; text-decoration: none; padding: 8px; border-radius: 4px; font-size: 13px; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.15); text-align: center; flex: 1; }
+        .course-btn { background-color: #ffe812; color: #3c1e1e; text-decoration: none; padding: 8px; border-radius: 4px; font-size: 13px; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.15); text-align: center; flex: 1; display: block; }
         .pc-link { font-size: 11px; text-align: center; color: #666; text-decoration: underline; margin-top: 3px; display: block; }
         .center-depart-box { background-color: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: center; border: 2px solid #90caf9; }
+        
         .search-form { display: flex; gap: 5px; margin-bottom: 20px; width: 100%; }
         .search-input { flex: 1; padding: 10px; font-size: 15px; border: 1px solid #ccc; border-radius: 4px; }
         .search-btn { padding: 10px 15px; font-size: 15px; background-color: #0d6efd; color: white; border: none; font-weight: bold; border-radius: 4px; }
+
+        /* 초밀집 모바일 가로 레이아웃 */
         .item-list { display: flex; flex-direction: column; gap: 5px; }
         .item { display: flex; align-items: center; background: white; padding: 8px 5px; border-radius: 5px; border-left: 4px solid #0d6efd; box-shadow: 0 1px 3px rgba(0,0,0,0.1); gap: 5px; }
         .item.completed { opacity: 0.6; border-left-color: #adb5bd; background: #f8f9fa; }
         .drag-handle { font-size: 20px; color: #adb5bd; padding: 5px 8px; cursor: grab; user-select: none; touch-action: none; }
+        
         .info-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
         .store-name { font-size: 13px; font-weight: bold; color: #111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .store-addr { font-size: 11px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
         .action-col { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
         .compact-form { margin: 0; display: flex; align-items: center; gap: 2px; }
         .seq-input { width: 32px; padding: 5px 2px; font-size: 12px; text-align: center; border: 1px solid #ccc; border-radius: 3px; }
-        .btn-sm { padding: 6px 8px; font-size: 12px; font-weight: bold; border-radius: 4px; border: none; cursor: pointer; text-align: center; text-decoration: none; white-space: nowrap; }
+        
+        .btn-sm { padding: 6px 8px; font-size: 12px; font-weight: bold; border-radius: 4px; border: none; cursor: pointer; text-align: center; text-decoration: none; white-space: nowrap; display: inline-block; }
         .btn-gray { background-color: #6c757d; color: white; }
         .btn-map { background-color: #ffe812; color: #3c1e1e; }
         .btn-green { background-color: #198754; color: white; }
@@ -32,8 +40,11 @@
     </style>
 </head>
 <body>
+    
     <div class="header-container">
         <h3 style="color: #333; margin: 0;">🚚 {{ driver_name or '금일 배차' }} 내역</h3>
+        
+        <!-- 💡 5개 코스 묶음보기 버튼 (다시 부활시켰습니다!) -->
         {% if route_chunks %}
         <div style="display: flex; gap: 5px; flex-wrap: wrap; width: 100%;">
             {% for chunk in route_chunks %}
@@ -55,7 +66,6 @@
         {% set first_item = dispatches[0] %}
         
         <div class="center-depart-box">
-            <!-- 💡 [수정] 오산 센터 출발 -> "센터 출발" 로 공용화 -->
             <h4 style="margin-top: 0; margin-bottom: 10px; color: #0d47a1;">🏢 센터 출발</h4>
             {% if first_item.center_depart_time %}
                 <div style="font-size: 15px; font-weight: bold; color: #2e7d32; background: white; padding: 8px; border-radius: 4px;">
@@ -79,17 +89,23 @@
         <div id="sortable-list" class="item-list">
             {% for item in dispatches %}
             <div class="item {% if item.is_departed %}completed{% endif %}" data-id="{{ item.id }}">
+                
                 <div class="drag-handle">☰</div>
+                
                 <div class="info-col">
                     <div class="store-name">{{ item.delivery_seq }}. {{ item.store_name }}</div>
                     <div class="store-addr">{{ item.store_address }}</div>
                 </div>
+                
                 <div class="action-col">
                     <form action="/update_seq/{{ item.id }}" method="POST" class="compact-form">
                         <input type="number" name="new_seq" class="seq-input" value="{{ item.delivery_seq }}" min="1">
                         <button type="submit" class="btn-sm btn-gray">변경</button>
                     </form>
-                    <a href="https://map.kakao.com/link/search/{{ item.store_address }}" target="_blank" class="btn-sm btn-map">맵</a>
+                    
+                    <!-- 💡 [핵심 해결] 텍스트 검색을 버리고 무조건 GPS(위경도) 좌표로 핀을 꽂게 만들었습니다! -->
+                    <a href="https://map.kakao.com/link/map/{{ item.store_name }},{{ item.store_y }},{{ item.store_x }}" target="_blank" class="btn-sm btn-map">맵</a>
+                    
                     {% if item.is_departed %}
                         <button class="btn-sm btn-done" disabled>완료</button>
                     {% else %}
@@ -102,6 +118,7 @@
             {% endfor %}
         </div>
         
+        <!-- 드래그 앤 드롭 스크립트 -->
         <script>
             new Sortable(document.getElementById('sortable-list'), {
                 handle: '.drag-handle',
@@ -123,6 +140,7 @@
                 }
             });
         </script>
+
     {% elif driver_name %}
         <div style="text-align: center; margin-top: 30px; color: #666; font-size: 14px;">
             <p>검색하신 이름으로 배차된 내역이 없거나 삭제되었습니다.</p>

@@ -21,7 +21,7 @@ with app.app_context():
 # ==========================================
 # 🔑 카카오 API 설정 영역
 # ==========================================
-KAKAO_API_KEY = 'f70047282a8b7f30cd02fd2cfc00f029'
+KAKAO_API_KEY = '여기에_복사한_REST_API_키를_붙여넣으세요'
 
 def get_coords(address):
     if not address or address.strip() == '':
@@ -111,18 +111,15 @@ def admin():
             db.session.rollback()
             return f"오류 발생: {str(e)} <br><br><a href='/admin'>돌아가기</a>"
             
-    # GET 요청 시 현재 저장된 데이터 목록을 불러옵니다.
     all_data = Dispatch.query.order_by(Dispatch.delivery_date, Dispatch.driver_name, Dispatch.delivery_seq).all()
     return render_template('admin.html', dispatches=all_data)
 
-# 💡 [신규] 전체 데이터 초기화(삭제) 라우트
 @app.route('/admin/delete_all', methods=['POST'])
 def delete_all():
     db.session.query(Dispatch).delete()
     db.session.commit()
     return redirect(url_for('admin'))
 
-# 💡 [신규] 개별 배차 데이터 삭제 라우트
 @app.route('/admin/delete/<int:dispatch_id>', methods=['POST'])
 def delete_dispatch(dispatch_id):
     d = Dispatch.query.get(dispatch_id)
@@ -237,6 +234,19 @@ def update_seq(dispatch_id):
         return redirect(url_for('driver', driver_name=dispatch.driver_name))
     return "데이터 없음", 404
 
+# 💡 [신규] 손가락 드래그 앤 드롭 순서 변경 반영 API
+@app.route('/update_order', methods=['POST'])
+def update_order():
+    order_data = request.json
+    if order_data:
+        for index, item_id in enumerate(order_data):
+            dispatch = Dispatch.query.get(int(item_id))
+            if dispatch:
+                # 드래그된 순서대로 1번부터 새롭게 번호를 매깁니다.
+                dispatch.delivery_seq = index + 1
+        db.session.commit()
+    return {"status": "success"}
+
 @app.route('/dashboard')
 def dashboard():
     all_dispatches = Dispatch.query.order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
@@ -244,7 +254,6 @@ def dashboard():
     for d in all_dispatches:
         name = d.driver_name
         if name not in stats:
-            # 💡 [신규] 현황판에서 자세히 보기 위해 차량번호와 매장별 디테일 데이터 추가
             stats[name] = {'total': 0, 'completed': 0, 'remaining': 0, 'vehicle': d.vehicle_num, 'details': []}
         
         stats[name]['total'] += 1
@@ -253,7 +262,6 @@ def dashboard():
         else:
             stats[name]['remaining'] += 1
             
-        # 매장 상세 정보 기록
         stats[name]['details'].append(d)
             
     for name, data in stats.items():

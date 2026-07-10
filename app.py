@@ -22,7 +22,7 @@ with app.app_context():
 # ==========================================
 # 🔑 카카오 API 설정 영역
 # ==========================================
-KAKAO_API_KEY = '여기에_복사한_REST_API_키를_붙여넣으세요'
+KAKAO_API_KEY = 'f70047282a8b7f30cd02fd2cfc00f029'
 
 kakao_session = requests.Session()
 

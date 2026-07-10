@@ -4,18 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Jette 배송 기사 앱</title>
+    <!-- 오픈 그래프 태그는 모두 삭제되었습니다 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <style>
-        /* 기본 리셋 및 전체 배경 (로그인 시 사용됨) */
         body { font-family: 'Malgun Gothic', sans-serif; margin: 0; box-sizing: border-box; background-color: #f0f2f5; }
         
-        /* ========================================= */
-        /* 💡 Jette 전용 커스텀 로그인 화면 디자인 */
-        /* ========================================= */
         .login-wrapper { height: 100vh; background-color: #002d72; display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; }
-        .login-card { background: white; border-radius'Binggrae-Two': 25px; width: 100%; max-width: 360px; padding: 50px 30px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); box-sizing: border-box; }
+        .login-card { background: white; border-radius: 25px; width: 100%; max-width: 360px; padding: 50px 30px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); box-sizing: border-box; }
         .logo-container { margin-bottom: 50px; }
-        .jette-logo { font-size: 55px; font-weight: 900; font-family: Arial, Helvetica, sans-serif; letter-spacing: -2px; }
+        
+        /* 💡 [수정] JETTE 텍스트 폰트를 Arial Black으로 변경하고 굵기를 최고 수준으로 키웠습니다. */
+        .jette-logo { font-size: 60px; font-weight: 900; font-family: 'Arial Black', Arial, Helvetica, sans-serif; letter-spacing: -3px; }
         .logo-blue { color: #0033a0; }
         .logo-gray { color: #8a8d91; }
         
@@ -27,10 +26,6 @@
         .btn-login { background-color: #0033a0; color: white; border: none; width: 100%; padding: 16px; font-size: 18px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: background 0.3s; }
         .btn-login:hover { background-color: #00216b; }
 
-
-        /* ========================================= */
-        /* 배차 내역(대시보드) 화면 디자인 */
-        /* ========================================= */
         .dashboard-wrapper { padding: 10px; }
         .header-container { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
         .course-btn { background-color: #ffe812; color: #3c1e1e; text-decoration: none; padding: 8px; border-radius: 4px; font-size: 13px; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.15); text-align: center; flex: 1; display: block; }
@@ -59,7 +54,6 @@
 </head>
 <body>
     
-    <!-- 💡 [신규] 기사님 이름이 입력되지 않았을 때 뜨는 완벽한 Jette 로그인 폼 -->
     {% if not driver_name %}
     <div class="login-wrapper">
         <div class="login-card">
@@ -71,18 +65,17 @@
                     <span class="input-icon">👤</span>
                     <input type="text" name="driver_name" class="input-field" placeholder="기사명 입력" required>
                 </div>
-                <!-- 비밀번호 입력칸은 요청에 따라 완전히 삭제했습니다 -->
                 <button type="submit" class="btn-login">로그인</button>
             </form>
         </div>
     </div>
     {% else %}
 
-    <!-- ================== 기사님 배차 화면 ================== -->
     <div class="dashboard-wrapper">
         <div class="header-container">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="color: #333; margin: 0;">🚚 {{ driver_name }} 기사님 코스</h3>
+                <!-- 💡 [수정] 날짜와 기사님 이름이 함께 표시되도록 수정 -->
+                <h3 style="color: #333; margin: 0; font-size: 17px; letter-spacing: -0.5px;">🚚 {{ date_str }} {{ driver_name }} 기사님 배차내역</h3>
                 <a href="/driver" style="font-size: 12px; color: #666; text-decoration: none; font-weight: bold; padding: 5px; border: 1px solid #ccc; border-radius: 4px; background: white;">로그아웃</a>
             </div>
             
@@ -90,8 +83,9 @@
             <div style="display: flex; gap: 5px; flex-wrap: wrap; width: 100%;">
                 {% for chunk in route_chunks %}
                     <div style="display: flex; flex-direction: column; flex: 1; min-width: 100px;">
+                        <!-- 카카오내비 앱 연동 링크 -->
                         <a href="{{ chunk.url }}" class="course-btn">{{ chunk.title }}</a>
-                        <!-- 💡 [에러 해결 방안] 사파리에서 카카오내비 앱이 없을 때 에러가 나지 않도록 무조건 잘 열리는 '구글맵 웹' 경로를 백업으로 넣었습니다! -->
+                        <!-- 구글맵 웹 연동 백업 링크 -->
                         <a href="{{ chunk.pc_url }}" target="_blank" class="pc-link">(웹맵 열기)</a>
                     </div>
                 {% endfor %}
@@ -109,7 +103,6 @@
                         ✅ 출발 완료 ({{ first_item.center_depart_time.strftime('%H:%M') }})
                     </div>
                 {% else %}
-                    <!-- 💡 [문구 변경] 요청하신 안내 문구로 완벽하게 수정했습니다 -->
                     <form action="/depart_center" method="POST" onsubmit="return confirm('배송순서 지정 후 출발처리 부탁드립니다.\n진짜 출발하시겠습니까?');">
                         <input type="hidden" name="driver_name" value="{{ driver_name }}">
                         <button type="submit" style="background-color: #0033a0; color: white; border: none; padding: 12px; font-size: 16px; font-weight: bold; border-radius: 6px; width: 100%; margin-bottom: 10px; cursor: pointer;">
@@ -138,7 +131,6 @@
                             <button type="submit" class="btn-sm btn-gray">변경</button>
                         </form>
                         <div style="display: flex; gap: 4px;">
-                            <!-- 💡 [에러 해결 방안] 사파리에서 유효하지 않은 주소 에러를 뿜는 현상을 막기 위해 |urlencode 필터를 추가했습니다! -->
                             <a href="https://map.kakao.com/link/map/{{ item.store_name | urlencode }},{{ item.store_y }},{{ item.store_x }}" target="_blank" class="btn-sm btn-map">맵</a>
                             {% if item.is_departed %}
                                 <button class="btn-sm btn-done" disabled>완료</button>

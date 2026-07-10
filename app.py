@@ -160,12 +160,10 @@ def driver():
             dest_d = chunk[-1]
             
             via_list = []
+            waypoint_addrs = []
             for v in chunk[:-1]:
-                via_list.append({
-                    "name": v.store_name,
-                    "x": float(v.store_x),
-                    "y": float(v.store_y)
-                })
+                via_list.append({"name": v.store_name, "x": float(v.store_x), "y": float(v.store_y)})
+                waypoint_addrs.append(v.store_address)
                 
             pars = {
                 "destination": {
@@ -180,10 +178,14 @@ def driver():
             pars_encoded = urllib.parse.quote(json.dumps(pars, ensure_ascii=False))
             kakaonavi_app_url = f"kakaonavi://shareRoute?pars={pars_encoded}"
             
+            # 💡 [핵심 최적화] 카카오내비 앱이 없을 때 사파리 오류를 피하기 위한 '구글맵 다중 경유지' 웹 링크 생성
             center_addr = dispatches[0].center_address if dispatches[0].center_address else dispatches[0].store_address
             origin_encoded = urllib.parse.quote(center_addr)
             dest_encoded = urllib.parse.quote(dest_d.store_address)
-            pc_web_url = f"https://map.kakao.com/?sName={origin_encoded}&eName={dest_encoded}"
+            google_map_url = f"https://www.google.com/maps/dir/?api=1&origin={origin_encoded}&destination={dest_encoded}"
+            if waypoint_addrs:
+                wp_encoded = urllib.parse.quote("|".join(waypoint_addrs))
+                google_map_url += f"&waypoints={wp_encoded}"
             
             start_num = chunk[0].delivery_seq
             end_num = chunk[-1].delivery_seq
@@ -191,7 +193,7 @@ def driver():
             route_chunks.append({
                 'title': f"📱 코스 ({start_num}~{end_num}번)",
                 'url': kakaonavi_app_url,
-                'pc_url': pc_web_url 
+                'pc_url': google_map_url # 구글맵 링크로 교체됨
             })
 
     return render_template('driver.html', dispatches=dispatches, driver_name=name, route_chunks=route_chunks)
@@ -211,8 +213,6 @@ def depart_center():
         time_obj = datetime.strptime(manual_time_str, '%H:%M').time()
         depart_dt = datetime.combine(today, time_obj)
         
-    # 💡 [ETA 완벽 수정] 
-    # 출발 시간과 도착 시간을 분리해서 상하차 대기 시간이 주행시간에 꼬이지 않도록 독립적으로 계산합니다!
     current_departure = depart_dt
     
     center_addr = dispatches[0].center_address if dispatches[0].center_address else dispatches[0].store_address
@@ -221,20 +221,14 @@ def depart_center():
     for d in dispatches:
         d.center_depart_time = depart_dt
         
-        # 1. 다음 목적지까지의 주행 시간 구하기
         if current_x and current_y and d.store_x and d.store_y:
             duration_sec = get_driving_time(current_x, current_y, d.store_x, d.store_y)
-            # 도착 예정 시간 = 출발한 시간 + 주행시간
             arrival_time = current_departure + timedelta(seconds=duration_sec)
         else:
             arrival_time = current_departure + timedelta(minutes=25)
             
         d.estimated_arrival = arrival_time
-        
-        # 2. 다음번 이동을 위한 출발 시간 세팅 = 도착 예정 시간 + 이 매장의 상하차 대기 시간
         current_departure = arrival_time + timedelta(minutes=d.buffer_time)
-        
-        # 3. 출발 좌표 업데이트
         current_x, current_y = d.store_x, d.store_y
         
     db.session.commit()
@@ -295,7 +289,6 @@ def dashboard():
         else:
             data['progress'] = 0
             
-    # 💡 [신규] 전체 차량 대수 및 배송 상태 집계
     total_vehicles = len(stats)
     completed_vehicles = sum(1 for data in stats.values() if data['remaining'] == 0)
     pending_vehicles = total_vehicles - completed_vehicles
@@ -328,11 +321,20 @@ def download_excel():
             '상하차시간(분)': d.buffer_time 
         })
     df = pd.DataFrame(data_list)
+    
+    # 💡 [신규] 파일명을 [배송일자_배송순서.xlsx] 로 동적 생성합니다.
+    today_str = datetime.now().strftime('%Y-%m-%d')
+    if all_data and all_data[0].delivery_date:
+        today_str = all_data[0].delivery_date.strftime('%Y-%m-%d')
+    
+    filename = f"{today_str}_배송순서.xlsx"
+    
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='배송시간')
     output.seek(0)
-    return send_file(output, download_name="배송시간.xlsx", as_attachment=True)
+    
+    return send_file(output, download_name=filename, as_attachment=True)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

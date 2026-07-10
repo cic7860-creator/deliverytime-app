@@ -154,13 +154,13 @@ def driver():
     if name:
         dispatches = Dispatch.query.filter_by(driver_name=name).order_by(Dispatch.delivery_seq).all()
         
-        # 💡 [신규] 배송일자를 260710(금) 형태로 변환하는 로직
+        # 💡 [신규] 배송일자를 260710(금) 형태로 변환하는 로직 추가
         display_date = datetime.now().date()
         if dispatches and dispatches[0].delivery_date:
             display_date = dispatches[0].delivery_date
         weekdays = ['월', '화', '수', '목', '금', '토', '일']
         date_str = display_date.strftime('%y%m%d') + f"({weekdays[display_date.weekday()]})"
-        
+
         valid_dispatches = [d for d in dispatches if d.store_x and d.store_y and not d.is_departed]
         
         chunk_size = 5
@@ -168,11 +168,41 @@ def driver():
             chunk = valid_dispatches[i:i+chunk_size]
             dest_d = chunk[-1]
             
-        route_chunks.append({
-            'title': f"📱 코스 ({start_num}~{end_num}번)",
-            'url': kakaonavi_app_url,
-            'pc_url': google_map_url
-        })
+            via_list = []
+            waypoint_addrs = []
+            for v in chunk[:-1]:
+                via_list.append({"name": v.store_name, "x": float(v.store_x), "y": float(v.store_y)})
+                waypoint_addrs.append(v.store_address)
+                
+            pars = {
+                "destination": {
+                    "name": dest_d.store_name,
+                    "x": float(dest_d.store_x),
+                    "y": float(dest_d.store_y)
+                },
+                "viaList": via_list,
+                "coordType": "wgs84"
+            }
+            
+            pars_encoded = urllib.parse.quote(json.dumps(pars, ensure_ascii=False))
+            kakaonavi_app_url = f"kakaonavi://shareRoute?pars={pars_encoded}"
+            
+            center_addr = dispatches[0].center_address if dispatches[0].center_address else dispatches[0].store_address
+            origin_encoded = urllib.parse.quote(center_addr)
+            dest_encoded = urllib.parse.quote(dest_d.store_address)
+            google_map_url = f"https://www.google.com/maps/dir/?api=1&origin={origin_encoded}&destination={dest_encoded}"
+            if waypoint_addrs:
+                wp_encoded = urllib.parse.quote("|".join(waypoint_addrs))
+                google_map_url += f"&waypoints={wp_encoded}"
+            
+            start_num = chunk[0].delivery_seq
+            end_num = chunk[-1].delivery_seq
+            
+            route_chunks.append({
+                'title': f"📱 코스 ({start_num}~{end_num}번)",
+                'url': kakaonavi_app_url,
+                'pc_url': google_map_url 
+            })
 
     return render_template('driver.html', dispatches=dispatches, driver_name=name, route_chunks=route_chunks, date_str=date_str)
 
@@ -300,7 +330,6 @@ def download_excel():
         })
     df = pd.DataFrame(data_list)
     
-    # 💡 [신규] 파일명을 [배송일자_배송순서.xlsx] 로 동적 생성합니다.
     today_str = datetime.now().strftime('%Y-%m-%d')
     if all_data and all_data[0].delivery_date:
         today_str = all_data[0].delivery_date.strftime('%Y-%m-%d')

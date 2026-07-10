@@ -154,7 +154,7 @@ def driver():
     if name:
         dispatches = Dispatch.query.filter_by(driver_name=name).order_by(Dispatch.delivery_seq).all()
         
-        # 💡 [신규] 배송일자를 260710(금) 형태로 변환하는 로직 추가
+        # 💡 [신규] 배송일자를 '260710(금)' 형태로 변환하는 로직 추가
         display_date = datetime.now().date()
         if dispatches and dispatches[0].delivery_date:
             display_date = dispatches[0].delivery_date
@@ -166,31 +166,25 @@ def driver():
         chunk_size = 5
         for i in range(0, len(valid_dispatches), chunk_size):
             chunk = valid_dispatches[i:i+chunk_size]
+            
+            # 💡 [핵심] "카카오맵 어플" 전용 다중 경유지 딥링크 생성 (현위치 출발 -> 도착지)
             dest_d = chunk[-1]
+            ep_y, ep_x = float(dest_d.store_y), float(dest_d.store_x)
             
-            via_list = []
-            waypoint_addrs = []
-            for v in chunk[:-1]:
-                via_list.append({"name": v.store_name, "x": float(v.store_x), "y": float(v.store_y)})
-                waypoint_addrs.append(v.store_address)
-                
-            pars = {
-                "destination": {
-                    "name": dest_d.store_name,
-                    "x": float(dest_d.store_x),
-                    "y": float(dest_d.store_y)
-                },
-                "viaList": via_list,
-                "coordType": "wgs84"
-            }
+            # sp(출발지)를 비워두면 기사님의 현위치에서 출발합니다!
+            kakaomap_app_url = f"kakaomap://route?ep={ep_y},{ep_x}&by=CAR"
             
-            pars_encoded = urllib.parse.quote(json.dumps(pars, ensure_ascii=False))
-            kakaonavi_app_url = f"kakaonavi://shareRoute?pars={pars_encoded}"
+            # 사이사이에 있는 경유지들을 순서대로 vp, vp2, vp3... 에 꽂아줍니다 (최대 5개 지원)
+            for idx, wp in enumerate(chunk[:-1]):
+                vp_key = 'vp' if idx == 0 else f"vp{idx+1}"
+                kakaomap_app_url += f"&{vp_key}={float(wp.store_y)},{float(wp.store_x)}"
             
+            # 혹시 모를 대비용 구글맵 (웹 연동)
             center_addr = dispatches[0].center_address if dispatches[0].center_address else dispatches[0].store_address
             origin_encoded = urllib.parse.quote(center_addr)
             dest_encoded = urllib.parse.quote(dest_d.store_address)
             google_map_url = f"https://www.google.com/maps/dir/?api=1&origin={origin_encoded}&destination={dest_encoded}"
+            waypoint_addrs = [v.store_address for v in chunk[:-1]]
             if waypoint_addrs:
                 wp_encoded = urllib.parse.quote("|".join(waypoint_addrs))
                 google_map_url += f"&waypoints={wp_encoded}"
@@ -200,7 +194,7 @@ def driver():
             
             route_chunks.append({
                 'title': f"📱 코스 ({start_num}~{end_num}번)",
-                'url': kakaonavi_app_url,
+                'url': kakaomap_app_url,
                 'pc_url': google_map_url 
             })
 

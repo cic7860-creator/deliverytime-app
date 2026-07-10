@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Jette 배송 기사 앱</title>
-    <!-- 오픈 그래프 태그는 모두 삭제되었습니다 -->
+    <title>JETTE 배송 기사 앱</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <style>
         body { font-family: 'Malgun Gothic', sans-serif; margin: 0; box-sizing: border-box; background-color: #f0f2f5; }
@@ -13,8 +12,8 @@
         .login-card { background: white; border-radius: 25px; width: 100%; max-width: 360px; padding: 50px 30px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); box-sizing: border-box; }
         .logo-container { margin-bottom: 50px; }
         
-        /* 💡 [수정] JETTE 텍스트 폰트를 Arial Black으로 변경하고 굵기를 최고 수준으로 키웠습니다. */
-        .jette-logo { font-size: 60px; font-weight: 900; font-family: 'Arial Black', Arial, Helvetica, sans-serif; letter-spacing: -3px; }
+        /* 💡 [수정] JETTE 대문자 & 가장 두꺼운 폰트(Arial Black) 적용 완료 */
+        .jette-logo { font-size: 65px; font-weight: 900; font-family: 'Arial Black', sans-serif; letter-spacing: -2px; }
         .logo-blue { color: #0033a0; }
         .logo-gray { color: #8a8d91; }
         
@@ -58,7 +57,8 @@
     <div class="login-wrapper">
         <div class="login-card">
             <div class="logo-container">
-                <span class="jette-logo"><span class="logo-blue">Jett</span><span class="logo-gray">e</span></span>
+                <!-- JETTE 두꺼운 로고 -->
+                <span class="jette-logo"><span class="logo-blue">JETTE</span></span>
             </div>
             <form action="/driver" method="GET">
                 <div class="input-group">
@@ -74,7 +74,7 @@
     <div class="dashboard-wrapper">
         <div class="header-container">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <!-- 💡 [수정] 날짜와 기사님 이름이 함께 표시되도록 수정 -->
+                <!-- 💡 [수정] "260710(금) 홍길동 기사님 배차내역" 양식 적용 -->
                 <h3 style="color: #333; margin: 0; font-size: 17px; letter-spacing: -0.5px;">🚚 {{ date_str }} {{ driver_name }} 기사님 배차내역</h3>
                 <a href="/driver" style="font-size: 12px; color: #666; text-decoration: none; font-weight: bold; padding: 5px; border: 1px solid #ccc; border-radius: 4px; background: white;">로그아웃</a>
             </div>
@@ -83,9 +83,8 @@
             <div style="display: flex; gap: 5px; flex-wrap: wrap; width: 100%;">
                 {% for chunk in route_chunks %}
                     <div style="display: flex; flex-direction: column; flex: 1; min-width: 100px;">
-                        <!-- 카카오내비 앱 연동 링크 -->
+                        <!-- 💡 이제 카카오맵(어플)으로 5개 경로를 완벽하게 안내합니다! -->
                         <a href="{{ chunk.url }}" class="course-btn">{{ chunk.title }}</a>
-                        <!-- 구글맵 웹 연동 백업 링크 -->
                         <a href="{{ chunk.pc_url }}" target="_blank" class="pc-link">(웹맵 열기)</a>
                     </div>
                 {% endfor %}

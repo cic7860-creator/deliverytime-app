@@ -5,40 +5,50 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>통합 물류 현황판</title>
     <style>
-        body { font-family: 'Malgun Gothic', sans-serif; padding: 20px; background-color: #e9ecef; margin: 0; }
-        .header-container { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; border-bottom: 2px solid #ccc; padding-bottom: 20px; }
-        @media (min-width: 768px) {
-            .header-container { flex-direction: row; justify-content: space-between; align-items: center; }
+        /* 💡 빙그레2체 적용 */
+        @font-face {
+            font-family: 'Binggrae-Two';
+            src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Binggrae-Two.woff') format('woff');
+            font-weight: normal; font-style: normal;
         }
+        body { font-family: 'Binggrae-Two', sans-serif; padding: 20px; background-color: #e9ecef; margin: 0; }
         
-        /* 💡 상단 요약 현황판 스타일 */
+        .top-nav { background-color: #212529; padding: 15px 20px; border-radius: 6px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
+        .top-nav div { display: flex; gap: 20px; }
+        .top-nav a { color: #f8f9fa; text-decoration: none; font-size: 16px; font-weight: bold; transition: color 0.2s; }
+        .top-nav a:hover { color: #0d6efd; }
+
+        .header-container { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; border-bottom: 2px solid #ccc; padding-bottom: 20px; }
+        @media (min-width: 768px) { .header-container { flex-direction: row; justify-content: space-between; align-items: center; } }
+        
         .summary-dashboard { display: flex; gap: 15px; margin-bottom: 25px; flex-wrap: wrap; }
-        .summary-box { flex: 1; min-width: 150px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: center; border-left: 5px solid #007bff; }
+        .summary-box { flex: 1; min-width: 150px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: center; border-left: 5px solid #082c84; }
         .summary-box.completed { border-left-color: #28a745; }
         .summary-box.pending { border-left-color: #dc3545; }
         .summary-title { font-size: 14px; color: #6c757d; font-weight: bold; margin-bottom: 5px; }
         .summary-value { font-size: 28px; font-weight: bold; color: #343a40; }
 
         .search-box { display: flex; gap: 10px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 25px; }
-        .search-box input { flex: 1; padding: 12px; font-size: 16px; border: 1px solid #ced4da; border-radius: 4px; }
+        .search-box input { flex: 1; padding: 12px; font-size: 16px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; }
+        
         .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
-        .stat-card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-top: 5px solid #007bff; }
+        .stat-card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-top: 5px solid #082c84; }
         .driver-name { font-size: 22px; font-weight: bold; margin-bottom: 5px; color: #343a40; }
         .vehicle-num { font-size: 14px; color: #6c757d; margin-bottom: 15px; font-weight: bold; }
         .stat-row { display: flex; justify-content: space-between; font-size: 16px; margin-bottom: 8px; color: #495057; }
         .highlight { font-weight: bold; color: #dc3545; }
+        
         .progress-container { width: 100%; background-color: #e9ecef; border-radius: 5px; margin-top: 15px; overflow: hidden; }
         .progress-bar { height: 20px; background-color: #28a745; text-align: center; line-height: 20px; color: white; font-size: 12px; font-weight: bold; transition: width 0.5s ease-in-out; }
         .btn-excel { background-color: #198754; color: white; text-decoration: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; font-size: 15px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-        .details-btn { width: 100%; background-color: #f1f3f5; color: #495057; border: 1px solid #dee2e6; padding: 10px; margin-top: 15px; font-weight: bold; border-radius: 4px; cursor: pointer; }
-        .details-btn:hover { background-color: #e9ecef; }
+        .details-btn { width: 100%; background-color: #f1f3f5; color: #495057; border: 1px solid #dee2e6; padding: 10px; margin-top: 15px; font-weight: bold; border-radius: 4px; cursor: pointer; font-family: 'Binggrae-Two'; }
+        
         .details-content { display: none; margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 10px; }
         .detail-item { font-size: 13px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #f1f1f1; display: flex; flex-direction: column; gap: 4px; }
         .badge { display: inline-block; padding: 3px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; color: white; }
         .badge.done { background-color: #198754; }
         .badge.wait { background-color: #dc3545; }
     </style>
-    
     <script>
         function filterDashboard() {
             let input = document.getElementById('searchInput').value.toLowerCase();
@@ -46,28 +56,32 @@
             for (let i = 0; i < cards.length; i++) {
                 let name = cards[i].getAttribute('data-name').toLowerCase();
                 let vehicle = cards[i].getAttribute('data-vehicle').toLowerCase();
-                if (name.includes(input) || vehicle.includes(input)) {
-                    cards[i].style.display = "";
-                } else {
-                    cards[i].style.display = "none";
-                }
+                if (name.includes(input) || vehicle.includes(input)) { cards[i].style.display = ""; } 
+                else { cards[i].style.display = "none"; }
             }
         }
-
         function toggleDetails(id) {
             let element = document.getElementById(id);
             let btn = document.getElementById('btn-' + id);
             if (element.style.display === "none" || element.style.display === "") {
-                element.style.display = "block";
-                btn.innerHTML = "상세정보 닫기 ▴";
+                element.style.display = "block"; btn.innerHTML = "상세정보 닫기 ▴";
             } else {
-                element.style.display = "none";
-                btn.innerHTML = "매장별 상세정보 보기 ▾";
+                element.style.display = "none"; btn.innerHTML = "매장별 상세정보 보기 ▾";
             }
         }
     </script>
 </head>
 <body>
+    <!-- 💡 관리자 전용 네비게이션 -->
+    <div class="top-nav">
+        <div>
+            <a href="/admin">🖥️ 데이터 입력 (홈)</a>
+            <a href="/driver" target="_blank">📱 기사님 페이지</a>
+            <a href="/dashboard">📊 실시간 대시보드</a>
+        </div>
+        <a href="/admin_logout" style="color: #ff6b6b;">🚪 로그아웃</a>
+    </div>
+
     <div class="header-container">
         <div>
             <h1 style="margin:0; color: #2c3e50; font-size: 24px;">🏢 실시간 배송 현황판</h1>
@@ -76,11 +90,10 @@
         <a href="/download_excel" class="btn-excel">📥 배송시간 다운로드</a>
     </div>
 
-    <!-- 💡 [신규] 상단 요약 현황판 추가 -->
     <div class="summary-dashboard">
         <div class="summary-box">
             <div class="summary-title">전체 운행 차량</div>
-            <div class="summary-value" style="color: #007bff;">{{ vehicle_stats.total }} 대</div>
+            <div class="summary-value" style="color: #082c84;">{{ vehicle_stats.total }} 대</div>
         </div>
         <div class="summary-box completed">
             <div class="summary-title">모든 배송 완료 (퇴근)</div>
@@ -103,16 +116,13 @@
             <div class="vehicle-num">차량번호: {{ data.vehicle }}</div>
             
             <div class="stat-row">
-                <span>전체 배차:</span>
-                <span>{{ data.total }} 곳</span>
+                <span>전체 배차:</span><span>{{ data.total }} 곳</span>
             </div>
             <div class="stat-row">
-                <span>배송 완료:</span>
-                <span style="color: #28a745; font-weight: bold;">{{ data.completed }} 곳</span>
+                <span>배송 완료:</span><span style="color: #28a745; font-weight: bold;">{{ data.completed }} 곳</span>
             </div>
             <div class="stat-row">
-                <span>남은 매장:</span>
-                <span class="highlight">{{ data.remaining }} 곳</span>
+                <span>남은 매장:</span><span class="highlight">{{ data.remaining }} 곳</span>
             </div>
             
             <div class="progress-container">
@@ -132,13 +142,12 @@
                             <span class="badge wait">대기중</span>
                         {% endif %}
                     </div>
-                    
                     {% if d.is_departed and d.departure_time %}
                         <div style="color: #198754;">실제 완료 시간: {{ d.departure_time.strftime('%H:%M') }}</div>
                     {% elif d.estimated_arrival %}
                         <div style="color: #dc3545;">도착 예상 시간: {{ d.estimated_arrival.strftime('%H:%M') }}</div>
                     {% else %}
-                        <div style="color: #6c757d;">(기사님 센터 출발 전)</div>
+                        <div style="color: #6c757d;">(출발 전)</div>
                     {% endif %}
                 </div>
                 {% endfor %}

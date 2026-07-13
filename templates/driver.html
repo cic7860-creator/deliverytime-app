@@ -6,7 +6,6 @@
     <title>JETTE 배송 기사 앱</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <style>
-        /* 💡 빙그레2체 적용 */
         @font-face {
             font-family: 'Binggrae-Two';
             src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Binggrae-Two.woff') format('woff');
@@ -18,7 +17,6 @@
         .login-card { background: white; border-radius: 25px; width: 100%; max-width: 360px; padding: 50px 30px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); box-sizing: border-box; }
         .logo-container { margin-bottom: 50px; }
         
-        /* 💡 JETTE 로고 디자인 */
         .jette-logo { font-size: 65px; font-weight: 900; font-family: 'Arial Black', sans-serif; letter-spacing: -2px; }
         .logo-blue { color: #082c84; } 
         .logo-gray { color: #94908a; } 
@@ -38,7 +36,11 @@
         
         .item-list { display: flex; flex-direction: column; gap: 5px; }
         .item { display: flex; align-items: flex-start; background: white; padding: 10px; border-radius: 5px; border-left: 4px solid #082c84; box-shadow: 0 1px 3px rgba(0,0,0,0.1); gap: 8px; }
-        .item.completed { opacity: 0.6; border-left-color: #adb5bd; background: #f8f9fa; }
+        
+        /* 완료된 아이템 디자인 */
+        .item.completed { opacity: 0.65; border-left-color: #adb5bd; background: #f8f9fa; border: 1px dashed #ced4da; }
+        .item.completed .store-name { text-decoration: line-through; color: #6c757d; }
+        
         .drag-handle { font-size: 20px; color: #adb5bd; padding: 0 5px; cursor: grab; align-self: center; }
         
         .info-col { flex: 1; min-width: 0; }
@@ -58,7 +60,6 @@
 </head>
 <body>
 
-    <!-- 💡 관리자용 전용 이동 메뉴 (관리자만 보임) -->
     {% if session.get('is_admin') %}
     <div style="background-color: #212529; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
         <div style="display: flex; gap: 15px; flex-wrap: wrap;">
@@ -71,7 +72,6 @@
     {% endif %}
     
     {% if not driver_name %}
-    <!-- 💡 기사님 로그인 화면 -->
     <div class="login-wrapper">
         <div class="login-card">
             <div class="logo-container">
@@ -87,7 +87,6 @@
         </div>
     </div>
     {% else %}
-    <!-- 💡 기사님 배차 화면 -->
     <div class="dashboard-wrapper">
         <div class="header-container">
             <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -135,41 +134,61 @@
                 {% endif %}
             </div>
 
+            <!-- 💡 [핵심 반영] 1. 완료된 매장은 위쪽으로 분리 (드래그 불가, 순서 변경 불가) -->
+            <div class="item-list" style="margin-bottom: 15px;">
+                {% for item in dispatches %}
+                    {% if item.is_departed %}
+                    <div class="item completed" data-id="{{ item.id }}">
+                        <div style="font-size: 20px; padding: 0 5px; align-self: center;">✅</div>
+                        <div class="info-col">
+                            <div class="store-name">{{ item.delivery_seq }}. {{ item.store_name }}</div>
+                            <div class="store-addr">{{ item.store_address }}</div>
+                        </div>
+                        <div class="action-col">
+                            <div style="display: flex; align-items: center; justify-content: center; height: 100%;">
+                                <button class="btn-sm btn-done" disabled>배송완료</button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            <!-- 💡 [핵심 반영] 2. 대기 중인 매장만 아래쪽에 모아서 드래그 허용 -->
             <div id="sortable-list" class="item-list">
                 {% for item in dispatches %}
-                <div class="item {% if item.is_departed %}completed{% endif %}" data-id="{{ item.id }}">
-                    <div class="drag-handle">☰</div>
-                    <div class="info-col">
-                        <div class="store-name">{{ item.delivery_seq }}. {{ item.store_name }}</div>
-                        <div class="store-addr">{{ item.store_address }}</div>
-                    </div>
-                    <div class="action-col">
-                        <form action="/update_seq/{{ item.id }}" method="POST" class="compact-form">
-                            <input type="number" name="new_seq" class="seq-input" value="{{ item.delivery_seq }}" min="1">
-                            <button type="submit" class="btn-sm btn-gray">변경</button>
-                        </form>
-                        <div style="display: flex; gap: 4px;">
-                            <a href="https://map.kakao.com/link/map/{{ item.store_name | urlencode }},{{ item.store_y }},{{ item.store_x }}" target="_blank" class="btn-sm btn-map">맵</a>
-                            {% if item.is_departed %}
-                                <button class="btn-sm btn-done" disabled>완료</button>
-                            {% else %}
+                    {% if not item.is_departed %}
+                    <div class="item" data-id="{{ item.id }}">
+                        <div class="drag-handle">☰</div>
+                        <div class="info-col">
+                            <div class="store-name">{{ item.delivery_seq }}. {{ item.store_name }}</div>
+                            <div class="store-addr">{{ item.store_address }}</div>
+                        </div>
+                        <div class="action-col">
+                            <form action="/update_seq/{{ item.id }}" method="POST" class="compact-form">
+                                <input type="number" name="new_seq" class="seq-input" value="{{ item.delivery_seq }}" min="1">
+                                <button type="submit" class="btn-sm btn-gray">변경</button>
+                            </form>
+                            <div style="display: flex; gap: 4px;">
+                                <a href="https://map.kakao.com/link/map/{{ item.store_name | urlencode }},{{ item.store_y }},{{ item.store_x }}" target="_blank" class="btn-sm btn-map">맵</a>
                                 <form action="/complete/{{ item.id }}" method="POST" class="compact-form" onsubmit="return confirm('배송을 완료하시겠습니까?');">
                                     <button type="submit" class="btn-sm btn-green">완료</button>
                                 </form>
-                            {% endif %}
+                            </div>
                         </div>
                     </div>
-                </div>
+                    {% endif %}
                 {% endfor %}
             </div>
             
             <script>
+                // 남은 매장(sortable-list) 안에서만 드래그 앤 드롭 작동
                 new Sortable(document.getElementById('sortable-list'), {
                     handle: '.drag-handle',
                     animation: 150,
                     onEnd: function (evt) {
                         let orderArray = [];
-                        document.querySelectorAll('.item').forEach(function(el) {
+                        document.querySelectorAll('#sortable-list .item').forEach(function(el) {
                             orderArray.push(el.getAttribute('data-id'));
                         });
                         fetch('/update_order', {
@@ -182,10 +201,6 @@
                     }
                 });
             </script>
-        {% else %}
-            <div style="text-align: center; margin-top: 30px; color: #666; font-size: 14px;">
-                <p>현재 배차된 내역이 없습니다.</p>
-            </div>
         {% endif %}
     </div>
     {% endif %}

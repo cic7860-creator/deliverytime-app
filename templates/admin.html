@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>배차 데이터 관리 (관리자용)</title>
+    <title>배차 데이터 관리</title>
     <style>
         body { font-family: 'Malgun Gothic', sans-serif; padding: 20px; background-color: #f8f9fa; color: #333; margin: 0; }
         .container { max-width: 1000px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
@@ -18,9 +18,10 @@
         .section-title { margin-top: 40px; border-bottom: 2px solid #dee2e6; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
         .table-responsive { overflow-x: auto; margin-top: 15px; }
         table { width: 100%; border-collapse: collapse; min-width: 800px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #dee2e6; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #dee2e6; font-size: 14px; }
         th { background-color: #f1f3f5; font-weight: bold; }
         tr:hover { background-color: #f8f9fa; }
+        .btn-update { padding: 5px 10px; background-color: #198754; color: white; border: none; border-radius: 3px; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -32,16 +33,13 @@
         </div>
 
         <h2>🚚 금일 배차 데이터 입력</h2>
-        <p>엑셀에서 <b>[출발센터주소, 배송일자, 차량번호, 기사명, 매장코드, 매장명, 매장 주소, 배송순서, 상하차시간]</b> 영역을 포함하여 복사(Ctrl+C)한 뒤 붙여넣기 해주세요.</p>
-        
         <form action="/admin" method="POST">
-            <textarea name="excel_text" placeholder="여기에 엑셀 데이터를 붙여넣으세요..." required></textarea>
+            <textarea name="excel_text" placeholder="데이터를 탭(Tab)으로 구분하여 붙여넣으세요..." required></textarea>
             <br><br>
-            <button type="submit" class="btn btn-primary">데이터 저장하기</button>
+            <button type="submit" class="btn btn-primary">데이터 저장 및 업데이트</button>
         </form>
 
         <div class="section-title">
-            <!-- 💡 [신규] 총 등록 건수 표시 -->
             <h3 style="margin: 0;">📋 현재 등록된 배차 내역 <span style="color:#6c757d; font-size:16px;">(총 {{ dispatches|length }} 건)</span></h3>
             <form action="/admin/delete_all" method="POST" onsubmit="return confirm('정말 모든 배차 데이터를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.');">
                 <button type="submit" class="btn btn-danger">🚨 전체 삭제 (초기화)</button>
@@ -54,24 +52,32 @@
                 <thead>
                     <tr>
                         <th>기사명</th>
-                        <th>차량번호</th>
-                        <th>순서</th>
                         <th>매장명</th>
+                        <th>순서</th>
                         <th>매장 주소</th>
-                        <th>관리</th>
+                        <th>상하차시간(분) 수정</th>
+                        <th>개별관리</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for item in dispatches %}
+                    {% for d in dispatches %}
                     <tr>
-                        <td>{{ item.driver_name }}</td>
-                        <td>{{ item.vehicle_num }}</td>
-                        <td>{{ item.delivery_seq }}</td>
-                        <td>{{ item.store_name }}</td>
-                        <td style="font-size: 13px;">{{ item.store_address }}</td>
+                        <td>{{ d.driver_name }}</td>
+                        <td>{{ d.store_name }}</td>
+                        <td>{{ d.delivery_seq }}</td>
+                        <td style="font-size: 13px;">{{ d.store_address }}</td>
+                        
+                        <!-- 💡 [신규] 상하차 시간 수정 폼 추가 -->
                         <td>
-                            <form action="/admin/delete/{{ item.id }}" method="POST" onsubmit="return confirm('해당 매장 배차를 삭제하시겠습니까?');" style="margin:0;">
-                                <button type="submit" style="background:#6c757d; color:white; border:none; padding:4px 8px; border-radius:3px; cursor:pointer;">개별삭제</button>
+                            <form action="/admin/update_buffer/{{ d.id }}" method="POST" style="display: flex; gap: 5px; margin: 0;">
+                                <input type="number" name="buffer_time" value="{{ d.buffer_time }}" style="width: 50px; padding: 4px; text-align: center; border: 1px solid #ccc; border-radius: 3px;">
+                                <button type="submit" class="btn-update">적용</button>
+                            </form>
+                        </td>
+
+                        <td>
+                            <form action="/admin/delete/{{ d.id }}" method="POST" onsubmit="return confirm('해당 매장 배차를 삭제하시겠습니까?');" style="margin:0;">
+                                <button type="submit" style="background:#6c757d; color:white; border:none; padding:4px 8px; border-radius:3px; cursor:pointer;">삭제</button>
                             </form>
                         </td>
                     </tr>

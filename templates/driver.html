@@ -6,33 +6,38 @@
     <title>JETTE 배송 기사 앱</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <style>
-        body { font-family: 'Malgun Gothic', sans-serif; margin: 0; box-sizing: border-box; background-color: #f0f2f5; }
+        /* 💡 빙그레2체 적용 */
+        @font-face {
+            font-family: 'Binggrae-Two';
+            src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Binggrae-Two.woff') format('woff');
+            font-weight: normal; font-style: normal;
+        }
+        body { font-family: 'Binggrae-Two', sans-serif; margin: 0; box-sizing: border-box; background-color: #f0f2f5; }
         
         .login-wrapper { height: 100vh; background-color: #002d72; display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; }
         .login-card { background: white; border-radius: 25px; width: 100%; max-width: 360px; padding: 50px 30px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); box-sizing: border-box; }
         .logo-container { margin-bottom: 50px; }
         
-        /* 💡 [수정] 첨부해주신 실제 Jette 로고 이미지의 정확한 색상 코드로 변경했습니다 */
+        /* 💡 JETTE 로고 디자인 */
         .jette-logo { font-size: 65px; font-weight: 900; font-family: 'Arial Black', sans-serif; letter-spacing: -2px; }
-        .logo-blue { color: #082c84; } /* 로고 원본: 짙은 네이비 블루 */
-        .logo-gray { color: #94908a; } /* 로고 원본: 따뜻한 웜 그레이 */
+        .logo-blue { color: #082c84; } 
+        .logo-gray { color: #94908a; } 
         
         .input-group { display: flex; align-items: center; border-bottom: 1px solid #ccc; margin-bottom: 40px; padding-bottom: 8px; }
         .input-icon { font-size: 22px; margin-right: 15px; color: #111; }
-        .input-field { border: none; outline: none; font-size: 18px; width: 100%; color: #333; }
+        .input-field { border: none; outline: none; font-size: 18px; width: 100%; color: #333; font-family: 'Binggrae-Two', sans-serif;}
         .input-field::placeholder { color: #aaa; }
         
-        .btn-login { background-color: #0033a0; color: white; border: none; width: 100%; padding: 16px; font-size: 18px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: background 0.3s; }
-        .btn-login:hover { background-color: #00216b; }
-
+        .btn-login { background-color: #082c84; color: white; border: none; width: 100%; padding: 16px; font-size: 18px; font-weight: bold; border-radius: 6px; cursor: pointer; }
+        
         .dashboard-wrapper { padding: 10px; }
         .header-container { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
         .course-btn { background-color: #ffe812; color: #3c1e1e; text-decoration: none; padding: 8px; border-radius: 4px; font-size: 13px; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.15); text-align: center; flex: 1; display: block; }
-        .pc-link { font-size: 11px; text-align: center; color: #0056b3; text-decoration: underline; margin-top: 4px; display: block; font-weight: bold;}
+        .pc-link { font-size: 11px; text-align: center; color: #082c84; text-decoration: underline; margin-top: 4px; display: block; font-weight: bold;}
         .center-depart-box { background-color: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 2px solid #90caf9; }
         
         .item-list { display: flex; flex-direction: column; gap: 5px; }
-        .item { display: flex; align-items: flex-start; background: white; padding: 10px; border-radius: 5px; border-left: 4px solid #0033a0; box-shadow: 0 1px 3px rgba(0,0,0,0.1); gap: 8px; }
+        .item { display: flex; align-items: flex-start; background: white; padding: 10px; border-radius: 5px; border-left: 4px solid #082c84; box-shadow: 0 1px 3px rgba(0,0,0,0.1); gap: 8px; }
         .item.completed { opacity: 0.6; border-left-color: #adb5bd; background: #f8f9fa; }
         .drag-handle { font-size: 20px; color: #adb5bd; padding: 0 5px; cursor: grab; align-self: center; }
         
@@ -42,18 +47,31 @@
         
         .action-col { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
         .compact-form { display: flex; align-items: center; gap: 2px; margin: 0; }
-        .seq-input { width: 32px; padding: 4px; font-size: 12px; text-align: center; border: 1px solid #ccc; border-radius: 3px; }
+        .seq-input { width: 32px; padding: 4px; font-size: 12px; text-align: center; border: 1px solid #ccc; border-radius: 3px; font-family: 'Binggrae-Two'; }
         
-        .btn-sm { padding: 6px 10px; font-size: 12px; font-weight: bold; border-radius: 4px; border: none; cursor: pointer; text-align: center; white-space: nowrap; text-decoration: none; display: inline-block;}
+        .btn-sm { padding: 6px 10px; font-size: 12px; font-weight: bold; border-radius: 4px; border: none; cursor: pointer; text-align: center; white-space: nowrap; text-decoration: none; display: inline-block; font-family: 'Binggrae-Two';}
         .btn-gray { background-color: #6c757d; color: white; }
         .btn-map { background-color: #ffe812; color: #3c1e1e; }
-        .btn-green { background-color: #0033a0; color: white; }
+        .btn-green { background-color: #082c84; color: white; }
         .btn-done { background-color: #adb5bd; color: white; cursor: not-allowed; }
     </style>
 </head>
 <body>
+
+    <!-- 💡 관리자용 전용 이동 메뉴 (관리자만 보임) -->
+    {% if session.get('is_admin') %}
+    <div style="background-color: #212529; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+            <a href="/admin" style="color: white; text-decoration: none; font-weight: bold;">🖥️ 데이터 입력</a>
+            <a href="/driver" style="color: white; text-decoration: none; font-weight: bold;">📱 기사님 페이지</a>
+            <a href="/dashboard" style="color: white; text-decoration: none; font-weight: bold;">📊 대시보드</a>
+        </div>
+        <a href="/admin_logout" style="color: #ff6b6b; text-decoration: none; font-weight: bold;">🚪 로그아웃</a>
+    </div>
+    {% endif %}
     
     {% if not driver_name %}
+    <!-- 💡 기사님 로그인 화면 -->
     <div class="login-wrapper">
         <div class="login-card">
             <div class="logo-container">
@@ -69,7 +87,7 @@
         </div>
     </div>
     {% else %}
-
+    <!-- 💡 기사님 배차 화면 -->
     <div class="dashboard-wrapper">
         <div class="header-container">
             <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -93,26 +111,25 @@
             {% set first_item = dispatches[0] %}
             
             <div class="center-depart-box">
-                <h4 style="margin-top: 0; margin-bottom: 10px; color: #0033a0; text-align: center;">🏢 센터 출발</h4>
+                <h4 style="margin-top: 0; margin-bottom: 10px; color: #082c84; text-align: center;">🏢 센터 출발</h4>
                 {% if first_item.center_depart_time %}
-                    <!-- 💡 [신규] 출발 완료 후 언제든 취소하고 다시 누를 수 있는 버튼 추가 -->
                     <div style="font-size: 15px; font-weight: bold; color: #2e7d32; background: white; padding: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
                         <span>✅ 출발 ({{ first_item.center_depart_time.strftime('%H:%M') }})</span>
                         <form action="/cancel_depart" method="POST" style="margin: 0;" onsubmit="return confirm('출발 시간을 초기화하시겠습니까?');">
                             <input type="hidden" name="driver_name" value="{{ driver_name }}">
-                            <button type="submit" style="background-color: #dc3545; color: white; border: none; padding: 6px 10px; font-size: 12px; border-radius: 4px; font-weight: bold; cursor: pointer;">출발 취소</button>
+                            <button type="submit" style="background-color: #dc3545; color: white; border: none; padding: 6px 10px; font-size: 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-family: 'Binggrae-Two';">출발 취소</button>
                         </form>
                     </div>
                 {% else %}
                     <form action="/depart_center" method="POST" onsubmit="return confirm('배송순서 지정 후 출발처리 부탁드립니다.\n진짜 출발하시겠습니까?');">
                         <input type="hidden" name="driver_name" value="{{ driver_name }}">
-                        <button type="submit" style="background-color: #0033a0; color: white; border: none; padding: 12px; font-size: 16px; font-weight: bold; border-radius: 6px; width: 100%; margin-bottom: 10px; cursor: pointer;">
+                        <button type="submit" style="background-color: #082c84; color: white; border: none; padding: 12px; font-size: 16px; font-weight: bold; border-radius: 6px; width: 100%; margin-bottom: 10px; cursor: pointer; font-family: 'Binggrae-Two';">
                             🚀 지금 출발
                         </button>
                     </form>
                     <form action="/depart_center" method="POST" style="display: flex; gap: 5px; align-items: center; background: white; padding: 8px; border-radius: 6px;">
                         <input type="hidden" name="driver_name" value="{{ driver_name }}">
-                        <input type="time" name="manual_time" required style="padding: 5px; border: 1px solid #ccc; border-radius: 3px; flex: 1; font-size: 14px;">
+                        <input type="time" name="manual_time" required style="padding: 5px; border: 1px solid #ccc; border-radius: 3px; flex: 1; font-size: 14px; font-family: 'Binggrae-Two';">
                         <button type="submit" class="btn-sm btn-gray">시간지정 출발</button>
                     </form>
                 {% endif %}

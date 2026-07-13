@@ -5,37 +5,44 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>배차 데이터 관리</title>
     <style>
-        body { font-family: 'Malgun Gothic', sans-serif; padding: 20px; background-color: #f8f9fa; color: #333; margin: 0; }
+        /* 💡 빙그레2체 적용 */
+        @font-face {
+            font-family: 'Binggrae-Two';
+            src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Binggrae-Two.woff') format('woff');
+            font-weight: normal; font-style: normal;
+        }
+        body { font-family: 'Binggrae-Two', sans-serif; padding: 20px; background-color: #f8f9fa; color: #333; margin: 0; }
         .container { max-width: 1000px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        h2 { margin-top: 0; color: #0d6efd; }
-        .top-nav { background-color: #212529; padding: 15px 20px; border-radius: 6px; margin-bottom: 25px; display: flex; gap: 20px; }
+        h2 { margin-top: 0; color: #082c84; }
+        .top-nav { background-color: #212529; padding: 15px 20px; border-radius: 6px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
+        .top-nav div { display: flex; gap: 20px; }
         .top-nav a { color: #f8f9fa; text-decoration: none; font-size: 16px; font-weight: bold; transition: color 0.2s; }
         .top-nav a:hover { color: #0d6efd; }
         textarea { width: 100%; height: 150px; margin-top: 10px; padding: 10px; font-family: monospace; box-sizing: border-box; border: 1px solid #ced4da; border-radius: 4px; }
         .btn { padding: 10px 20px; font-size: 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        .btn-primary { background-color: #0d6efd; color: white; }
+        .btn-primary { background-color: #082c84; color: white; }
         .btn-danger { background-color: #dc3545; color: white; padding: 8px 15px; font-size: 14px; }
         .section-title { margin-top: 40px; border-bottom: 2px solid #dee2e6; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
         .table-responsive { overflow-x: auto; margin-top: 15px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05); }
         table { width: 100%; border-collapse: collapse; min-width: 950px; background-color: white; }
         th, td { padding: 14px 12px; text-align: left; border-bottom: 1px solid #dee2e6; font-size: 14px; vertical-align: middle; }
-        
-        /* 💡 핵심: th에 white-space: nowrap을 줘서 제목이 절대 줄바꿈되지 않게 막습니다. */
         th { background-color: #f8f9fa; font-weight: bold; color: #495057; white-space: nowrap; border-top: 2px solid #dee2e6; border-bottom: 2px solid #dee2e6; }
         tr:hover { background-color: #f1f3f5; }
         .btn-update { padding: 5px 10px; background-color: #198754; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        
-        /* 유용한 정렬 및 줄바꿈 방지 클래스 추가 */
         .text-center { text-align: center !important; }
         .no-wrap { white-space: nowrap; }
     </style>
 </head>
 <body>
     <div class="container">
+        <!-- 💡 관리자 전용 네비게이션 (로그아웃 포함) -->
         <div class="top-nav">
-            <a href="/admin">🖥️ 데이터 입력 (홈)</a>
-            <a href="/driver">📱 기사님 페이지 가기</a>
-            <a href="/dashboard">📊 실시간 대시보드 가기</a>
+            <div>
+                <a href="/admin">🖥️ 데이터 입력 (홈)</a>
+                <a href="/driver" target="_blank">📱 기사님 페이지</a>
+                <a href="/dashboard">📊 실시간 대시보드</a>
+            </div>
+            <a href="/admin_logout" style="color: #ff6b6b;">🚪 로그아웃</a>
         </div>
 
         <h2>🚚 금일 배차 데이터 입력</h2>
@@ -68,12 +75,12 @@
                 <tbody>
                     {% for d in dispatches %}
                     <tr>
-                        <td class="text-center no-wrap" style="font-weight: bold; color: #0d6efd;">{{ d.driver_name }}</td>
+                        <td class="text-center no-wrap" style="font-weight: bold; color: #082c84;">{{ d.driver_name }}</td>
                         <td style="font-weight: bold; color: #333;">{{ d.store_name }}</td>
                         <td class="text-center" style="font-weight: bold;">{{ d.delivery_seq }}</td>
                         <td style="font-size: 13px; color: #555;">{{ d.store_address }}</td>
                         
-                        <!-- 상하차 시간 수정 폼 -->
+                        <!-- 상하차 시간 수정 -->
                         <td class="no-wrap">
                             <form action="/admin/update_buffer/{{ d.id }}" method="POST" style="display: flex; justify-content: center; align-items: center; gap: 6px; margin: 0;">
                                 <input type="number" name="buffer_time" value="{{ d.buffer_time }}" style="width: 50px; padding: 5px; text-align: center; border: 1px solid #ced4da; border-radius: 4px; font-weight: bold;">
@@ -81,10 +88,9 @@
                             </form>
                         </td>
 
-                        <!-- 개별 삭제 버튼 -->
                         <td class="text-center no-wrap">
                             <form action="/admin/delete/{{ d.id }}" method="POST" onsubmit="return confirm('해당 매장 배차를 삭제하시겠습니까?');" style="margin:0;">
-                                <button type="submit" style="background:#6c757d; color:white; border:none; padding:5px 12px; border-radius:4px; cursor:pointer; font-weight:bold; transition: background 0.2s;" onmouseover="this.style.background='#5a6268'" onmouseout="this.style.background='#6c757d'">삭제</button>
+                                <button type="submit" style="background:#6c757d; color:white; border:none; padding:5px 12px; border-radius:4px; cursor:pointer; font-weight:bold;">삭제</button>
                             </form>
                         </td>
                     </tr>

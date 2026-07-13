@@ -90,7 +90,7 @@ def home():
 def admin_login():
     if request.method == 'POST':
         password = request.form.get('password')
-        if password == '1234':
+        if password == 'a13579!!':
             session['is_admin'] = True
             return redirect(url_for('admin'))
         else:

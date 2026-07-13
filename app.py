@@ -15,7 +15,7 @@ app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# 💡 로그인 보안을 위한 시크릿 키
+# 관리자 로그인 보안 키
 app.secret_key = 'jette_super_secret_admin_key' 
 
 db.init_app(app)
@@ -29,9 +29,11 @@ with app.app_context():
 KAKAO_API_KEY = 'f70047282a8b7f30cd02fd2cfc00f029'
 kakao_session = requests.Session()
 
+# 💡 [핵심 최적화] 렉 방지를 위한 이동 시간 '기억 장치(Cache)'
+route_time_cache = {}
+
 def get_coords(address):
-    if not address or address.strip() == '':
-        return None, None
+    if not address or address.strip() == '': return None, None
     encoded_address = urllib.parse.quote(address)
     url = f"https://dapi.kakao.com/v2/local/search/address.json?query={encoded_address}"
     headers = {"Authorization": f"KakaoAK {KAKAO_API_KEY}"}
@@ -39,30 +41,41 @@ def get_coords(address):
         resp = kakao_session.get(url, headers=headers, verify=False, timeout=5).json()
         if resp.get('documents'):
             return resp['documents'][0]['x'], resp['documents'][0]['y']
-    except Exception:
-        pass
+    except Exception: pass
     return None, None
 
 def get_driving_time(start_x, start_y, end_x, end_y):
+    # 💡 1. 이미 계산했던 길인지 기억 장치에서 먼저 확인 (0.001초 컷)
+    try:
+        sx, sy, ex, ey = round(float(start_x), 4), round(float(start_y), 4), round(float(end_x), 4), round(float(end_y), 4)
+        cache_key = f"{sx},{sy}_{ex},{ey}"
+        if cache_key in route_time_cache:
+            return route_time_cache[cache_key]
+    except Exception:
+        cache_key = None
+
+    # 💡 2. 처음 가는 길만 카카오에 물어봄
     url = f"https://apis-navi.kakaomobility.com/v1/directions?origin={start_x},{start_y}&destination={end_x},{end_y}"
     headers = {"Authorization": f"KakaoAK {KAKAO_API_KEY}"}
     try:
-        resp = kakao_session.get(url, headers=headers, verify=False, timeout=5).json()
-        if resp.get('routes'):
-            return resp['routes'][0]['summary']['duration']
-    except Exception:
-        pass
-    return 40 * 60 
+        # 카카오 서버가 느릴 때 앱이 멈추지 않도록 대기 시간을 2초로 컷팅!
+        resp = kakao_session.get(url, headers=headers, verify=False, timeout=2).json()
+        if resp.get('routes'): 
+            duration = resp['routes'][0]['summary']['duration']
+            if cache_key:
+                route_time_cache[cache_key] = duration # 다음을 위해 기억해둠
+            return duration
+    except Exception: pass
+    
+    return 25 * 60 # 실패 시 기본 25분 반환
 
-# 💡 [핵심 최적화] 다중 스레딩을 적용하여 렉을 완전히 없앤 ETA 계산 엔진
+# ⚡ [다중 스레드 + 기억 장치] 무적의 ETA 초고속 재계산 엔진
 def update_etas_for_driver(driver_name):
     dispatches = Dispatch.query.filter_by(driver_name=driver_name).order_by(Dispatch.delivery_seq).all()
     if not dispatches: return
-        
     base_depart_time = dispatches[0].center_depart_time
     if not base_depart_time: return 
         
-    # 1. 묶음으로 길찾기 요청을 보낼 좌표쌍 추출
     routes_to_fetch = []
     current_x, current_y = get_coords(dispatches[0].center_address if dispatches[0].center_address else dispatches[0].store_address)
     
@@ -74,18 +87,16 @@ def update_etas_for_driver(driver_name):
                 routes_to_fetch.append((current_x, current_y, d.store_x, d.store_y))
             current_x, current_y = d.store_x, d.store_y
             
-    # 2. 10개의 스레드를 띄워 카카오내비에 동시 다발적으로 소요시간 물어보기 (속도 극대화)
     duration_map = {}
     def fetch_route_time(route):
         sx, sy, ex, ey = route
         return route, get_driving_time(sx, sy, ex, ey)
         
+    # 동시에 여러 길찾기를 수행하여 속도 극대화
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
         results = executor.map(fetch_route_time, list(set(routes_to_fetch)))
-        for route, duration in results:
-            duration_map[route] = duration
+        for route, duration in results: duration_map[route] = duration
 
-    # 3. 병렬로 받아온 시간을 바탕으로 ETA를 즉시 적용
     current_departure = base_depart_time
     current_x, current_y = get_coords(dispatches[0].center_address if dispatches[0].center_address else dispatches[0].store_address)
     
@@ -95,7 +106,6 @@ def update_etas_for_driver(driver_name):
             current_x, current_y = d.store_x, d.store_y
         else:
             if current_x and current_y and d.store_x and d.store_y:
-                # 미리 캐싱해둔 소요 시간표에서 꺼내 쓰기
                 duration_sec = duration_map.get((current_x, current_y, d.store_x, d.store_y), 25 * 60)
                 arrival_time = current_departure + timedelta(seconds=duration_sec)
             else:
@@ -109,7 +119,6 @@ def update_etas_for_driver(driver_name):
 def home():
     return redirect(url_for('admin_login'))
 
-# 💡 관리자 로그인 페이지
 @app.route('/admin_login', methods=['GET', 'POST'])
 def admin_login():
     if request.method == 'POST':
@@ -119,7 +128,6 @@ def admin_login():
             return redirect(url_for('admin'))
         else:
             return "<script>alert('비밀번호가 틀렸습니다.'); history.back();</script>"
-            
     return '''
         <div style="text-align:center; margin-top:150px; font-family:'Malgun Gothic', sans-serif;">
             <h2 style="color:#082c84;">JETTE 관리자 로그인</h2>
@@ -130,7 +138,6 @@ def admin_login():
         </div>
     '''
 
-# 💡 관리자 로그아웃
 @app.route('/admin_logout')
 def admin_logout():
     session.pop('is_admin', None)
@@ -138,14 +145,10 @@ def admin_logout():
 
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
-    # 보안: 로그인 안 했으면 쫓아냄
-    if not session.get('is_admin'):
-        return redirect(url_for('admin_login'))
-
+    if not session.get('is_admin'): return redirect(url_for('admin_login'))
     if request.method == 'POST':
         excel_text = request.form.get('excel_text')
-        if not excel_text or excel_text.strip() == '':
-            return "입력된 데이터가 없습니다.", 400
+        if not excel_text or excel_text.strip() == '': return "입력된 데이터가 없습니다.", 400
         try:
             df = pd.read_csv(io.StringIO(excel_text), sep='\t')
             df.columns = df.columns.str.replace(' ', '')
@@ -230,6 +233,10 @@ def driver():
     
     if name:
         dispatches = Dispatch.query.filter_by(driver_name=name).order_by(Dispatch.delivery_seq).all()
+        
+        if not dispatches:
+            return f"<script>alert('{name} 기사님의 배차 내역이 존재하지 않습니다.\\n이름을 다시 확인해주세요.'); window.location.href='/driver';</script>"
+
         display_date = datetime.now().date()
         if dispatches and dispatches[0].delivery_date: display_date = dispatches[0].delivery_date
         weekdays = ['월', '화', '수', '목', '금', '토', '일']
@@ -313,6 +320,10 @@ def update_seq(dispatch_id):
     if dispatch:
         new_seq = request.form.get('new_seq', type=int)
         if new_seq:
+            completed_count = Dispatch.query.filter_by(driver_name=dispatch.driver_name, is_departed=True).count()
+            if new_seq <= completed_count:
+                new_seq = completed_count + 1
+                
             dispatch.delivery_seq = new_seq
             db.session.commit()
             update_etas_for_driver(dispatch.driver_name)
@@ -325,11 +336,16 @@ def update_order():
     order_data = request.json
     driver_name = None
     if order_data:
-        for index, item_id in enumerate(order_data):
-            dispatch = Dispatch.query.get(int(item_id))
-            if dispatch:
-                dispatch.delivery_seq = index + 1
-                driver_name = dispatch.driver_name
+        first_dispatch = Dispatch.query.get(int(order_data[0]))
+        if first_dispatch:
+            driver_name = first_dispatch.driver_name
+            completed_count = Dispatch.query.filter_by(driver_name=driver_name, is_departed=True).count()
+            
+            for index, item_id in enumerate(order_data):
+                dispatch = Dispatch.query.get(int(item_id))
+                if dispatch and not dispatch.is_departed:
+                    dispatch.delivery_seq = completed_count + index + 1
+                    
         db.session.commit()
         if driver_name:
             update_etas_for_driver(driver_name)
@@ -338,9 +354,7 @@ def update_order():
 
 @app.route('/dashboard')
 def dashboard():
-    if not session.get('is_admin'):
-        return redirect(url_for('admin_login'))
-
+    if not session.get('is_admin'): return redirect(url_for('admin_login'))
     all_dispatches = Dispatch.query.order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
     stats = {}
     for d in all_dispatches:

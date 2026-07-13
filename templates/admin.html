@@ -16,12 +16,18 @@
         .btn-primary { background-color: #0d6efd; color: white; }
         .btn-danger { background-color: #dc3545; color: white; padding: 8px 15px; font-size: 14px; }
         .section-title { margin-top: 40px; border-bottom: 2px solid #dee2e6; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
-        .table-responsive { overflow-x: auto; margin-top: 15px; }
-        table { width: 100%; border-collapse: collapse; min-width: 800px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #dee2e6; font-size: 14px; }
-        th { background-color: #f1f3f5; font-weight: bold; }
-        tr:hover { background-color: #f8f9fa; }
-        .btn-update { padding: 5px 10px; background-color: #198754; color: white; border: none; border-radius: 3px; cursor: pointer; font-weight: bold; }
+        .table-responsive { overflow-x: auto; margin-top: 15px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05); }
+        table { width: 100%; border-collapse: collapse; min-width: 950px; background-color: white; }
+        th, td { padding: 14px 12px; text-align: left; border-bottom: 1px solid #dee2e6; font-size: 14px; vertical-align: middle; }
+        
+        /* 💡 핵심: th에 white-space: nowrap을 줘서 제목이 절대 줄바꿈되지 않게 막습니다. */
+        th { background-color: #f8f9fa; font-weight: bold; color: #495057; white-space: nowrap; border-top: 2px solid #dee2e6; border-bottom: 2px solid #dee2e6; }
+        tr:hover { background-color: #f1f3f5; }
+        .btn-update { padding: 5px 10px; background-color: #198754; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        
+        /* 유용한 정렬 및 줄바꿈 방지 클래스 추가 */
+        .text-center { text-align: center !important; }
+        .no-wrap { white-space: nowrap; }
     </style>
 </head>
 <body>
@@ -51,33 +57,34 @@
             <table>
                 <thead>
                     <tr>
-                        <th>기사명</th>
+                        <th class="text-center">기사명</th>
                         <th>매장명</th>
-                        <th>순서</th>
+                        <th class="text-center">순서</th>
                         <th>매장 주소</th>
-                        <th>상하차시간(분) 수정</th>
-                        <th>개별관리</th>
+                        <th class="text-center">상하차시간(분) 수정</th>
+                        <th class="text-center">개별관리</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for d in dispatches %}
                     <tr>
-                        <td>{{ d.driver_name }}</td>
-                        <td>{{ d.store_name }}</td>
-                        <td>{{ d.delivery_seq }}</td>
-                        <td style="font-size: 13px;">{{ d.store_address }}</td>
+                        <td class="text-center no-wrap" style="font-weight: bold; color: #0d6efd;">{{ d.driver_name }}</td>
+                        <td style="font-weight: bold; color: #333;">{{ d.store_name }}</td>
+                        <td class="text-center" style="font-weight: bold;">{{ d.delivery_seq }}</td>
+                        <td style="font-size: 13px; color: #555;">{{ d.store_address }}</td>
                         
-                        <!-- 💡 [신규] 상하차 시간 수정 폼 추가 -->
-                        <td>
-                            <form action="/admin/update_buffer/{{ d.id }}" method="POST" style="display: flex; gap: 5px; margin: 0;">
-                                <input type="number" name="buffer_time" value="{{ d.buffer_time }}" style="width: 50px; padding: 4px; text-align: center; border: 1px solid #ccc; border-radius: 3px;">
+                        <!-- 상하차 시간 수정 폼 -->
+                        <td class="no-wrap">
+                            <form action="/admin/update_buffer/{{ d.id }}" method="POST" style="display: flex; justify-content: center; align-items: center; gap: 6px; margin: 0;">
+                                <input type="number" name="buffer_time" value="{{ d.buffer_time }}" style="width: 50px; padding: 5px; text-align: center; border: 1px solid #ced4da; border-radius: 4px; font-weight: bold;">
                                 <button type="submit" class="btn-update">적용</button>
                             </form>
                         </td>
 
-                        <td>
+                        <!-- 개별 삭제 버튼 -->
+                        <td class="text-center no-wrap">
                             <form action="/admin/delete/{{ d.id }}" method="POST" onsubmit="return confirm('해당 매장 배차를 삭제하시겠습니까?');" style="margin:0;">
-                                <button type="submit" style="background:#6c757d; color:white; border:none; padding:4px 8px; border-radius:3px; cursor:pointer;">삭제</button>
+                                <button type="submit" style="background:#6c757d; color:white; border:none; padding:5px 12px; border-radius:4px; cursor:pointer; font-weight:bold; transition: background 0.2s;" onmouseover="this.style.background='#5a6268'" onmouseout="this.style.background='#6c757d'">삭제</button>
                             </form>
                         </td>
                     </tr>

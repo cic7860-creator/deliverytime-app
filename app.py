@@ -51,6 +51,37 @@ def get_driving_time(start_x, start_y, end_x, end_y):
         pass
     return 40 * 60 
 
+# 💡 [핵심] ETA(도착예정시간)를 실시간으로 다시 계산해주는 마법의 함수
+def update_etas_for_driver(driver_name):
+    dispatches = Dispatch.query.filter_by(driver_name=driver_name).order_by(Dispatch.delivery_seq).all()
+    if not dispatches:
+        return
+        
+    base_depart_time = dispatches[0].center_depart_time
+    if not base_depart_time:
+        return # 아직 출발 안 했으면 계산 안 함
+        
+    current_departure = base_depart_time
+    center_addr = dispatches[0].center_address if dispatches[0].center_address else dispatches[0].store_address
+    current_x, current_y = get_coords(center_addr)
+    
+    for d in dispatches:
+        if d.is_departed and d.departure_time:
+            # 이미 배송 완료된 매장은 그 완료 시간을 다음 매장의 출발 기준점으로 삼습니다.
+            current_departure = d.departure_time
+            current_x, current_y = d.store_x, d.store_y
+        else:
+            # 아직 배송 전인 매장들의 ETA를 다시 계산합니다.
+            if current_x and current_y and d.store_x and d.store_y:
+                duration_sec = get_driving_time(current_x, current_y, d.store_x, d.store_y)
+                arrival_time = current_departure + timedelta(seconds=duration_sec)
+            else:
+                arrival_time = current_departure + timedelta(minutes=25)
+                
+            d.estimated_arrival = arrival_time
+            current_departure = arrival_time + timedelta(minutes=d.buffer_time)
+            current_x, current_y = d.store_x, d.store_y
+
 @app.route('/')
 def home():
     return "<h1>배차 관리 시스템 서버 가동 중!</h1><p><a href='/admin'>1. 관리자 페이지 (데이터 입력)</a></p><p><a href='/driver'>2. 기사님 페이지 (배차 조회)</a></p><p><a href='/dashboard'>3. 실시간 현황판 보기</a></p>"
@@ -144,6 +175,19 @@ def delete_dispatch(dispatch_id):
         db.session.commit()
     return redirect(url_for('admin'))
 
+# 💡 [신규] 관리자가 테이블에서 바로 상하차 시간을 변경할 수 있는 라우트
+@app.route('/admin/update_buffer/<int:dispatch_id>', methods=['POST'])
+def update_buffer(dispatch_id):
+    dispatch = Dispatch.query.get(dispatch_id)
+    if dispatch:
+        new_time = request.form.get('buffer_time', type=int)
+        if new_time is not None:
+            dispatch.buffer_time = new_time
+            db.session.commit()
+            update_etas_for_driver(dispatch.driver_name) # 시간 변경 후 전체 ETA 재계산
+            db.session.commit()
+    return redirect(url_for('admin'))
+
 @app.route('/driver', methods=['GET'])
 def driver():
     name = request.args.get('driver_name')
@@ -154,7 +198,6 @@ def driver():
     if name:
         dispatches = Dispatch.query.filter_by(driver_name=name).order_by(Dispatch.delivery_seq).all()
         
-        # 💡 [신규] 배송일자를 '260710(금)' 형태로 변환하는 로직 추가
         display_date = datetime.now().date()
         if dispatches and dispatches[0].delivery_date:
             display_date = dispatches[0].delivery_date
@@ -167,19 +210,15 @@ def driver():
         for i in range(0, len(valid_dispatches), chunk_size):
             chunk = valid_dispatches[i:i+chunk_size]
             
-            # 💡 [핵심] "카카오맵 어플" 전용 다중 경유지 딥링크 생성 (현위치 출발 -> 도착지)
             dest_d = chunk[-1]
             ep_y, ep_x = float(dest_d.store_y), float(dest_d.store_x)
             
-            # sp(출발지)를 비워두면 기사님의 현위치에서 출발합니다!
             kakaomap_app_url = f"kakaomap://route?ep={ep_y},{ep_x}&by=CAR"
             
-            # 사이사이에 있는 경유지들을 순서대로 vp, vp2, vp3... 에 꽂아줍니다 (최대 5개 지원)
             for idx, wp in enumerate(chunk[:-1]):
                 vp_key = 'vp' if idx == 0 else f"vp{idx+1}"
                 kakaomap_app_url += f"&{vp_key}={float(wp.store_y)},{float(wp.store_x)}"
             
-            # 혹시 모를 대비용 구글맵 (웹 연동)
             center_addr = dispatches[0].center_address if dispatches[0].center_address else dispatches[0].store_address
             origin_encoded = urllib.parse.quote(center_addr)
             dest_encoded = urllib.parse.quote(dest_d.store_address)
@@ -215,24 +254,22 @@ def depart_center():
         time_obj = datetime.strptime(manual_time_str, '%H:%M').time()
         depart_dt = datetime.combine(today, time_obj)
         
-    current_departure = depart_dt
-    
-    center_addr = dispatches[0].center_address if dispatches[0].center_address else dispatches[0].store_address
-    current_x, current_y = get_coords(center_addr)
-
     for d in dispatches:
         d.center_depart_time = depart_dt
         
-        if current_x and current_y and d.store_x and d.store_y:
-            duration_sec = get_driving_time(current_x, current_y, d.store_x, d.store_y)
-            arrival_time = current_departure + timedelta(seconds=duration_sec)
-        else:
-            arrival_time = current_departure + timedelta(minutes=25)
-            
-        d.estimated_arrival = arrival_time
-        current_departure = arrival_time + timedelta(minutes=d.buffer_time)
-        current_x, current_y = d.store_x, d.store_y
-        
+    db.session.commit()
+    update_etas_for_driver(driver_name) # 출발 후 ETA 자동 계산
+    db.session.commit()
+    return redirect(url_for('driver', driver_name=driver_name))
+
+# 💡 [신규] 출발 취소 라우트
+@app.route('/cancel_depart', methods=['POST'])
+def cancel_depart():
+    driver_name = request.form.get('driver_name')
+    dispatches = Dispatch.query.filter_by(driver_name=driver_name).all()
+    for d in dispatches:
+        d.center_depart_time = None
+        d.estimated_arrival = None
     db.session.commit()
     return redirect(url_for('driver', driver_name=driver_name))
 
@@ -242,6 +279,8 @@ def complete_delivery(dispatch_id):
     if dispatch:
         dispatch.is_departed = True
         dispatch.departure_time = datetime.now()
+        db.session.commit()
+        update_etas_for_driver(dispatch.driver_name) # 완료 처리 시 뒤의 ETA 재계산
         db.session.commit()
         return redirect(url_for('driver', driver_name=dispatch.driver_name))
     return "데이터 없음", 404
@@ -254,18 +293,25 @@ def update_seq(dispatch_id):
         if new_seq:
             dispatch.delivery_seq = new_seq
             db.session.commit()
+            update_etas_for_driver(dispatch.driver_name) # 순서 변경 후 전체 ETA 재계산
+            db.session.commit()
         return redirect(url_for('driver', driver_name=dispatch.driver_name))
     return "데이터 없음", 404
 
 @app.route('/update_order', methods=['POST'])
 def update_order():
     order_data = request.json
+    driver_name = None
     if order_data:
         for index, item_id in enumerate(order_data):
             dispatch = Dispatch.query.get(int(item_id))
             if dispatch:
                 dispatch.delivery_seq = index + 1
+                driver_name = dispatch.driver_name
         db.session.commit()
+        if driver_name:
+            update_etas_for_driver(driver_name) # 드래그로 순서 변경 시 전체 ETA 재계산
+            db.session.commit()
     return {"status": "success"}
 
 @app.route('/dashboard')

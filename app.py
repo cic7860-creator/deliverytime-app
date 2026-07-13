@@ -54,7 +54,7 @@ def get_driving_time(start_x, start_y, end_x, end_y):
         pass
     return 40 * 60 
 
-# ETA 실시간 재계산 함수
+# 💡 [핵심 최적화] 다중 스레딩을 적용하여 렉을 완전히 없앤 ETA 계산 엔진
 def update_etas_for_driver(driver_name):
     dispatches = Dispatch.query.filter_by(driver_name=driver_name).order_by(Dispatch.delivery_seq).all()
     if not dispatches: return
@@ -62,9 +62,32 @@ def update_etas_for_driver(driver_name):
     base_depart_time = dispatches[0].center_depart_time
     if not base_depart_time: return 
         
+    # 1. 묶음으로 길찾기 요청을 보낼 좌표쌍 추출
+    routes_to_fetch = []
+    current_x, current_y = get_coords(dispatches[0].center_address if dispatches[0].center_address else dispatches[0].store_address)
+    
+    for d in dispatches:
+        if d.is_departed and d.departure_time:
+            current_x, current_y = d.store_x, d.store_y
+        else:
+            if current_x and current_y and d.store_x and d.store_y:
+                routes_to_fetch.append((current_x, current_y, d.store_x, d.store_y))
+            current_x, current_y = d.store_x, d.store_y
+            
+    # 2. 10개의 스레드를 띄워 카카오내비에 동시 다발적으로 소요시간 물어보기 (속도 극대화)
+    duration_map = {}
+    def fetch_route_time(route):
+        sx, sy, ex, ey = route
+        return route, get_driving_time(sx, sy, ex, ey)
+        
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        results = executor.map(fetch_route_time, list(set(routes_to_fetch)))
+        for route, duration in results:
+            duration_map[route] = duration
+
+    # 3. 병렬로 받아온 시간을 바탕으로 ETA를 즉시 적용
     current_departure = base_depart_time
-    center_addr = dispatches[0].center_address if dispatches[0].center_address else dispatches[0].store_address
-    current_x, current_y = get_coords(center_addr)
+    current_x, current_y = get_coords(dispatches[0].center_address if dispatches[0].center_address else dispatches[0].store_address)
     
     for d in dispatches:
         if d.is_departed and d.departure_time:
@@ -72,7 +95,8 @@ def update_etas_for_driver(driver_name):
             current_x, current_y = d.store_x, d.store_y
         else:
             if current_x and current_y and d.store_x and d.store_y:
-                duration_sec = get_driving_time(current_x, current_y, d.store_x, d.store_y)
+                # 미리 캐싱해둔 소요 시간표에서 꺼내 쓰기
+                duration_sec = duration_map.get((current_x, current_y, d.store_x, d.store_y), 25 * 60)
                 arrival_time = current_departure + timedelta(seconds=duration_sec)
             else:
                 arrival_time = current_departure + timedelta(minutes=25)

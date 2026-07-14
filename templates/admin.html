@@ -11,7 +11,7 @@
             font-weight: normal; font-style: normal;
         }
         body { font-family: 'Binggrae-Two', sans-serif; padding: 20px; background-color: #f8f9fa; color: #333; margin: 0; }
-        .container { max-width: 1100px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         h2 { margin-top: 0; color: #082c84; }
         .top-nav { background-color: #212529; padding: 15px 20px; border-radius: 6px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
         .top-nav div { display: flex; gap: 20px; }
@@ -25,7 +25,7 @@
         .btn-danger { background-color: #dc3545; color: white; padding: 8px 15px; font-size: 14px; }
         .section-title { margin-top: 40px; border-bottom: 2px solid #dee2e6; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
         .table-responsive { overflow-x: auto; margin-top: 15px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05); }
-        table { width: 100%; border-collapse: collapse; min-width: 1000px; background-color: white; }
+        table { width: 100%; border-collapse: collapse; min-width: 1100px; background-color: white; }
         th, td { padding: 14px 12px; text-align: left; border-bottom: 1px solid #dee2e6; font-size: 14px; vertical-align: middle; }
         th { background-color: #f8f9fa; font-weight: bold; color: #495057; white-space: nowrap; border-top: 2px solid #dee2e6; border-bottom: 2px solid #dee2e6; }
         tr:hover { background-color: #f1f3f5; }
@@ -96,20 +96,22 @@
             <table id="dispatchTable">
                 <thead>
                     <tr>
-                        <th class="text-center">기사명</th>
+                        <th class="text-center">기사명 / 차량</th>
                         <th>매장명</th>
                         <th class="text-center">순서</th>
                         <th>매장 주소</th>
-                        <th class="text-center">상하차시간(분) 수정</th>
-                        <!-- 💡 기사 변경(배차 이동) 열 추가 -->
-                        <th class="text-center">기사 배차 변경</th>
+                        <th class="text-center">시간 수정</th>
+                        <th class="text-center">배차 이관 (기사/차량 변경)</th>
                         <th class="text-center">개별관리</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for d in dispatches %}
                     <tr>
-                        <td class="text-center no-wrap" style="font-weight: bold; color: #082c84;">{{ d.driver_name }}</td>
+                        <td class="text-center no-wrap" style="color: #082c84;">
+                            <strong style="font-size: 15px;">{{ d.driver_name }}</strong><br>
+                            <span style="font-size: 12px; color: #6c757d;">{{ d.vehicle_num }}</span>
+                        </td>
                         <td style="font-weight: bold; color: #333;">{{ d.store_name }}</td>
                         <td class="text-center" style="font-weight: bold;">{{ d.delivery_seq }}</td>
                         <td style="font-size: 13px; color: #555;">{{ d.store_address }}</td>
@@ -121,11 +123,11 @@
                             </form>
                         </td>
 
-                        <!-- 💡 [신규] 기사 이름 변경 폼 -->
                         <td class="no-wrap">
                             <form action="/admin/update_driver/{{ d.id }}" method="POST" style="display: flex; justify-content: center; align-items: center; gap: 6px; margin: 0;">
-                                <input type="text" name="new_driver_name" value="{{ d.driver_name }}" style="width: 70px; padding: 5px; text-align: center; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two';">
-                                <button type="submit" class="btn-update" style="background-color: #0d6efd;" onclick="return confirm('이 매장의 담당 기사님을 변경하시겠습니까?');">이동</button>
+                                <input type="text" name="new_driver_name" value="{{ d.driver_name }}" placeholder="기사명" style="width: 65px; padding: 5px; text-align: center; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two';" required>
+                                <input type="text" name="new_vehicle_num" value="{{ d.vehicle_num }}" placeholder="차량번호" style="width: 100px; padding: 5px; text-align: center; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two';" required>
+                                <button type="submit" class="btn-update" style="background-color: #0d6efd;" onclick="return confirm('이 매장의 기사님과 차량번호를 모두 변경하시겠습니까?');">변경</button>
                             </form>
                         </td>
 

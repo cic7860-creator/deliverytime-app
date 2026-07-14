@@ -45,7 +45,7 @@ def get_coords(address):
     return None, None
 
 def get_driving_time(start_x, start_y, end_x, end_y):
-    # 💡 1. 이미 계산했던 길인지 기억 장치에서 먼저 확인 (0.001초 컷)
+    # 1. 이미 계산했던 길인지 기억 장치에서 먼저 확인
     try:
         sx, sy, ex, ey = round(float(start_x), 4), round(float(start_y), 4), round(float(end_x), 4), round(float(end_y), 4)
         cache_key = f"{sx},{sy}_{ex},{ey}"
@@ -54,22 +54,19 @@ def get_driving_time(start_x, start_y, end_x, end_y):
     except Exception:
         cache_key = None
 
-    # 💡 2. 처음 가는 길만 카카오에 물어봄
+    # 2. 처음 가는 길만 카카오에 물어봄
     url = f"https://apis-navi.kakaomobility.com/v1/directions?origin={start_x},{start_y}&destination={end_x},{end_y}"
     headers = {"Authorization": f"KakaoAK {KAKAO_API_KEY}"}
     try:
-        # 카카오 서버가 느릴 때 앱이 멈추지 않도록 대기 시간을 2초로 컷팅!
         resp = kakao_session.get(url, headers=headers, verify=False, timeout=2).json()
         if resp.get('routes'): 
             duration = resp['routes'][0]['summary']['duration']
             if cache_key:
-                route_time_cache[cache_key] = duration # 다음을 위해 기억해둠
+                route_time_cache[cache_key] = duration
             return duration
     except Exception: pass
-    
-    return 25 * 60 # 실패 시 기본 25분 반환
+    return 25 * 60 
 
-# ⚡ [다중 스레드 + 기억 장치] 무적의 ETA 초고속 재계산 엔진
 def update_etas_for_driver(driver_name):
     dispatches = Dispatch.query.filter_by(driver_name=driver_name).order_by(Dispatch.delivery_seq).all()
     if not dispatches: return
@@ -92,7 +89,6 @@ def update_etas_for_driver(driver_name):
         sx, sy, ex, ey = route
         return route, get_driving_time(sx, sy, ex, ey)
         
-    # 동시에 여러 길찾기를 수행하여 속도 극대화
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
         results = executor.map(fetch_route_time, list(set(routes_to_fetch)))
         for route, duration in results: duration_map[route] = duration
@@ -224,6 +220,36 @@ def update_buffer(dispatch_id):
             db.session.commit()
     return redirect(url_for('admin'))
 
+# 💡 [신규] 기사 변경(배차 이동) 라우트
+@app.route('/admin/update_driver/<int:dispatch_id>', methods=['POST'])
+def update_driver(dispatch_id):
+    dispatch = Dispatch.query.get(dispatch_id)
+    if dispatch:
+        new_driver = request.form.get('new_driver_name', '').strip()
+        if new_driver and new_driver != dispatch.driver_name:
+            old_driver = dispatch.driver_name
+            dispatch.driver_name = new_driver
+            
+            # 기존에 새 기사님이 배차된 적 있다면, 그 차량번호를 그대로 승계
+            existing_dispatch = Dispatch.query.filter_by(driver_name=new_driver).first()
+            if existing_dispatch:
+                dispatch.vehicle_num = existing_dispatch.vehicle_num
+            
+            # 새 기사님의 맨 마지막 순서로 배정
+            max_seq_dispatch = Dispatch.query.filter_by(driver_name=new_driver).order_by(Dispatch.delivery_seq.desc()).first()
+            if max_seq_dispatch:
+                dispatch.delivery_seq = max_seq_dispatch.delivery_seq + 1
+            else:
+                dispatch.delivery_seq = 1
+                
+            db.session.commit()
+            
+            # 이전 기사님과 새 기사님 모두 ETA 재계산
+            update_etas_for_driver(old_driver)
+            update_etas_for_driver(new_driver)
+            db.session.commit()
+    return redirect(url_for('admin'))
+
 @app.route('/driver', methods=['GET'])
 def driver():
     name = request.args.get('driver_name')
@@ -233,7 +259,6 @@ def driver():
     
     if name:
         dispatches = Dispatch.query.filter_by(driver_name=name).order_by(Dispatch.delivery_seq).all()
-        
         if not dispatches:
             return f"<script>alert('{name} 기사님의 배차 내역이 존재하지 않습니다.\\n이름을 다시 확인해주세요.'); window.location.href='/driver';</script>"
 
@@ -399,6 +424,34 @@ def download_excel():
         df.to_excel(writer, index=False, sheet_name='배송시간')
     output.seek(0)
     return send_file(output, download_name=filename, as_attachment=True)
+
+@app.route('/download_template')
+def download_template():
+    if not session.get('is_admin'): return redirect(url_for('admin_login'))
+    today_str = datetime.now().strftime('%Y-%m-%d')
+    example_data = {
+        '배송일자': [today_str, today_str],
+        '차량번호': ['임시00임 0000', '임시00임 0000'],
+        '기사명': ['홍길동', '홍길동'],
+        '출발센터주소': ['경상남도 밀양시 부북면 사포로 91', '경상남도 밀양시 부북면 사포로 91'],
+        '매장코드': ['S001', 'S002'],
+        '매장명': ['강남A', '강남B'],
+        '매장주소': ['서울특별시 강남구 테헤란로 123', '서울특별시 강남구 테헤란로 456'],
+        '배송순서': [1, 2],
+        '상하차시간': [15, 10]
+    }
+    df = pd.DataFrame(example_data)
+    
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='업로드양식')
+        worksheet = writer.sheets['업로드양식']
+        for column_cells in worksheet.columns:
+            length = max(len(str(cell.value)) for cell in column_cells)
+            worksheet.column_dimensions[column_cells[0].column_letter].width = length + 2
+            
+    output.seek(0)
+    return send_file(output, download_name="JETTE_배차업로드양식.xlsx", as_attachment=True)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

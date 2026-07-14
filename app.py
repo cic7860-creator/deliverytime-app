@@ -9,6 +9,9 @@ import urllib3
 import json
 import concurrent.futures
 
+# 💡 openpyxl의 comments 모듈을 임포트하여 엑셀 메모 기능을 사용합니다.
+from openpyxl.comments import Comment
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 app = Flask(__name__)
@@ -168,7 +171,10 @@ def admin():
                 center_addr_val = str(row['출발센터주소']).strip() if '출발센터주소' in df.columns and pd.notna(row['출발센터주소']) else ''
                 store_code_val = str(row['매장코드']).strip() if '매장코드' in df.columns and pd.notna(row['매장코드']) else ''
                 store_address_val = str(row['매장주소']).strip() if '매장주소' in df.columns and pd.notna(row['매장주소']) else ''
-                buffer_time_val = int(row['상하차시간']) if '상하차시간' in df.columns and pd.notna(row['상하차시간']) else 15
+                
+                # 💡 [수정] 상하차시간의 기본값을 15분에서 10분으로 변경했습니다.
+                buffer_time_val = int(row['상하차시간']) if '상하차시간' in df.columns and pd.notna(row['상하차시간']) else 10
+                
                 sx, sy = address_cache.get(store_address_val, (None, None))
 
                 dispatch_entry = Dispatch(
@@ -212,7 +218,6 @@ def update_buffer(dispatch_id):
             db.session.commit()
     return redirect(url_for('admin'))
 
-# 💡 [수정] 기사명 뿐만 아니라 차량번호도 함께 변경 가능하도록 기능 강화
 @app.route('/admin/update_driver/<int:dispatch_id>', methods=['POST'])
 def update_driver(dispatch_id):
     dispatch = Dispatch.query.get(dispatch_id)
@@ -390,7 +395,6 @@ def dashboard():
             
     return render_template('dashboard.html', stats=stats, vehicle_stats=vehicle_stats)
 
-# 💡 [수정] 엑셀 다운로드 (데이터 순서 변경 및 열 크기 자동 최적화)
 @app.route('/download_excel')
 def download_excel():
     all_data = Dispatch.query.order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
@@ -420,7 +424,6 @@ def download_excel():
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='배송시간')
         worksheet = writer.sheets['배송시간']
-        # 한글 크기까지 고려하여 엑셀 너비를 보기 좋게 자동 조정
         for column_cells in worksheet.columns:
             max_len = 0
             for cell in column_cells:
@@ -432,7 +435,6 @@ def download_excel():
     output.seek(0)
     return send_file(output, download_name=filename, as_attachment=True)
 
-# 💡 [수정] 배차업로드 양식 다운로드 (열 순서 변경 및 크기 최적화)
 @app.route('/download_template')
 def download_template():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
@@ -446,7 +448,7 @@ def download_template():
         '매장명': ['강남A', '강남B'],
         '매장주소': ['서울특별시 강남구 테헤란로 123', '서울특별시 강남구 테헤란로 456'],
         '배송순서': [1, 2],
-        '상하차시간': [15, 10]
+        '상하차시간': [10, 10]
     }
     df = pd.DataFrame(example_data)
     
@@ -454,6 +456,15 @@ def download_template():
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='업로드양식')
         worksheet = writer.sheets['업로드양식']
+        
+        # 💡 [신규] 배송순서, 상하차시간 제목 셀에 메모 삽입
+        for col_idx, col_name in enumerate(df.columns, 1):
+            cell = worksheet.cell(row=1, column=col_idx)
+            if col_name == '배송순서':
+                cell.comment = Comment('공란이어도 됩니다.', 'Admin')
+            elif col_name == '상하차시간':
+                cell.comment = Comment('공란이어도 됩니다. (기본값: 10분)', 'Admin')
+
         for column_cells in worksheet.columns:
             max_len = 0
             for cell in column_cells:
@@ -468,3 +479,4 @@ def download_template():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
+```eof

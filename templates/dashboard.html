@@ -33,7 +33,6 @@
         .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
         .stat-card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-top: 5px solid #082c84; position: relative; }
         
-        /* 💡 센터 출발 시간 배지 스타일 */
         .depart-badge { position: absolute; top: 20px; right: 20px; padding: 5px 10px; border-radius: 20px; font-size: 13px; font-weight: bold; border: 1px solid #ced4da; }
         .depart-badge.active { background-color: #e3f2fd; color: #082c84; border-color: #90caf9; }
         .depart-badge.wait { background-color: #f8f9fa; color: #6c757d; }
@@ -117,7 +116,6 @@
         {% for name, data in stats.items() %}
         <div class="stat-card" data-name="{{ name }}" data-vehicle="{{ data.vehicle }}">
             
-            <!-- 💡 센터 출발 시간 배지 추가 -->
             {% if data.details and data.details[0].center_depart_time %}
                 <div class="depart-badge active">🏢 {{ data.details[0].center_depart_time.strftime('%H:%M') }} 출발</div>
             {% else %}
@@ -147,7 +145,7 @@
                 {% for d in data.details %}
                 <div class="detail-item">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <strong style="font-size: 14px;">{{ d.delivery_seq }}. {{ d.store_name }}</strong>
+                        <strong style="font-size: 14px;">{{ d.delivery_seq }}. {{ d.store_name }} <span style="color: #6c757d; font-size: 12px; font-weight: normal;">({{ d.store_code }})</span></strong>
                         {% if d.is_departed %}
                             <span class="badge done">완료됨</span>
                         {% else %}

@@ -11,7 +11,7 @@
             font-weight: normal; font-style: normal;
         }
         body { font-family: 'Binggrae-Two', sans-serif; padding: 20px; background-color: #f8f9fa; color: #333; margin: 0; }
-        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .container { max-width: 1100px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         h2 { margin-top: 0; color: #082c84; }
         .top-nav { background-color: #212529; padding: 15px 20px; border-radius: 6px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
         .top-nav div { display: flex; gap: 20px; }
@@ -20,45 +20,36 @@
         textarea { width: 100%; height: 150px; margin-top: 10px; padding: 10px; font-family: monospace; box-sizing: border-box; border: 1px solid #ced4da; border-radius: 4px; }
         .btn { padding: 10px 20px; font-size: 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
         .btn-primary { background-color: #082c84; color: white; }
+        .btn-outline { background-color: white; color: #082c84; border: 1px solid #082c84; text-decoration: none; display: inline-block; padding: 8px 15px; font-size: 14px; border-radius: 4px; font-weight: bold; transition: 0.2s; }
+        .btn-outline:hover { background-color: #e3f2fd; }
         .btn-danger { background-color: #dc3545; color: white; padding: 8px 15px; font-size: 14px; }
         .section-title { margin-top: 40px; border-bottom: 2px solid #dee2e6; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
         .table-responsive { overflow-x: auto; margin-top: 15px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05); }
-        table { width: 100%; border-collapse: collapse; min-width: 950px; background-color: white; }
+        table { width: 100%; border-collapse: collapse; min-width: 1000px; background-color: white; }
         th, td { padding: 14px 12px; text-align: left; border-bottom: 1px solid #dee2e6; font-size: 14px; vertical-align: middle; }
         th { background-color: #f8f9fa; font-weight: bold; color: #495057; white-space: nowrap; border-top: 2px solid #dee2e6; border-bottom: 2px solid #dee2e6; }
         tr:hover { background-color: #f1f3f5; }
         .btn-update { padding: 5px 10px; background-color: #198754; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
         .text-center { text-align: center !important; }
         .no-wrap { white-space: nowrap; }
-
-        /* 💡 통합 검색창 디자인 */
         .search-container { margin-top: 15px; display: flex; gap: 10px; }
         .search-container input { flex: 1; padding: 12px; font-size: 15px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; }
+        .info-box { background-color: #e3f2fd; color: #082c84; padding: 15px 20px; border-radius: 6px; margin-bottom: 15px; border-left: 5px solid #082c84; font-weight: bold; font-size: 15px; }
+        .highlight-text { color: #dc3545; }
     </style>
     <script>
-        // 💡 표 통합 검색 스크립트
         function filterTable() {
             let input = document.getElementById("adminSearchInput").value.toLowerCase();
             let table = document.getElementById("dispatchTable");
             let tr = table.getElementsByTagName("tr");
-
-            // 제목 줄(0번)을 제외하고 모든 줄을 돌면서 검색
             for (let i = 1; i < tr.length; i++) {
                 let tds = tr[i].getElementsByTagName("td");
                 let rowText = "";
-                // 각 행의 텍스트를 하나로 합쳐서 검색어로 검사
                 for (let j = 0; j < tds.length; j++) {
-                    if (tds[j]) {
-                        rowText += tds[j].innerText.toLowerCase() + " ";
-                    }
+                    if (tds[j]) rowText += tds[j].innerText.toLowerCase() + " ";
                 }
-                
-                // 검색어가 포함되어 있으면 보여주고, 아니면 숨김
-                if (rowText.includes(input)) {
-                    tr[i].style.display = "";
-                } else {
-                    tr[i].style.display = "none";
-                }
+                if (rowText.includes(input)) tr[i].style.display = "";
+                else tr[i].style.display = "none";
             }
         }
     </script>
@@ -74,9 +65,17 @@
             <a href="/admin_logout" style="color: #ff6b6b;">🚪 로그아웃</a>
         </div>
 
-        <h2>🚚 금일 배차 데이터 입력</h2>
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px;">
+            <h2 style="margin: 0;">🚚 금일 배차 데이터 입력</h2>
+            <a href="/download_template" class="btn-outline">📥 업로드 양식 다운로드</a>
+        </div>
+
+        <div class="info-box">
+            💡 작성하신 엑셀 데이터의 <span class="highlight-text">[제목 행(첫 번째 줄)]부터 [데이터 끝]까지 모두 드래그하여 복사</span>한 후, 아래 빈칸에 붙여넣어 주세요!
+        </div>
+
         <form action="/admin" method="POST">
-            <textarea name="excel_text" placeholder="데이터를 탭(Tab)으로 구분하여 붙여넣으세요..." required></textarea>
+            <textarea name="excel_text" placeholder="여기에 엑셀 데이터를 붙여넣으세요 (제목 행 포함 필수)" required></textarea>
             <br><br>
             <button type="submit" class="btn btn-primary">데이터 저장 및 업데이트</button>
         </form>
@@ -89,8 +88,6 @@
         </div>
 
         {% if dispatches %}
-        
-        <!-- 💡 데이터 통합 검색창 추가 -->
         <div class="search-container">
             <input type="text" id="adminSearchInput" onkeyup="filterTable()" placeholder="🔍 기사명, 매장명, 주소 등으로 빠르게 검색하세요...">
         </div>
@@ -104,6 +101,8 @@
                         <th class="text-center">순서</th>
                         <th>매장 주소</th>
                         <th class="text-center">상하차시간(분) 수정</th>
+                        <!-- 💡 기사 변경(배차 이동) 열 추가 -->
+                        <th class="text-center">기사 배차 변경</th>
                         <th class="text-center">개별관리</th>
                     </tr>
                 </thead>
@@ -117,8 +116,16 @@
                         
                         <td class="no-wrap">
                             <form action="/admin/update_buffer/{{ d.id }}" method="POST" style="display: flex; justify-content: center; align-items: center; gap: 6px; margin: 0;">
-                                <input type="number" name="buffer_time" value="{{ d.buffer_time }}" style="width: 50px; padding: 5px; text-align: center; border: 1px solid #ced4da; border-radius: 4px; font-weight: bold;">
+                                <input type="number" name="buffer_time" value="{{ d.buffer_time }}" style="width: 45px; padding: 5px; text-align: center; border: 1px solid #ced4da; border-radius: 4px; font-weight: bold;">
                                 <button type="submit" class="btn-update">적용</button>
+                            </form>
+                        </td>
+
+                        <!-- 💡 [신규] 기사 이름 변경 폼 -->
+                        <td class="no-wrap">
+                            <form action="/admin/update_driver/{{ d.id }}" method="POST" style="display: flex; justify-content: center; align-items: center; gap: 6px; margin: 0;">
+                                <input type="text" name="new_driver_name" value="{{ d.driver_name }}" style="width: 70px; padding: 5px; text-align: center; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two';">
+                                <button type="submit" class="btn-update" style="background-color: #0d6efd;" onclick="return confirm('이 매장의 담당 기사님을 변경하시겠습니까?');">이동</button>
                             </form>
                         </td>
 

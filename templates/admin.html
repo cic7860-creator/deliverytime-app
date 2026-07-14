@@ -1,3 +1,7 @@
+### 2. `templates/admin.html` (실시간 통합 검색 기능 추가)
+기존 `admin.html` 코드를 지우고 아래 코드로 교체해 주세요.
+
+```html:관리자 페이지:templates/admin.html
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -5,7 +9,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>배차 데이터 관리</title>
     <style>
-        /* 💡 빙그레2체 적용 */
         @font-face {
             font-family: 'Binggrae-Two';
             src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Binggrae-Two.woff') format('woff');
@@ -31,11 +34,41 @@
         .btn-update { padding: 5px 10px; background-color: #198754; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
         .text-center { text-align: center !important; }
         .no-wrap { white-space: nowrap; }
+
+        /* 💡 통합 검색창 디자인 */
+        .search-container { margin-top: 15px; display: flex; gap: 10px; }
+        .search-container input { flex: 1; padding: 12px; font-size: 15px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; }
     </style>
+    <script>
+        // 💡 표 통합 검색 스크립트
+        function filterTable() {
+            let input = document.getElementById("adminSearchInput").value.toLowerCase();
+            let table = document.getElementById("dispatchTable");
+            let tr = table.getElementsByTagName("tr");
+
+            // 제목 줄(0번)을 제외하고 모든 줄을 돌면서 검색
+            for (let i = 1; i < tr.length; i++) {
+                let tds = tr[i].getElementsByTagName("td");
+                let rowText = "";
+                // 각 행의 텍스트를 하나로 합쳐서 검색어로 검사
+                for (let j = 0; j < tds.length; j++) {
+                    if (tds[j]) {
+                        rowText += tds[j].innerText.toLowerCase() + " ";
+                    }
+                }
+                
+                // 검색어가 포함되어 있으면 보여주고, 아니면 숨김
+                if (rowText.includes(input)) {
+                    tr[i].style.display = "";
+                } else {
+                    tr[i].style.display = "none";
+                }
+            }
+        }
+    </script>
 </head>
 <body>
     <div class="container">
-        <!-- 💡 관리자 전용 네비게이션 (로그아웃 포함) -->
         <div class="top-nav">
             <div>
                 <a href="/admin">🖥️ 데이터 입력 (홈)</a>
@@ -60,8 +93,14 @@
         </div>
 
         {% if dispatches %}
+        
+        <!-- 💡 데이터 통합 검색창 추가 -->
+        <div class="search-container">
+            <input type="text" id="adminSearchInput" onkeyup="filterTable()" placeholder="🔍 기사명, 매장명, 주소 등으로 빠르게 검색하세요...">
+        </div>
+
         <div class="table-responsive">
-            <table>
+            <table id="dispatchTable">
                 <thead>
                     <tr>
                         <th class="text-center">기사명</th>
@@ -80,7 +119,6 @@
                         <td class="text-center" style="font-weight: bold;">{{ d.delivery_seq }}</td>
                         <td style="font-size: 13px; color: #555;">{{ d.store_address }}</td>
                         
-                        <!-- 상하차 시간 수정 -->
                         <td class="no-wrap">
                             <form action="/admin/update_buffer/{{ d.id }}" method="POST" style="display: flex; justify-content: center; align-items: center; gap: 6px; margin: 0;">
                                 <input type="number" name="buffer_time" value="{{ d.buffer_time }}" style="width: 50px; padding: 5px; text-align: center; border: 1px solid #ced4da; border-radius: 4px; font-weight: bold;">
@@ -104,3 +142,4 @@
     </div>
 </body>
 </html>
+```eof

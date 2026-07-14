@@ -15,7 +15,6 @@ app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# 관리자 로그인 보안 키
 app.secret_key = 'jette_super_secret_admin_key' 
 
 db.init_app(app)
@@ -23,13 +22,8 @@ db.init_app(app)
 with app.app_context():
     db.create_all()
 
-# ==========================================
-# 🔑 카카오 API 설정 영역
-# ==========================================
 KAKAO_API_KEY = 'f70047282a8b7f30cd02fd2cfc00f029'
 kakao_session = requests.Session()
-
-# 💡 [핵심 최적화] 렉 방지를 위한 이동 시간 '기억 장치(Cache)'
 route_time_cache = {}
 
 def get_coords(address):
@@ -45,7 +39,6 @@ def get_coords(address):
     return None, None
 
 def get_driving_time(start_x, start_y, end_x, end_y):
-    # 1. 이미 계산했던 길인지 기억 장치에서 먼저 확인
     try:
         sx, sy, ex, ey = round(float(start_x), 4), round(float(start_y), 4), round(float(end_x), 4), round(float(end_y), 4)
         cache_key = f"{sx},{sy}_{ex},{ey}"
@@ -54,7 +47,6 @@ def get_driving_time(start_x, start_y, end_x, end_y):
     except Exception:
         cache_key = None
 
-    # 2. 처음 가는 길만 카카오에 물어봄
     url = f"https://apis-navi.kakaomobility.com/v1/directions?origin={start_x},{start_y}&destination={end_x},{end_y}"
     headers = {"Authorization": f"KakaoAK {KAKAO_API_KEY}"}
     try:
@@ -220,33 +212,30 @@ def update_buffer(dispatch_id):
             db.session.commit()
     return redirect(url_for('admin'))
 
-# 💡 [신규] 기사 변경(배차 이동) 라우트
+# 💡 [수정] 기사명 뿐만 아니라 차량번호도 함께 변경 가능하도록 기능 강화
 @app.route('/admin/update_driver/<int:dispatch_id>', methods=['POST'])
 def update_driver(dispatch_id):
     dispatch = Dispatch.query.get(dispatch_id)
     if dispatch:
         new_driver = request.form.get('new_driver_name', '').strip()
-        if new_driver and new_driver != dispatch.driver_name:
+        new_vehicle = request.form.get('new_vehicle_num', '').strip()
+        
+        if new_driver and new_vehicle:
             old_driver = dispatch.driver_name
             dispatch.driver_name = new_driver
+            dispatch.vehicle_num = new_vehicle
             
-            # 기존에 새 기사님이 배차된 적 있다면, 그 차량번호를 그대로 승계
-            existing_dispatch = Dispatch.query.filter_by(driver_name=new_driver).first()
-            if existing_dispatch:
-                dispatch.vehicle_num = existing_dispatch.vehicle_num
-            
-            # 새 기사님의 맨 마지막 순서로 배정
-            max_seq_dispatch = Dispatch.query.filter_by(driver_name=new_driver).order_by(Dispatch.delivery_seq.desc()).first()
-            if max_seq_dispatch:
-                dispatch.delivery_seq = max_seq_dispatch.delivery_seq + 1
-            else:
-                dispatch.delivery_seq = 1
+            if new_driver != old_driver:
+                max_seq_dispatch = Dispatch.query.filter_by(driver_name=new_driver).order_by(Dispatch.delivery_seq.desc()).first()
+                if max_seq_dispatch:
+                    dispatch.delivery_seq = max_seq_dispatch.delivery_seq + 1
+                else:
+                    dispatch.delivery_seq = 1
                 
             db.session.commit()
-            
-            # 이전 기사님과 새 기사님 모두 ETA 재계산
             update_etas_for_driver(old_driver)
-            update_etas_for_driver(new_driver)
+            if new_driver != old_driver:
+                update_etas_for_driver(new_driver)
             db.session.commit()
     return redirect(url_for('admin'))
 
@@ -401,18 +390,26 @@ def dashboard():
             
     return render_template('dashboard.html', stats=stats, vehicle_stats=vehicle_stats)
 
+# 💡 [수정] 엑셀 다운로드 (데이터 순서 변경 및 열 크기 자동 최적화)
 @app.route('/download_excel')
 def download_excel():
     all_data = Dispatch.query.order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
     data_list = []
     for d in all_data:
         data_list.append({
-            '배송일자': d.delivery_date, '기사명': d.driver_name, '차량번호': d.vehicle_num,
-            '출발센터주소': d.center_address, '배송순서': d.delivery_seq, '매장코드': d.store_code,
-            '매장명': d.store_name, '센터출발시간': d.center_depart_time.strftime('%H:%M') if d.center_depart_time else '미출발',
+            '출발센터주소': d.center_address,
+            '배송일자': d.delivery_date,
+            '차량번호': d.vehicle_num,
+            '기사명': d.driver_name,
+            '매장코드': d.store_code,
+            '매장명': d.store_name,
             '도착예정시간': d.estimated_arrival.strftime('%H:%M') if d.estimated_arrival else '-',
             '실제완료시간': d.departure_time.strftime('%H:%M') if d.departure_time else '미완료',
-            '완료여부': '완료' if d.is_departed else '대기', '상하차시간(분)': d.buffer_time 
+            '센터출발시간': d.center_depart_time.strftime('%H:%M') if d.center_depart_time else '미출발',
+            '완료여부': '완료' if d.is_departed else '대기',
+            '배송순서': d.delivery_seq,
+            '상하차시간(분)': d.buffer_time,
+            '매장주소': d.store_address
         })
     df = pd.DataFrame(data_list)
     today_str = datetime.now().strftime('%Y-%m-%d')
@@ -422,18 +419,29 @@ def download_excel():
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='배송시간')
+        worksheet = writer.sheets['배송시간']
+        # 한글 크기까지 고려하여 엑셀 너비를 보기 좋게 자동 조정
+        for column_cells in worksheet.columns:
+            max_len = 0
+            for cell in column_cells:
+                if cell.value:
+                    val_str = str(cell.value)
+                    val_len = sum(2 if ord(c) > 127 else 1.2 for c in val_str)
+                    if val_len > max_len: max_len = val_len
+            worksheet.column_dimensions[column_cells[0].column_letter].width = max_len + 2
     output.seek(0)
     return send_file(output, download_name=filename, as_attachment=True)
 
+# 💡 [수정] 배차업로드 양식 다운로드 (열 순서 변경 및 크기 최적화)
 @app.route('/download_template')
 def download_template():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
     today_str = datetime.now().strftime('%Y-%m-%d')
     example_data = {
+        '출발센터주소': ['경상남도 밀양시 부북면 사포로 91', '경상남도 밀양시 부북면 사포로 91'],
         '배송일자': [today_str, today_str],
         '차량번호': ['임시00임 0000', '임시00임 0000'],
         '기사명': ['홍길동', '홍길동'],
-        '출발센터주소': ['경상남도 밀양시 부북면 사포로 91', '경상남도 밀양시 부북면 사포로 91'],
         '매장코드': ['S001', 'S002'],
         '매장명': ['강남A', '강남B'],
         '매장주소': ['서울특별시 강남구 테헤란로 123', '서울특별시 강남구 테헤란로 456'],
@@ -447,8 +455,13 @@ def download_template():
         df.to_excel(writer, index=False, sheet_name='업로드양식')
         worksheet = writer.sheets['업로드양식']
         for column_cells in worksheet.columns:
-            length = max(len(str(cell.value)) for cell in column_cells)
-            worksheet.column_dimensions[column_cells[0].column_letter].width = length + 2
+            max_len = 0
+            for cell in column_cells:
+                if cell.value:
+                    val_str = str(cell.value)
+                    val_len = sum(2 if ord(c) > 127 else 1.2 for c in val_str)
+                    if val_len > max_len: max_len = val_len
+            worksheet.column_dimensions[column_cells[0].column_letter].width = max_len + 2
             
     output.seek(0)
     return send_file(output, download_name="JETTE_배차업로드양식.xlsx", as_attachment=True)

@@ -2,154 +2,219 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>배차 데이터 관리</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>JETTE 배송 기사 앱</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <style>
         @font-face {
             font-family: 'Binggrae-Two';
             src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Binggrae-Two.woff') format('woff');
             font-weight: normal; font-style: normal;
         }
-        body { font-family: 'Binggrae-Two', sans-serif; padding: 20px; background-color: #f8f9fa; color: #333; margin: 0; }
-        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        h2 { margin-top: 0; color: #082c84; }
-        .top-nav { background-color: #212529; padding: 15px 20px; border-radius: 6px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
-        .top-nav div { display: flex; gap: 20px; }
-        .top-nav a { color: #f8f9fa; text-decoration: none; font-size: 16px; font-weight: bold; transition: color 0.2s; }
-        .top-nav a:hover { color: #0d6efd; }
-        textarea { width: 100%; height: 150px; margin-top: 10px; padding: 10px; font-family: monospace; box-sizing: border-box; border: 1px solid #ced4da; border-radius: 4px; }
-        .btn { padding: 10px 20px; font-size: 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        .btn-primary { background-color: #082c84; color: white; }
-        .btn-outline { background-color: white; color: #082c84; border: 1px solid #082c84; text-decoration: none; display: inline-block; padding: 8px 15px; font-size: 14px; border-radius: 4px; font-weight: bold; transition: 0.2s; }
-        .btn-outline:hover { background-color: #e3f2fd; }
-        .btn-danger { background-color: #dc3545; color: white; padding: 8px 15px; font-size: 14px; }
-        .section-title { margin-top: 40px; border-bottom: 2px solid #dee2e6; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
-        .table-responsive { overflow-x: auto; margin-top: 15px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05); }
-        table { width: 100%; border-collapse: collapse; min-width: 1100px; background-color: white; }
-        th, td { padding: 14px 12px; text-align: left; border-bottom: 1px solid #dee2e6; font-size: 14px; vertical-align: middle; }
-        th { background-color: #f8f9fa; font-weight: bold; color: #495057; white-space: nowrap; border-top: 2px solid #dee2e6; border-bottom: 2px solid #dee2e6; }
-        tr:hover { background-color: #f1f3f5; }
-        .btn-update { padding: 5px 10px; background-color: #198754; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        .text-center { text-align: center !important; }
-        .no-wrap { white-space: nowrap; }
-        .search-container { margin-top: 15px; display: flex; gap: 10px; }
-        .search-container input { flex: 1; padding: 12px; font-size: 15px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; }
-        .info-box { background-color: #e3f2fd; color: #082c84; padding: 15px 20px; border-radius: 6px; margin-bottom: 15px; border-left: 5px solid #082c84; font-weight: bold; font-size: 15px; }
-        .highlight-text { color: #dc3545; }
+        body { font-family: 'Binggrae-Two', sans-serif; margin: 0; box-sizing: border-box; background-color: #f0f2f5; }
+        
+        .login-wrapper { height: 100vh; background-color: #002d72; display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; }
+        .login-card { background: white; border-radius: 25px; width: 100%; max-width: 360px; padding: 50px 30px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); box-sizing: border-box; }
+        .logo-container { margin-bottom: 50px; }
+        
+        .jette-logo { font-size: 65px; font-weight: 900; font-family: 'Arial Black', sans-serif; letter-spacing: -2px; }
+        .logo-blue { color: #082c84; } 
+        .logo-gray { color: #94908a; } 
+        
+        .input-group { display: flex; align-items: center; border-bottom: 1px solid #ccc; margin-bottom: 40px; padding-bottom: 8px; }
+        .input-icon { font-size: 22px; margin-right: 15px; color: #111; }
+        .input-field { border: none; outline: none; font-size: 18px; width: 100%; color: #333; font-family: 'Binggrae-Two', sans-serif;}
+        .input-field::placeholder { color: #aaa; }
+        
+        .btn-login { background-color: #082c84; color: white; border: none; width: 100%; padding: 16px; font-size: 18px; font-weight: bold; border-radius: 6px; cursor: pointer; }
+        
+        .dashboard-wrapper { padding: 10px; }
+        .header-container { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
+        .course-btn { background-color: #ffe812; color: #3c1e1e; text-decoration: none; padding: 8px; border-radius: 4px; font-size: 13px; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.15); text-align: center; flex: 1; display: block; }
+        .pc-link { font-size: 11px; text-align: center; color: #082c84; text-decoration: underline; margin-top: 4px; display: block; font-weight: bold;}
+        .center-depart-box { background-color: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 2px solid #90caf9; }
+        
+        .item-list { display: flex; flex-direction: column; gap: 5px; }
+        .item { display: flex; align-items: flex-start; background: white; padding: 10px; border-radius: 5px; border-left: 4px solid #082c84; box-shadow: 0 1px 3px rgba(0,0,0,0.1); gap: 8px; }
+        
+        .item.completed { opacity: 0.65; border-left-color: #adb5bd; background: #f8f9fa; border: 1px dashed #ced4da; }
+        .item.completed .store-name { text-decoration: line-through; color: #6c757d; }
+        
+        .drag-handle { font-size: 20px; color: #adb5bd; padding: 0 5px; cursor: grab; align-self: center; }
+        
+        .info-col { flex: 1; min-width: 0; }
+        .store-name { font-size: 14px; font-weight: bold; color: #111; margin-bottom: 4px; }
+        .store-addr { font-size: 12px; color: #555; line-height: 1.5; word-break: keep-all; overflow-wrap: break-word; white-space: normal; margin-top: 3px; padding-right: 5px; }
+        
+        .action-col { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+        .compact-form { display: flex; align-items: center; gap: 2px; margin: 0; }
+        .seq-input { width: 32px; padding: 4px; font-size: 12px; text-align: center; border: 1px solid #ccc; border-radius: 3px; font-family: 'Binggrae-Two'; }
+        
+        .btn-sm { padding: 6px 10px; font-size: 12px; font-weight: bold; border-radius: 4px; border: none; cursor: pointer; text-align: center; white-space: nowrap; text-decoration: none; display: inline-block; font-family: 'Binggrae-Two';}
+        .btn-gray { background-color: #6c757d; color: white; }
+        .btn-map { background-color: #ffe812; color: #3c1e1e; }
+        .btn-map-disabled { background-color: #e9ecef; color: #adb5bd; cursor: not-allowed; }
+        .btn-green { background-color: #082c84; color: white; }
+        .btn-done { background-color: #adb5bd; color: white; cursor: not-allowed; }
     </style>
-    <script>
-        function filterTable() {
-            let input = document.getElementById("adminSearchInput").value.toLowerCase();
-            let table = document.getElementById("dispatchTable");
-            let tr = table.getElementsByTagName("tr");
-            for (let i = 1; i < tr.length; i++) {
-                let tds = tr[i].getElementsByTagName("td");
-                let rowText = "";
-                for (let j = 0; j < tds.length; j++) {
-                    if (tds[j]) rowText += tds[j].innerText.toLowerCase() + " ";
-                }
-                if (rowText.includes(input)) tr[i].style.display = "";
-                else tr[i].style.display = "none";
-            }
-        }
-    </script>
 </head>
 <body>
-    <div class="container">
-        <div class="top-nav">
-            <div>
-                <a href="/admin">🖥️ 데이터 입력 (홈)</a>
-                <a href="/driver" target="_blank">📱 기사님 페이지</a>
-                <a href="/dashboard">📊 실시간 대시보드</a>
+
+    {% if session.get('is_admin') %}
+    <div style="background-color: #212529; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+            <a href="/admin" style="color: white; text-decoration: none; font-weight: bold;">🖥️ 데이터 입력</a>
+            <a href="/driver" style="color: white; text-decoration: none; font-weight: bold;">📱 기사님 페이지</a>
+            <a href="/dashboard" style="color: white; text-decoration: none; font-weight: bold;">📊 대시보드</a>
+        </div>
+        <a href="/admin_logout" style="color: #ff6b6b; text-decoration: none; font-weight: bold;">🚪 로그아웃</a>
+    </div>
+    {% endif %}
+    
+    {% if not driver_name %}
+    <div class="login-wrapper">
+        <div class="login-card">
+            <div class="logo-container">
+                <span class="jette-logo"><span class="logo-blue">JET</span><span class="logo-gray">TE</span></span>
             </div>
-            <a href="/admin_logout" style="color: #ff6b6b;">🚪 로그아웃</a>
-        </div>
-
-        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px;">
-            <h2 style="margin: 0;">🚚 금일 배차 데이터 입력</h2>
-            <a href="/download_template" class="btn-outline">📥 업로드 양식 다운로드</a>
-        </div>
-
-        <div class="info-box">
-            💡 작성하신 엑셀 데이터의 <span class="highlight-text">[제목 행(첫 번째 줄)]부터 [데이터 끝]까지 모두 드래그하여 복사</span>한 후, 아래 빈칸에 붙여넣어 주세요!
-        </div>
-
-        <form action="/admin" method="POST">
-            <textarea name="excel_text" placeholder="여기에 엑셀 데이터를 붙여넣으세요 (제목 행 포함 필수)" required></textarea>
-            <br><br>
-            <button type="submit" class="btn btn-primary">데이터 저장 및 업데이트</button>
-        </form>
-
-        <div class="section-title">
-            <h3 style="margin: 0;">📋 현재 등록된 배차 내역 <span style="color:#6c757d; font-size:16px;">(총 {{ dispatches|length }} 건)</span></h3>
-            <form action="/admin/delete_all" method="POST" onsubmit="return confirm('정말 모든 배차 데이터를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.');">
-                <button type="submit" class="btn btn-danger">🚨 전체 삭제 (초기화)</button>
+            <form action="/driver" method="GET">
+                <div class="input-group">
+                    <span class="input-icon">👤</span>
+                    <input type="text" name="driver_name" class="input-field" placeholder="기사명 입력" required>
+                </div>
+                <button type="submit" class="btn-login">로그인</button>
             </form>
         </div>
-
+    </div>
+    {% else %}
+    <div class="dashboard-wrapper">
+        <div class="header-container">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="color: #333; margin: 0; font-size: 17px; letter-spacing: -0.5px;">🚚 {{ date_str }} {{ driver_name }} 기사님 배차내역</h3>
+                <a href="/driver" style="font-size: 12px; color: #666; text-decoration: none; font-weight: bold; padding: 5px; border: 1px solid #ccc; border-radius: 4px; background: white;">로그아웃</a>
+            </div>
+            
+            {% if route_chunks %}
+            <div style="display: flex; gap: 5px; flex-wrap: wrap; width: 100%;">
+                {% for chunk in route_chunks %}
+                    <div style="display: flex; flex-direction: column; flex: 1; min-width: 100px;">
+                        <a href="{{ chunk.url }}" class="course-btn">{{ chunk.title }}</a>
+                        <a href="{{ chunk.pc_url }}" target="_blank" class="pc-link">(웹맵 열기)</a>
+                    </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        
         {% if dispatches %}
-        <div class="search-container">
-            <input type="text" id="adminSearchInput" onkeyup="filterTable()" placeholder="🔍 기사명, 매장명, 주소 등으로 빠르게 검색하세요...">
-        </div>
+            {% set first_item = dispatches[0] %}
+            
+            <div class="center-depart-box">
+                <h4 style="margin-top: 0; margin-bottom: 10px; color: #082c84; text-align: center;">🏢 센터 출발</h4>
+                {% if first_item.center_depart_time %}
+                    <div style="font-size: 15px; font-weight: bold; color: #2e7d32; background: white; padding: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
+                        <span>✅ 출발 ({{ first_item.center_depart_time.strftime('%H:%M') }})</span>
+                        <form action="/cancel_depart" method="POST" style="margin: 0;" onsubmit="return confirm('출발 시간을 초기화하시겠습니까?');">
+                            <input type="hidden" name="driver_name" value="{{ driver_name }}">
+                            <button type="submit" style="background-color: #dc3545; color: white; border: none; padding: 6px 10px; font-size: 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-family: 'Binggrae-Two';">출발 취소</button>
+                        </form>
+                    </div>
+                {% else %}
+                    <form action="/depart_center" method="POST" onsubmit="return confirm('배송순서 지정 후 출발처리 부탁드립니다.\n진짜 출발하시겠습니까?');">
+                        <input type="hidden" name="driver_name" value="{{ driver_name }}">
+                        <button type="submit" style="background-color: #082c84; color: white; border: none; padding: 12px; font-size: 16px; font-weight: bold; border-radius: 6px; width: 100%; margin-bottom: 10px; cursor: pointer; font-family: 'Binggrae-Two';">
+                            🚀 지금 출발
+                        </button>
+                    </form>
+                    <form action="/depart_center" method="POST" style="display: flex; gap: 5px; align-items: center; background: white; padding: 8px; border-radius: 6px;">
+                        <input type="hidden" name="driver_name" value="{{ driver_name }}">
+                        <input type="time" name="manual_time" required style="padding: 5px; border: 1px solid #ccc; border-radius: 3px; flex: 1; font-size: 14px; font-family: 'Binggrae-Two';">
+                        <button type="submit" class="btn-sm btn-gray">시간지정 출발</button>
+                    </form>
+                {% endif %}
+            </div>
 
-        <div class="table-responsive">
-            <table id="dispatchTable">
-                <thead>
-                    <tr>
-                        <th class="text-center">기사명 / 차량</th>
-                        <th>매장명</th>
-                        <th class="text-center">순서</th>
-                        <th>매장 주소</th>
-                        <th class="text-center">시간 수정</th>
-                        <th class="text-center">배차 이관 (기사/차량 변경)</th>
-                        <th class="text-center">개별관리</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for d in dispatches %}
-                    <tr>
-                        <td class="text-center no-wrap" style="color: #082c84;">
-                            <strong style="font-size: 15px;">{{ d.driver_name }}</strong><br>
-                            <span style="font-size: 12px; color: #6c757d;">{{ d.vehicle_num }}</span>
-                        </td>
-                        <td style="font-weight: bold; color: #333;">{{ d.store_name }}</td>
-                        <td class="text-center" style="font-weight: bold;">{{ d.delivery_seq }}</td>
-                        <td style="font-size: 13px; color: #555;">
-                            {{ d.store_address }}
-                            <!-- 💡 [추가] 좌표(store_x/y)가 없으면 경고 표시 -->
-                            {% if not d.store_x or not d.store_y %}
-                                <div style="color: #dc3545; font-weight: bold; font-size: 12px; margin-top: 4px;">🚨 주소 인식 실패 (수정 요망)</div>
-                            {% endif %}
-                        </td>
-                        
-                        <td class="no-wrap">
-                            <form action="/admin/update_buffer/{{ d.id }}" method="POST" style="display: flex; justify-content: center; align-items: center; gap: 6px; margin: 0;">
-                                <input type="number" name="buffer_time" value="{{ d.buffer_time }}" style="width: 45px; padding: 5px; text-align: center; border: 1px solid #ced4da; border-radius: 4px; font-weight: bold;">
-                                <button type="submit" class="btn-update">적용</button>
-                            </form>
-                        </td>
+            <!-- 완료된 매장 리스트 -->
+            <div class="item-list" style="margin-bottom: 15px;">
+                {% for item in dispatches %}
+                    {% if item.is_departed %}
+                    <div class="item completed" data-id="{{ item.id }}">
+                        <div style="font-size: 20px; padding: 0 5px; align-self: center;">✅</div>
+                        <div class="info-col">
+                            <div class="store-name">{{ item.delivery_seq }}. {{ item.store_name }}</div>
+                            <div class="store-addr">{{ item.store_address }}</div>
+                        </div>
+                        <div class="action-col">
+                            <div style="display: flex; align-items: center; justify-content: center; height: 100%;">
+                                <button class="btn-sm btn-done" disabled>배송완료</button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
 
-                        <td class="no-wrap">
-                            <form action="/admin/update_driver/{{ d.id }}" method="POST" style="display: flex; justify-content: center; align-items: center; gap: 6px; margin: 0;">
-                                <input type="text" name="new_driver_name" value="{{ d.driver_name }}" placeholder="기사명" style="width: 65px; padding: 5px; text-align: center; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two';" required>
-                                <input type="text" name="new_vehicle_num" value="{{ d.vehicle_num }}" placeholder="차량번호" style="width: 100px; padding: 5px; text-align: center; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two';" required>
-                                <button type="submit" class="btn-update" style="background-color: #0d6efd;" onclick="return confirm('이 매장의 기사님과 차량번호를 모두 변경하시겠습니까?');">변경</button>
+            <!-- 대기 중인 매장 리스트 -->
+            <div id="sortable-list" class="item-list">
+                {% for item in dispatches %}
+                    {% if not item.is_departed %}
+                    <div class="item" data-id="{{ item.id }}">
+                        <div class="drag-handle">☰</div>
+                        <div class="info-col">
+                            <div class="store-name">{{ item.delivery_seq }}. {{ item.store_name }}</div>
+                            <div class="store-addr">
+                                {{ item.store_address }}
+                                <!-- 💡 [추가] 기사님 화면 경고 표시 -->
+                                {% if not item.store_x or not item.store_y %}
+                                    <span style="color: #dc3545; font-weight: bold; display: block; margin-top: 3px;">⚠️ 지도 연동 불가 (주소 오류)</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="action-col">
+                            <form action="/update_seq/{{ item.id }}" method="POST" class="compact-form">
+                                <input type="number" name="new_seq" class="seq-input" value="{{ item.delivery_seq }}" min="1">
+                                <button type="submit" class="btn-sm btn-gray">변경</button>
                             </form>
-                        </td>
+                            <div style="display: flex; gap: 4px;">
+                                <!-- 💡 [추가] 좌표가 없으면 맵 버튼 비활성화 -->
+                                {% if item.store_x and item.store_y %}
+                                    <a href="https://map.kakao.com/link/map/{{ item.store_name | urlencode }},{{ item.store_y }},{{ item.store_x }}" target="_blank" class="btn-sm btn-map">맵</a>
+                                {% else %}
+                                    <button class="btn-sm btn-map-disabled" onclick="alert('주소가 정확하지 않아 지도를 열 수 없습니다.\n관리자에게 문의해주세요.'); return false;">맵</button>
+                                {% endif %}
 
-                        <td class="text-center no-wrap">
-                            <form action="/admin/delete/{{ d.id }}" method="POST" onsubmit="return confirm('해당 매장 배차를 삭제하시겠습니까?');" style="margin:0;">
-                                <button type="submit" style="background:#6c757d; color:white; border:none; padding:5px 12px; border-radius:4px; cursor:pointer; font-weight:bold;">삭제</button>
-                            </form>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-            <p style="text-align: center; color: #666; margin-top: 30px;">현재 등록된 배차 데이터가 없습니다.</p>
+                                <form action="/complete/{{ item.id }}" method="POST" class="compact-form" onsubmit="return confirm('배송을 완료하시겠습니까?');">
+                                    <button type="submit" class="btn-sm btn-green">완료</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            
+            <script>
+                new Sortable(document.getElementById('sortable-list'), {
+                    handle: '.drag-handle',
+                    animation: 150,
+                    onEnd: function (evt) {
+                        let orderArray = [];
+                        document.querySelectorAll('#sortable-list .item').forEach(function(el) {
+                            orderArray.push(el.getAttribute('data-id'));
+                        });
+                        fetch('/update_order', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify(orderArray)
+                        })
+                        .then(response => response.json())
+                        .then(data => { if(data.status === 'success') location.reload(); });
+                    }
+                });
+            </script>
         {% endif %}
     </div>
+    {% endif %}
+
 </body>
 </html>

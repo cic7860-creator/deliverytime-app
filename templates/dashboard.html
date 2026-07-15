@@ -145,7 +145,14 @@
                 {% for d in data.details %}
                 <div class="detail-item">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <strong style="font-size: 14px;">{{ d.delivery_seq }}. {{ d.store_name }} <span style="color: #6c757d; font-size: 12px; font-weight: normal;">({{ d.store_code }})</span></strong>
+                        <strong style="font-size: 14px;">
+                            {{ d.delivery_seq }}. {{ d.store_name }} <span style="color: #6c757d; font-size: 12px; font-weight: normal;">({{ d.store_code }})</span>
+                            
+                            <!-- 💡 [추가] 대시보드 경고 표시 -->
+                            {% if not d.store_x or not d.store_y %}
+                                <span style="color: #dc3545; font-size: 11px; margin-left: 4px;">⚠️ 주소오류</span>
+                            {% endif %}
+                        </strong>
                         {% if d.is_departed %}
                             <span class="badge done">완료됨</span>
                         {% else %}

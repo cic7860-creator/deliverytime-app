@@ -17,8 +17,10 @@
         .top-nav a { color: #f8f9fa; text-decoration: none; font-size: 16px; font-weight: bold; transition: color 0.2s; }
         .top-nav a:hover { color: #0d6efd; }
 
-        .header-container { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; border-bottom: 2px solid #ccc; padding-bottom: 20px; }
-        @media (min-width: 768px) { .header-container { flex-direction: row; justify-content: space-between; align-items: center; } }
+        /* 💡 상단 헤더 카드 스타일 (문자발송 페이지와 통일감 부여) */
+        .header-card { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; border-left: 6px solid #082c84; flex-wrap: wrap; gap: 15px; }
+        .header-title h1 { margin: 0; color: #2c3e50; font-size: 26px; }
+        .header-title p { margin: 5px 0 0 0; color: #6c757d; font-size: 15px; }
         
         .summary-dashboard { display: flex; gap: 15px; margin-bottom: 25px; flex-wrap: wrap; }
         .summary-box { flex: 1; min-width: 150px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: center; border-left: 5px solid #082c84; }
@@ -28,8 +30,7 @@
         .summary-value { font-size: 28px; font-weight: bold; color: #343a40; }
 
         .search-box { display: flex; gap: 10px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 25px; align-items: center; }
-        .search-box input, .search-box select { padding: 12px; font-size: 15px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; }
-        .search-box input { flex: 1; }
+        .search-box input { flex: 1; padding: 12px; font-size: 15px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; }
         
         .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
         .stat-card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-top: 5px solid #082c84; position: relative; }
@@ -45,7 +46,6 @@
         
         .progress-container { width: 100%; background-color: #e9ecef; border-radius: 5px; margin-top: 15px; overflow: hidden; }
         .progress-bar { height: 20px; background-color: #28a745; text-align: center; line-height: 20px; color: white; font-size: 12px; font-weight: bold; transition: width 0.5s ease-in-out; }
-        .btn-excel { background-color: #198754; color: white; text-decoration: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; font-size: 15px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2); cursor: pointer; border: none; font-family: 'Binggrae-Two'; }
         .details-btn { width: 100%; background-color: #f1f3f5; color: #495057; border: 1px solid #dee2e6; padding: 10px; margin-top: 15px; font-weight: bold; border-radius: 4px; cursor: pointer; font-family: 'Binggrae-Two'; }
         
         .details-content { display: none; margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 10px; }
@@ -53,6 +53,10 @@
         .badge { display: inline-block; padding: 3px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; color: white; }
         .badge.done { background-color: #198754; }
         .badge.wait { background-color: #dc3545; }
+
+        .filter-select { padding: 12px; font-size: 16px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; font-weight: bold; color: #082c84; }
+        .btn-download { background-color: #198754; color: white; border: none; padding: 12px 20px; font-size: 15px; font-weight: bold; border-radius: 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); transition: 0.2s; cursor: pointer; font-family: 'Binggrae-Two'; text-decoration: none; display: inline-block; }
+        .btn-download:hover { background-color: #146c43; transform: translateY(-2px); }
     </style>
     <script>
         function filterDashboard() {
@@ -85,7 +89,7 @@
             }
         }
         
-        // 💡 [신규] 센터 필터 값에 따라 다운로드 요청을 보내는 함수
+        // 💡 [수정] 센터 필터 값에 따라 다운로드 요청
         function downloadExcelFiltered() {
             let center = document.getElementById('dashboardCenterFilter').value;
             window.location.href = "/download_excel?center_name=" + encodeURIComponent(center);
@@ -103,13 +107,22 @@
         <a href="/admin_logout" style="color: #ff6b6b;">🚪 로그아웃</a>
     </div>
 
-    <div class="header-container">
-        <div>
-            <h1 style="margin:0; color: #2c3e50; font-size: 24px;">🏢 실시간 배송 현황판</h1>
-            <p style="margin-top:5px; color:#555; font-size: 14px;">전체 운행 차량 및 기사님별 배송 진척률</p>
+    <!-- 💡 상단 다운로드 버튼 위치 변경 및 통일 -->
+    <div class="header-card">
+        <div class="header-title">
+            <h1>🏢 실시간 배송 현황판</h1>
+            <p>전체 운행 차량 및 기사님별 배송 진척률을 확인하고 엑셀로 다운로드합니다.</p>
         </div>
-        <!-- 💡 버튼 클릭 시 자바스크립트 함수 실행 -->
-        <button onclick="downloadExcelFiltered()" class="btn-excel">📥 센터별 배송시간 다운로드</button>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <select id="dashboardCenterFilter" class="filter-select" onchange="filterDashboard()">
+                <option value="">🏢 전체 센터 보기</option>
+                {% for center in unique_centers %}
+                <option value="{{ center }}">{{ center }}</option>
+                {% endfor %}
+            </select>
+            <!-- 센터 필터와 나란히 배치된 다운로드 버튼 -->
+            <button onclick="downloadExcelFiltered()" class="btn-download">📥 선택 센터 배송시간 다운로드</button>
+        </div>
     </div>
 
     <div class="summary-dashboard">
@@ -128,12 +141,6 @@
     </div>
 
     <div class="search-box">
-        <select id="dashboardCenterFilter" onchange="filterDashboard()">
-            <option value="">🏢 전체 센터 보기</option>
-            {% for center in unique_centers %}
-            <option value="{{ center }}">{{ center }}</option>
-            {% endfor %}
-        </select>
         <input type="text" id="searchInput" onkeyup="filterDashboard()" placeholder="🔍 기사 이름이나 차량번호를 입력하세요...">
     </div>
 

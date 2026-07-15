@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, send_file, session
-from models import db, Dispatch, Center, Contact  # 💡 Contact 모델 추가
+from models import db, Dispatch, Center, SmsTemplate
 import pandas as pd
 import io
 from datetime import datetime, timedelta
@@ -42,7 +42,6 @@ def get_driving_time(start_x, start_y, end_x, end_y):
         cache_key = f"{sx},{sy}_{ex},{ey}"
         if cache_key in route_time_cache: return route_time_cache[cache_key]
     except Exception: cache_key = None
-
     url = f"https://apis-navi.kakaomobility.com/v1/directions?origin={start_x},{start_y}&destination={end_x},{end_y}"
     headers = {"Authorization": f"KakaoAK {KAKAO_API_KEY}"}
     try:
@@ -62,7 +61,6 @@ def update_etas_for_driver(driver_name):
         
     routes_to_fetch = []
     current_x, current_y = get_coords(dispatches[0].center_address if dispatches[0].center_address else dispatches[0].store_address)
-    
     for d in dispatches:
         if d.is_departed and d.departure_time:
             current_x, current_y = d.store_x, d.store_y
@@ -82,7 +80,6 @@ def update_etas_for_driver(driver_name):
 
     current_departure = base_depart_time
     current_x, current_y = get_coords(dispatches[0].center_address if dispatches[0].center_address else dispatches[0].store_address)
-    
     for d in dispatches:
         if d.is_departed and d.departure_time:
             current_departure = d.departure_time
@@ -93,20 +90,17 @@ def update_etas_for_driver(driver_name):
                 arrival_time = current_departure + timedelta(seconds=duration_sec)
             else:
                 arrival_time = current_departure + timedelta(minutes=25)
-                
             d.estimated_arrival = arrival_time
             current_departure = arrival_time + timedelta(minutes=d.buffer_time)
             current_x, current_y = d.store_x, d.store_y
 
 @app.route('/')
-def home():
-    return redirect(url_for('admin_login'))
+def home(): return redirect(url_for('admin_login'))
 
 @app.route('/admin_login', methods=['GET', 'POST'])
 def admin_login():
     if request.method == 'POST':
-        password = request.form.get('password')
-        if password == 'a13579!!':
+        if request.form.get('password') == 'a13579!!':
             session['is_admin'] = True
             return redirect(url_for('admin'))
         else:
@@ -148,11 +142,13 @@ def admin():
                     for addr, (sx, sy) in results: address_cache[addr] = (sx, sy)
 
             for index, row in df.iterrows():
-                raw_date = str(row['배송일자']).strip()
+                raw_date = str(row.get('배송일자', '')).strip()
                 clean_date = raw_date.replace('년', '-').replace('월', '-').replace('일', '').replace(' ', '')
                 if len(clean_date.split('-')) == 2: clean_date = f"{datetime.now().year}-{clean_date}"
-                delivery_date = pd.to_datetime(clean_date).date()
-                driver_name = str(row['기사명']).strip()
+                try: delivery_date = pd.to_datetime(clean_date).date()
+                except: delivery_date = datetime.now().date()
+                
+                driver_name = str(row.get('기사명', '')).strip()
                 if driver_name not in driver_seq_counter: driver_seq_counter[driver_name] = 1
 
                 if '배송순서' in df.columns and pd.notna(row['배송순서']):
@@ -162,12 +158,11 @@ def admin():
                     seq_value = driver_seq_counter[driver_name]
                     driver_seq_counter[driver_name] += 1
 
-                center_name_val = str(row['센터명']).strip() if '센터명' in df.columns and pd.notna(row['센터명']) else ''
+                center_name_val = str(row.get('센터명', '')).strip()
                 center_obj = Center.query.filter_by(name=center_name_val).first()
                 center_addr_val = center_obj.address if center_obj else ''
 
-                store_code_val = str(row['매장코드']).strip() if '매장코드' in df.columns and pd.notna(row['매장코드']) else ''
-                store_address_val = str(row['매장주소']).strip() if '매장주소' in df.columns and pd.notna(row['매장주소']) else ''
+                store_address_val = str(row.get('매장주소', '')).strip()
                 buffer_time_val = int(row['상하차시간']) if '상하차시간' in df.columns and pd.notna(row['상하차시간']) else 10
                 sx, sy = address_cache.get(store_address_val, (None, None))
 
@@ -175,14 +170,17 @@ def admin():
                     delivery_date=delivery_date, 
                     center_name=center_name_val,
                     center_address=center_addr_val, 
-                    vehicle_num=str(row['차량번호']).strip(),
+                    vehicle_num=str(row.get('차량번호', '')).strip(),
                     driver_name=driver_name, 
-                    store_code=store_code_val, 
-                    store_name=str(row['매장명']).strip(),
+                    store_code=str(row.get('매장코드', '')).strip(), 
+                    store_name=str(row.get('매장명', '')).strip(),
                     store_address=store_address_val, 
                     delivery_seq=seq_value, 
                     buffer_time=buffer_time_val, 
-                    store_x=sx, store_y=sy
+                    store_x=sx, store_y=sy,
+                    driver_phone=str(row.get('기사전화번호', '')).strip(),
+                    store_phone=str(row.get('매장전화번호', '')).strip(),
+                    template_name=str(row.get('템플릿양식', '')).strip()
                 )
                 db.session.add(dispatch_entry)
             db.session.commit()
@@ -193,121 +191,8 @@ def admin():
             
     all_data = Dispatch.query.order_by(Dispatch.delivery_date, Dispatch.driver_name, Dispatch.delivery_seq).all()
     centers = Center.query.all()
-    contacts = Contact.query.order_by(Contact.contact_type, Contact.name).all() # 연락처 데이터 추가 전달
-    return render_template('admin.html', dispatches=all_data, centers=centers, contacts=contacts)
+    return render_template('admin.html', dispatches=all_data, centers=centers)
 
-# ==========================================
-# 💡 [신규] 연락처 업로드 및 삭제 API
-# ==========================================
-@app.route('/admin/upload_contacts', methods=['POST'])
-def upload_contacts():
-    contact_text = request.form.get('contact_text')
-    if contact_text:
-        try:
-            df = pd.read_csv(io.StringIO(contact_text), sep='\t')
-            df.columns = df.columns.str.replace(' ', '')
-            for index, row in df.iterrows():
-                ctype = str(row.iloc[0]).strip()
-                name = str(row.iloc[1]).strip()
-                phone = str(row.iloc[2]).strip()
-                
-                existing = Contact.query.filter_by(contact_type=ctype, name=name).first()
-                if existing:
-                    existing.phone = phone
-                else:
-                    db.session.add(Contact(contact_type=ctype, name=name, phone=phone))
-            db.session.commit()
-        except Exception as e:
-            db.session.rollback()
-            return f"오류 발생: {str(e)} <br><br>엑셀 양식(구분, 이름, 연락처)이 맞는지 확인해주세요."
-    return redirect(url_for('admin'))
-
-@app.route('/admin/delete_contact/<int:contact_id>', methods=['POST'])
-def delete_contact(contact_id):
-    c = Contact.query.get(contact_id)
-    if c:
-        db.session.delete(c)
-        db.session.commit()
-    return redirect(url_for('admin'))
-
-# ==========================================
-# 💡 [신규] SMS 문자 발송 관리 페이지 라우트
-# ==========================================
-@app.route('/sms')
-def sms_page():
-    if not session.get('is_admin'): return redirect(url_for('admin_login'))
-    # 센터를 출발한 배차 데이터만 가져옴
-    departed_dispatches = Dispatch.query.filter(Dispatch.center_depart_time != None).order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
-    return render_template('sms.html', dispatches=departed_dispatches)
-
-@app.route('/download_sms_excel')
-def download_sms_excel():
-    if not session.get('is_admin'): return redirect(url_for('admin_login'))
-    
-    # 출발한 배차내역만 필터링 (완료된 건은 제외하려면 not is_departed 조건 추가 가능)
-    departed_dispatches = Dispatch.query.filter(Dispatch.center_depart_time != None).order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
-    
-    data_list = []
-    for d in departed_dispatches:
-        # DB에서 연락처 조회
-        store_contact = Contact.query.filter_by(contact_type='매장', name=d.store_name).first()
-        driver_contact = Contact.query.filter_by(contact_type='기사', name=d.driver_name).first()
-        
-        store_phone = store_contact.phone if store_contact else "번호없음(마스터등록요망)"
-        driver_phone = driver_contact.phone if driver_contact else "번호없음"
-        
-        eta_str = d.estimated_arrival.strftime('%H시 %M분') if d.estimated_arrival else "계산중"
-        
-        # 💡 사내 전산용 문자 템플릿 양식 적용
-        sms_content = f"""안녕하세요 {d.store_name} 점주님!
-(주)제때 입니다.
-금일 도착예정시간 사전안내드립니다.
-도착예정시간 : {eta_str}
-※ 교통상황에 따라 30분~1시간정도 차이날 수 있습니다.
-빠른 배송될 수 있도록 노력하겠습니다. 감사합니다.
-
-[차량정보]
-배송기사 : {d.driver_name}
-차량번호 : {d.vehicle_num}
-연락처 : {driver_phone}
-
-[고객센터]
-전화번호 : 1668-3136
-운영시간 : 09~18시 운영 (월-토)"""
-
-        data_list.append({
-            '수신인': d.store_name,
-            '연락처': store_phone,
-            '제목': f"[(주)제때] {d.store_name} 배송예정시간 안내",
-            '내용': sms_content,
-            '발신번호': '1668-3136'
-        })
-        
-    df = pd.DataFrame(data_list)
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='문자발송양식')
-        worksheet = writer.sheets['문자발송양식']
-        
-        # 열 너비 설정
-        worksheet.column_dimensions['A'].width = 25
-        worksheet.column_dimensions['B'].width = 20
-        worksheet.column_dimensions['C'].width = 35
-        worksheet.column_dimensions['D'].width = 50
-        worksheet.column_dimensions['E'].width = 15
-        
-        # 내용(D열) 셀 내에서 줄바꿈(엔터) 적용
-        from openpyxl.styles import Alignment
-        for row in worksheet.iter_rows(min_col=4, max_col=4, min_row=2):
-            for cell in row:
-                cell.alignment = Alignment(wrap_text=True)
-                
-    output.seek(0)
-    today_str = datetime.now().strftime('%Y%m%d')
-    return send_file(output, download_name=f"{today_str}_알림톡발송양식.xlsx", as_attachment=True)
-
-
-# --- 이하 기존 API (admin_add_center 등)는 이전 코드와 동일하게 유지 ---
 @app.route('/admin/add_center', methods=['POST'])
 def add_center():
     name = request.form.get('center_name').strip()
@@ -371,18 +256,13 @@ def update_driver(dispatch_id):
             old_driver = dispatch.driver_name
             dispatch.driver_name = new_driver
             dispatch.vehicle_num = new_vehicle
-            
             if new_driver != old_driver:
                 max_seq_dispatch = Dispatch.query.filter_by(driver_name=new_driver).order_by(Dispatch.delivery_seq.desc()).first()
-                if max_seq_dispatch:
-                    dispatch.delivery_seq = max_seq_dispatch.delivery_seq + 1
-                else:
-                    dispatch.delivery_seq = 1
-                
+                if max_seq_dispatch: dispatch.delivery_seq = max_seq_dispatch.delivery_seq + 1
+                else: dispatch.delivery_seq = 1
             db.session.commit()
             update_etas_for_driver(old_driver)
-            if new_driver != old_driver:
-                update_etas_for_driver(new_driver)
+            if new_driver != old_driver: update_etas_for_driver(new_driver)
             db.session.commit()
     return redirect(url_for('admin'))
 
@@ -392,29 +272,24 @@ def driver():
     dispatches = []
     route_chunks = [] 
     date_str = ""
-    
     if name:
         dispatches = Dispatch.query.filter_by(driver_name=name).order_by(Dispatch.delivery_seq).all()
         if not dispatches:
-            return f"<script>alert('{name} 기사님의 배차 내역이 존재하지 않습니다.\\n이름을 다시 확인해주세요.'); window.location.href='/driver';</script>"
-
+            return f"<script>alert('{name} 기사님의 배차 내역이 존재하지 않습니다.'); window.location.href='/driver';</script>"
         display_date = datetime.now().date()
         if dispatches and dispatches[0].delivery_date: display_date = dispatches[0].delivery_date
         weekdays = ['월', '화', '수', '목', '금', '토', '일']
         date_str = display_date.strftime('%y%m%d') + f"({weekdays[display_date.weekday()]})"
-
         valid_dispatches = [d for d in dispatches if d.store_x and d.store_y and not d.is_departed]
         chunk_size = 5
         for i in range(0, len(valid_dispatches), chunk_size):
             chunk = valid_dispatches[i:i+chunk_size]
             dest_d = chunk[-1]
             ep_y, ep_x = float(dest_d.store_y), float(dest_d.store_x)
-            
             kakaomap_app_url = f"kakaomap://route?ep={ep_y},{ep_x}&by=CAR"
             for idx, wp in enumerate(chunk[:-1]):
                 vp_key = 'vp' if idx == 0 else f"vp{idx+1}"
                 kakaomap_app_url += f"&{vp_key}={float(wp.store_y)},{float(wp.store_x)}"
-            
             center_addr = dispatches[0].center_address if dispatches[0].center_address else dispatches[0].store_address
             origin_encoded = urllib.parse.quote(center_addr)
             dest_encoded = urllib.parse.quote(dest_d.store_address)
@@ -423,15 +298,10 @@ def driver():
             if waypoint_addrs:
                 wp_encoded = urllib.parse.quote("|".join(waypoint_addrs))
                 google_map_url += f"&waypoints={wp_encoded}"
-            
-            start_num = chunk[0].delivery_seq
-            end_num = chunk[-1].delivery_seq
             route_chunks.append({
-                'title': f"📱 코스 ({start_num}~{end_num}번)",
-                'url': kakaomap_app_url,
-                'pc_url': google_map_url 
+                'title': f"📱 코스 ({chunk[0].delivery_seq}~{chunk[-1].delivery_seq}번)",
+                'url': kakaomap_app_url, 'pc_url': google_map_url 
             })
-
     return render_template('driver.html', dispatches=dispatches, driver_name=name, route_chunks=route_chunks, date_str=date_str)
 
 @app.route('/depart_center', methods=['POST'])
@@ -440,13 +310,11 @@ def depart_center():
     manual_time_str = request.form.get('manual_time') 
     dispatches = Dispatch.query.filter_by(driver_name=driver_name).order_by(Dispatch.delivery_seq).all()
     if not dispatches: return "데이터 없음", 404
-        
     depart_dt = datetime.now() 
     if manual_time_str:
         today = datetime.now().date()
         time_obj = datetime.strptime(manual_time_str, '%H:%M').time()
         depart_dt = datetime.combine(today, time_obj)
-        
     for d in dispatches: d.center_depart_time = depart_dt
     db.session.commit()
     update_etas_for_driver(driver_name)
@@ -456,8 +324,7 @@ def depart_center():
 @app.route('/cancel_depart', methods=['POST'])
 def cancel_depart():
     driver_name = request.form.get('driver_name')
-    dispatches = Dispatch.query.filter_by(driver_name=driver_name).all()
-    for d in dispatches:
+    for d in Dispatch.query.filter_by(driver_name=driver_name).all():
         d.center_depart_time = None
         d.estimated_arrival = None
     db.session.commit()
@@ -482,9 +349,7 @@ def update_seq(dispatch_id):
         new_seq = request.form.get('new_seq', type=int)
         if new_seq:
             completed_count = Dispatch.query.filter_by(driver_name=dispatch.driver_name, is_departed=True).count()
-            if new_seq <= completed_count:
-                new_seq = completed_count + 1
-                
+            if new_seq <= completed_count: new_seq = completed_count + 1
             dispatch.delivery_seq = new_seq
             db.session.commit()
             update_etas_for_driver(dispatch.driver_name)
@@ -501,12 +366,10 @@ def update_order():
         if first_dispatch:
             driver_name = first_dispatch.driver_name
             completed_count = Dispatch.query.filter_by(driver_name=driver_name, is_departed=True).count()
-            
             for index, item_id in enumerate(order_data):
                 dispatch = Dispatch.query.get(int(item_id))
                 if dispatch and not dispatch.is_departed:
                     dispatch.delivery_seq = completed_count + index + 1
-                    
         db.session.commit()
         if driver_name:
             update_etas_for_driver(driver_name)
@@ -516,7 +379,6 @@ def update_order():
 @app.route('/dashboard')
 def dashboard():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
-    
     unique_centers = [c.name for c in Center.query.all()]
     all_dispatches = Dispatch.query.order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
     stats = {}
@@ -527,43 +389,38 @@ def dashboard():
         if d.is_departed: stats[name]['completed'] += 1
         else: stats[name]['remaining'] += 1
         stats[name]['details'].append(d)
-            
     for name, data in stats.items():
-        if data['total'] > 0: data['progress'] = int((data['completed'] / data['total']) * 100)
-        else: data['progress'] = 0
-            
-    total_vehicles = len(stats)
-    completed_vehicles = sum(1 for data in stats.values() if data['remaining'] == 0)
-    pending_vehicles = total_vehicles - completed_vehicles
-    vehicle_stats = {'total': total_vehicles, 'completed': completed_vehicles, 'pending': pending_vehicles}
-            
+        data['progress'] = int((data['completed'] / data['total']) * 100) if data['total'] > 0 else 0
+    vehicle_stats = {
+        'total': len(stats),
+        'completed': sum(1 for data in stats.values() if data['remaining'] == 0),
+        'pending': len(stats) - sum(1 for data in stats.values() if data['remaining'] == 0)
+    }
     return render_template('dashboard.html', stats=stats, vehicle_stats=vehicle_stats, unique_centers=unique_centers)
 
+# 💡 [수정] 다운로드 시 센터 필터 적용
 @app.route('/download_excel')
 def download_excel():
-    all_data = Dispatch.query.order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
+    center_filter = request.args.get('center_name', '')
+    query = Dispatch.query
+    if center_filter:
+        query = query.filter_by(center_name=center_filter)
+    all_data = query.order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
+    
     data_list = []
     for d in all_data:
         data_list.append({
-            '센터명': d.center_name,
-            '출발센터주소': d.center_address,
-            '배송일자': d.delivery_date,
-            '차량번호': d.vehicle_num,
-            '기사명': d.driver_name,
-            '매장코드': d.store_code,
-            '매장명': d.store_name,
-            '도착예정시간': d.estimated_arrival.strftime('%H:%M') if d.estimated_arrival else '-',
+            '센터명': d.center_name, '출발센터주소': d.center_address, '배송일자': d.delivery_date,
+            '차량번호': d.vehicle_num, '기사명': d.driver_name, '매장코드': d.store_code,
+            '매장명': d.store_name, '도착예정시간': d.estimated_arrival.strftime('%H:%M') if d.estimated_arrival else '-',
             '실제완료시간': d.departure_time.strftime('%H:%M') if d.departure_time else '미완료',
             '센터출발시간': d.center_depart_time.strftime('%H:%M') if d.center_depart_time else '미출발',
-            '완료여부': '완료' if d.is_departed else '대기',
-            '배송순서': d.delivery_seq,
-            '상하차시간(분)': d.buffer_time,
-            '매장주소': d.store_address
+            '완료여부': '완료' if d.is_departed else '대기', '배송순서': d.delivery_seq,
+            '상하차시간(분)': d.buffer_time, '매장주소': d.store_address
         })
     df = pd.DataFrame(data_list)
     today_str = datetime.now().strftime('%Y-%m-%d')
     if all_data and all_data[0].delivery_date: today_str = all_data[0].delivery_date.strftime('%Y-%m-%d')
-    filename = f"{today_str}_배송순서.xlsx"
     
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -578,37 +435,30 @@ def download_excel():
                     if val_len > max_len: max_len = val_len
             worksheet.column_dimensions[column_cells[0].column_letter].width = max_len + 2
     output.seek(0)
-    return send_file(output, download_name=filename, as_attachment=True)
+    return send_file(output, download_name=f"{center_filter}_{today_str}_배송시간.xlsx" if center_filter else f"{today_str}_배송시간.xlsx", as_attachment=True)
 
 @app.route('/download_template')
 def download_template():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
     today_str = datetime.now().strftime('%Y-%m-%d')
     example_data = {
-        '센터명': ['밀양센터', '오산센터'],
-        '배송일자': [today_str, today_str],
-        '차량번호': ['임시00임 0000', '임시00임 1111'],
-        '기사명': ['홍길동', '이순신'],
-        '매장코드': ['S001', 'S002'],
-        '매장명': ['강남A', '강남B'],
+        '센터명': ['밀양센터', '오산센터'], '배송일자': [today_str, today_str],
+        '차량번호': ['임시00임 0000', '임시00임 1111'], '기사명': ['홍길동', '이순신'],
+        '매장코드': ['S001', 'S002'], '매장명': ['강남A', '강남B'],
         '매장주소': ['서울특별시 강남구 테헤란로 123', '서울특별시 강남구 테헤란로 456'],
-        '배송순서': [1, 2],
-        '상하차시간': [10, 10]
+        '배송순서': [1, 2], '상하차시간(분)': [10, 10], 
+        '기사전화번호': ['010-1234-5678', '010-9876-5432'], '매장전화번호': ['02-111-2222', '031-333-4444'],
+        '템플릿양식': ['A 양식', 'B 양식']
     }
     df = pd.DataFrame(example_data)
-    
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='업로드양식')
         worksheet = writer.sheets['업로드양식']
-        
         for col_idx, col_name in enumerate(df.columns, 1):
             cell = worksheet.cell(row=1, column=col_idx)
-            if col_name == '배송순서':
-                cell.comment = Comment('공란이어도 됩니다.', 'Admin')
-            elif col_name == '상하차시간':
-                cell.comment = Comment('공란이어도 됩니다. (기본값: 10분)', 'Admin')
-
+            if col_name == '배송순서': cell.comment = Comment('공란이어도 됩니다.', 'Admin')
+            elif col_name == '상하차시간(분)': cell.comment = Comment('공란이어도 됩니다. (기본값: 10분)', 'Admin')
         for column_cells in worksheet.columns:
             max_len = 0
             for cell in column_cells:
@@ -617,9 +467,99 @@ def download_template():
                     val_len = sum(2 if ord(c) > 127 else 1.2 for c in val_str)
                     if val_len > max_len: max_len = val_len
             worksheet.column_dimensions[column_cells[0].column_letter].width = max_len + 2
-            
     output.seek(0)
     return send_file(output, download_name="JETTE_배차업로드양식.xlsx", as_attachment=True)
+
+# ==========================================
+# 💡 [신규] SMS 템플릿 및 발송 관리 라우트
+# ==========================================
+@app.route('/sms')
+def sms_page():
+    if not session.get('is_admin'): return redirect(url_for('admin_login'))
+    templates = SmsTemplate.query.all()
+    unique_centers = [c.name for c in Center.query.all()]
+    
+    # 뷰 렌더링용으로 모든 출발건 가져오기 (필터링은 화면에서 JS로)
+    departed_dispatches = Dispatch.query.filter(Dispatch.center_depart_time != None).order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
+    return render_template('sms.html', dispatches=departed_dispatches, templates=templates, unique_centers=unique_centers)
+
+@app.route('/sms/add_template', methods=['POST'])
+def add_template():
+    if not session.get('is_admin'): return redirect(url_for('admin_login'))
+    name = request.form.get('template_name').strip()
+    content = request.form.get('template_content').strip()
+    
+    if name and content:
+        existing = SmsTemplate.query.filter_by(name=name).first()
+        if existing:
+            existing.content = content
+        else:
+            db.session.add(SmsTemplate(name=name, content=content))
+        db.session.commit()
+    return redirect(url_for('sms_page'))
+
+@app.route('/sms/delete_template/<int:template_id>', methods=['POST'])
+def delete_template(template_id):
+    if not session.get('is_admin'): return redirect(url_for('admin_login'))
+    t = SmsTemplate.query.get(template_id)
+    if t:
+        db.session.delete(t)
+        db.session.commit()
+    return redirect(url_for('sms_page'))
+
+@app.route('/download_sms_excel')
+def download_sms_excel():
+    if not session.get('is_admin'): return redirect(url_for('admin_login'))
+    center_filter = request.args.get('center_name', '')
+    
+    query = Dispatch.query.filter(Dispatch.center_depart_time != None)
+    if center_filter:
+        query = query.filter_by(center_name=center_filter)
+        
+    departed_dispatches = query.order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
+    templates_dict = {t.name: t.content for t in SmsTemplate.query.all()}
+    
+    data_list = []
+    for d in departed_dispatches:
+        eta_str = d.estimated_arrival.strftime('%H시 %M분') if d.estimated_arrival else "계산중"
+        content_template = templates_dict.get(d.template_name, "안녕하세요 {매장명} 점주님!\n도착예정시간: {도착예정시간}\n기사명: {기사명}\n연락처: {기사전화번호}")
+        
+        # 💡 치환(Replace) 로직 적용
+        sms_content = content_template.replace('{매장명}', d.store_name)\
+                                      .replace('{도착예정시간}', eta_str)\
+                                      .replace('{기사명}', d.driver_name)\
+                                      .replace('{차량번호}', d.vehicle_num)\
+                                      .replace('{기사전화번호}', d.driver_phone if d.driver_phone else "번호없음")
+        
+        store_phone = d.store_phone if d.store_phone else "번호없음"
+        
+        data_list.append({
+            '수신인': d.store_name,
+            '연락처': store_phone,
+            '제목': f"[(주)제때] {d.store_name} 배송예정시간 안내",
+            '내용': sms_content,
+            '발신번호': '1668-3136'
+        })
+        
+    df = pd.DataFrame(data_list)
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='문자발송양식')
+        worksheet = writer.sheets['문자발송양식']
+        worksheet.column_dimensions['A'].width = 25
+        worksheet.column_dimensions['B'].width = 20
+        worksheet.column_dimensions['C'].width = 35
+        worksheet.column_dimensions['D'].width = 50
+        worksheet.column_dimensions['E'].width = 15
+        
+        from openpyxl.styles import Alignment
+        for row in worksheet.iter_rows(min_col=4, max_col=4, min_row=2):
+            for cell in row: cell.alignment = Alignment(wrap_text=True)
+                
+    output.seek(0)
+    today_str = datetime.now().strftime('%Y%m%d')
+    filename = f"{center_filter}_{today_str}_알림톡발송양식.xlsx" if center_filter else f"{today_str}_알림톡발송양식.xlsx"
+    return send_file(output, download_name=filename, as_attachment=True)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

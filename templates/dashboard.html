@@ -45,7 +45,7 @@
         
         .progress-container { width: 100%; background-color: #e9ecef; border-radius: 5px; margin-top: 15px; overflow: hidden; }
         .progress-bar { height: 20px; background-color: #28a745; text-align: center; line-height: 20px; color: white; font-size: 12px; font-weight: bold; transition: width 0.5s ease-in-out; }
-        .btn-excel { background-color: #198754; color: white; text-decoration: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; font-size: 15px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        .btn-excel { background-color: #198754; color: white; text-decoration: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; font-size: 15px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2); cursor: pointer; border: none; font-family: 'Binggrae-Two'; }
         .details-btn { width: 100%; background-color: #f1f3f5; color: #495057; border: 1px solid #dee2e6; padding: 10px; margin-top: 15px; font-weight: bold; border-radius: 4px; cursor: pointer; font-family: 'Binggrae-Two'; }
         
         .details-content { display: none; margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 10px; }
@@ -84,6 +84,12 @@
                 element.style.display = "none"; btn.innerHTML = "매장별 상세정보 보기 ▾";
             }
         }
+        
+        // 💡 [신규] 센터 필터 값에 따라 다운로드 요청을 보내는 함수
+        function downloadExcelFiltered() {
+            let center = document.getElementById('dashboardCenterFilter').value;
+            window.location.href = "/download_excel?center_name=" + encodeURIComponent(center);
+        }
     </script>
 </head>
 <body>
@@ -102,7 +108,8 @@
             <h1 style="margin:0; color: #2c3e50; font-size: 24px;">🏢 실시간 배송 현황판</h1>
             <p style="margin-top:5px; color:#555; font-size: 14px;">전체 운행 차량 및 기사님별 배송 진척률</p>
         </div>
-        <a href="/download_excel" class="btn-excel">📥 배송시간 다운로드</a>
+        <!-- 💡 버튼 클릭 시 자바스크립트 함수 실행 -->
+        <button onclick="downloadExcelFiltered()" class="btn-excel">📥 센터별 배송시간 다운로드</button>
     </div>
 
     <div class="summary-dashboard">
@@ -121,7 +128,6 @@
     </div>
 
     <div class="search-box">
-        <!-- 💡 센터 전용 필터 기능 추가 -->
         <select id="dashboardCenterFilter" onchange="filterDashboard()">
             <option value="">🏢 전체 센터 보기</option>
             {% for center in unique_centers %}
@@ -133,7 +139,6 @@
 
     <div class="dashboard-grid">
         {% for name, data in stats.items() %}
-        <!-- 💡 data-center 속성 추가로 검색 연동 -->
         <div class="stat-card" data-name="{{ name }}" data-vehicle="{{ data.vehicle }}" data-center="{{ data.details[0].center_name if data.details else '' }}">
             
             {% if data.details and data.details[0].center_depart_time %}
@@ -145,7 +150,6 @@
             <div class="driver-name">🚚 {{ name }} 기사님</div>
             <div class="vehicle-num">차량번호: {{ data.vehicle }}</div>
             
-            <!-- 💡 소속 센터 정보 추가 -->
             <div class="stat-row" style="margin-bottom: 15px; border-bottom: 1px dashed #ced4da; padding-bottom: 10px;">
                 <span>소속 센터:</span><span style="font-weight: bold; color: #082c84;">{{ data.details[0].center_name if data.details else '-' }}</span>
             </div>

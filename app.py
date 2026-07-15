@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, send_file, session
-from models import db, Dispatch, Center  # 💡 Center 모델 추가
+from models import db, Dispatch, Center, Contact  # 💡 Contact 모델 추가
 import pandas as pd
 import io
 from datetime import datetime, timedelta
@@ -162,10 +162,9 @@ def admin():
                     seq_value = driver_seq_counter[driver_name]
                     driver_seq_counter[driver_name] += 1
 
-                # 💡 [핵심] 엑셀의 '센터명'으로 DB에서 센터 주소를 자동으로 불러옵니다!
                 center_name_val = str(row['센터명']).strip() if '센터명' in df.columns and pd.notna(row['센터명']) else ''
                 center_obj = Center.query.filter_by(name=center_name_val).first()
-                center_addr_val = center_obj.address if center_obj else '' # 등록되지 않은 센터면 공백
+                center_addr_val = center_obj.address if center_obj else ''
 
                 store_code_val = str(row['매장코드']).strip() if '매장코드' in df.columns and pd.notna(row['매장코드']) else ''
                 store_address_val = str(row['매장주소']).strip() if '매장주소' in df.columns and pd.notna(row['매장주소']) else ''
@@ -194,9 +193,121 @@ def admin():
             
     all_data = Dispatch.query.order_by(Dispatch.delivery_date, Dispatch.driver_name, Dispatch.delivery_seq).all()
     centers = Center.query.all()
-    return render_template('admin.html', dispatches=all_data, centers=centers)
+    contacts = Contact.query.order_by(Contact.contact_type, Contact.name).all() # 연락처 데이터 추가 전달
+    return render_template('admin.html', dispatches=all_data, centers=centers, contacts=contacts)
 
-# 💡 [신규] 센터 등록, 삭제, 센터별 데이터 삭제 API들
+# ==========================================
+# 💡 [신규] 연락처 업로드 및 삭제 API
+# ==========================================
+@app.route('/admin/upload_contacts', methods=['POST'])
+def upload_contacts():
+    contact_text = request.form.get('contact_text')
+    if contact_text:
+        try:
+            df = pd.read_csv(io.StringIO(contact_text), sep='\t')
+            df.columns = df.columns.str.replace(' ', '')
+            for index, row in df.iterrows():
+                ctype = str(row.iloc[0]).strip()
+                name = str(row.iloc[1]).strip()
+                phone = str(row.iloc[2]).strip()
+                
+                existing = Contact.query.filter_by(contact_type=ctype, name=name).first()
+                if existing:
+                    existing.phone = phone
+                else:
+                    db.session.add(Contact(contact_type=ctype, name=name, phone=phone))
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            return f"오류 발생: {str(e)} <br><br>엑셀 양식(구분, 이름, 연락처)이 맞는지 확인해주세요."
+    return redirect(url_for('admin'))
+
+@app.route('/admin/delete_contact/<int:contact_id>', methods=['POST'])
+def delete_contact(contact_id):
+    c = Contact.query.get(contact_id)
+    if c:
+        db.session.delete(c)
+        db.session.commit()
+    return redirect(url_for('admin'))
+
+# ==========================================
+# 💡 [신규] SMS 문자 발송 관리 페이지 라우트
+# ==========================================
+@app.route('/sms')
+def sms_page():
+    if not session.get('is_admin'): return redirect(url_for('admin_login'))
+    # 센터를 출발한 배차 데이터만 가져옴
+    departed_dispatches = Dispatch.query.filter(Dispatch.center_depart_time != None).order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
+    return render_template('sms.html', dispatches=departed_dispatches)
+
+@app.route('/download_sms_excel')
+def download_sms_excel():
+    if not session.get('is_admin'): return redirect(url_for('admin_login'))
+    
+    # 출발한 배차내역만 필터링 (완료된 건은 제외하려면 not is_departed 조건 추가 가능)
+    departed_dispatches = Dispatch.query.filter(Dispatch.center_depart_time != None).order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
+    
+    data_list = []
+    for d in departed_dispatches:
+        # DB에서 연락처 조회
+        store_contact = Contact.query.filter_by(contact_type='매장', name=d.store_name).first()
+        driver_contact = Contact.query.filter_by(contact_type='기사', name=d.driver_name).first()
+        
+        store_phone = store_contact.phone if store_contact else "번호없음(마스터등록요망)"
+        driver_phone = driver_contact.phone if driver_contact else "번호없음"
+        
+        eta_str = d.estimated_arrival.strftime('%H시 %M분') if d.estimated_arrival else "계산중"
+        
+        # 💡 사내 전산용 문자 템플릿 양식 적용
+        sms_content = f"""안녕하세요 {d.store_name} 점주님!
+(주)제때 입니다.
+금일 도착예정시간 사전안내드립니다.
+도착예정시간 : {eta_str}
+※ 교통상황에 따라 30분~1시간정도 차이날 수 있습니다.
+빠른 배송될 수 있도록 노력하겠습니다. 감사합니다.
+
+[차량정보]
+배송기사 : {d.driver_name}
+차량번호 : {d.vehicle_num}
+연락처 : {driver_phone}
+
+[고객센터]
+전화번호 : 1668-3136
+운영시간 : 09~18시 운영 (월-토)"""
+
+        data_list.append({
+            '수신인': d.store_name,
+            '연락처': store_phone,
+            '제목': f"[(주)제때] {d.store_name} 배송예정시간 안내",
+            '내용': sms_content,
+            '발신번호': '1668-3136'
+        })
+        
+    df = pd.DataFrame(data_list)
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='문자발송양식')
+        worksheet = writer.sheets['문자발송양식']
+        
+        # 열 너비 설정
+        worksheet.column_dimensions['A'].width = 25
+        worksheet.column_dimensions['B'].width = 20
+        worksheet.column_dimensions['C'].width = 35
+        worksheet.column_dimensions['D'].width = 50
+        worksheet.column_dimensions['E'].width = 15
+        
+        # 내용(D열) 셀 내에서 줄바꿈(엔터) 적용
+        from openpyxl.styles import Alignment
+        for row in worksheet.iter_rows(min_col=4, max_col=4, min_row=2):
+            for cell in row:
+                cell.alignment = Alignment(wrap_text=True)
+                
+    output.seek(0)
+    today_str = datetime.now().strftime('%Y%m%d')
+    return send_file(output, download_name=f"{today_str}_알림톡발송양식.xlsx", as_attachment=True)
+
+
+# --- 이하 기존 API (admin_add_center 등)는 이전 코드와 동일하게 유지 ---
 @app.route('/admin/add_center', methods=['POST'])
 def add_center():
     name = request.form.get('center_name').strip()
@@ -406,8 +517,7 @@ def update_order():
 def dashboard():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
     
-    unique_centers = [c.name for c in Center.query.all()] # 💡 대시보드 필터용
-    
+    unique_centers = [c.name for c in Center.query.all()]
     all_dispatches = Dispatch.query.order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
     stats = {}
     for d in all_dispatches:
@@ -474,7 +584,6 @@ def download_excel():
 def download_template():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
     today_str = datetime.now().strftime('%Y-%m-%d')
-    # 💡 엑셀 첫 열을 '센터명'으로 업데이트
     example_data = {
         '센터명': ['밀양센터', '오산센터'],
         '배송일자': [today_str, today_str],

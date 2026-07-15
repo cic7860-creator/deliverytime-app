@@ -2,17 +2,24 @@ from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
-# 💡 [신규] 센터 정보를 저장하는 테이블
+# 센터 테이블
 class Center(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False, unique=True)
     address = db.Column(db.String(255), nullable=False)
 
-# 기존 배차 테이블 (센터명 컬럼 추가)
+# 💡 [신규] 기사 및 매장 연락처 마스터 테이블
+class Contact(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    contact_type = db.Column(db.String(20)) # '기사' 또는 '매장'
+    name = db.Column(db.String(100))        # 기사명 또는 매장명
+    phone = db.Column(db.String(50))        # 연락처
+
+# 배차 테이블
 class Dispatch(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     delivery_date = db.Column(db.Date)
-    center_name = db.Column(db.String(100))     # 💡 신규: 센터명
+    center_name = db.Column(db.String(100))
     center_address = db.Column(db.String(255))
     vehicle_num = db.Column(db.String(50))
     driver_name = db.Column(db.String(100))

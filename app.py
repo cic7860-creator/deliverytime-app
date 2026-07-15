@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, send_file, session
-from models import db, Dispatch
+from models import db, Dispatch, Center  # 💡 Center 모델 추가
 import pandas as pd
 import io
 from datetime import datetime, timedelta
@@ -8,8 +8,6 @@ import requests
 import urllib3
 import json
 import concurrent.futures
-
-# 💡 openpyxl의 comments 모듈을 임포트하여 엑셀 메모 기능을 사용합니다.
 from openpyxl.comments import Comment
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -17,11 +15,9 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
 app.secret_key = 'jette_super_secret_admin_key' 
 
 db.init_app(app)
-
 with app.app_context():
     db.create_all()
 
@@ -36,8 +32,7 @@ def get_coords(address):
     headers = {"Authorization": f"KakaoAK {KAKAO_API_KEY}"}
     try:
         resp = kakao_session.get(url, headers=headers, verify=False, timeout=5).json()
-        if resp.get('documents'):
-            return resp['documents'][0]['x'], resp['documents'][0]['y']
+        if resp.get('documents'): return resp['documents'][0]['x'], resp['documents'][0]['y']
     except Exception: pass
     return None, None
 
@@ -45,10 +40,8 @@ def get_driving_time(start_x, start_y, end_x, end_y):
     try:
         sx, sy, ex, ey = round(float(start_x), 4), round(float(start_y), 4), round(float(end_x), 4), round(float(end_y), 4)
         cache_key = f"{sx},{sy}_{ex},{ey}"
-        if cache_key in route_time_cache:
-            return route_time_cache[cache_key]
-    except Exception:
-        cache_key = None
+        if cache_key in route_time_cache: return route_time_cache[cache_key]
+    except Exception: cache_key = None
 
     url = f"https://apis-navi.kakaomobility.com/v1/directions?origin={start_x},{start_y}&destination={end_x},{end_y}"
     headers = {"Authorization": f"KakaoAK {KAKAO_API_KEY}"}
@@ -56,8 +49,7 @@ def get_driving_time(start_x, start_y, end_x, end_y):
         resp = kakao_session.get(url, headers=headers, verify=False, timeout=2).json()
         if resp.get('routes'): 
             duration = resp['routes'][0]['summary']['duration']
-            if cache_key:
-                route_time_cache[cache_key] = duration
+            if cache_key: route_time_cache[cache_key] = duration
             return duration
     except Exception: pass
     return 25 * 60 
@@ -137,6 +129,7 @@ def admin_logout():
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
+    
     if request.method == 'POST':
         excel_text = request.form.get('excel_text')
         if not excel_text or excel_text.strip() == '': return "입력된 데이터가 없습니다.", 400
@@ -145,6 +138,7 @@ def admin():
             df.columns = df.columns.str.replace(' ', '')
             driver_seq_counter = {}
             address_cache = {}
+            
             if '매장주소' in df.columns:
                 unique_addresses = df['매장주소'].dropna().astype(str).str.strip().unique()
                 unique_addresses = [addr for addr in unique_addresses if addr]
@@ -168,19 +162,28 @@ def admin():
                     seq_value = driver_seq_counter[driver_name]
                     driver_seq_counter[driver_name] += 1
 
-                center_addr_val = str(row['출발센터주소']).strip() if '출발센터주소' in df.columns and pd.notna(row['출발센터주소']) else ''
+                # 💡 [핵심] 엑셀의 '센터명'으로 DB에서 센터 주소를 자동으로 불러옵니다!
+                center_name_val = str(row['센터명']).strip() if '센터명' in df.columns and pd.notna(row['센터명']) else ''
+                center_obj = Center.query.filter_by(name=center_name_val).first()
+                center_addr_val = center_obj.address if center_obj else '' # 등록되지 않은 센터면 공백
+
                 store_code_val = str(row['매장코드']).strip() if '매장코드' in df.columns and pd.notna(row['매장코드']) else ''
                 store_address_val = str(row['매장주소']).strip() if '매장주소' in df.columns and pd.notna(row['매장주소']) else ''
-                
-                # 💡 [수정] 상하차시간의 기본값을 15분에서 10분으로 변경했습니다.
                 buffer_time_val = int(row['상하차시간']) if '상하차시간' in df.columns and pd.notna(row['상하차시간']) else 10
-                
                 sx, sy = address_cache.get(store_address_val, (None, None))
 
                 dispatch_entry = Dispatch(
-                    delivery_date=delivery_date, center_address=center_addr_val, vehicle_num=str(row['차량번호']).strip(),
-                    driver_name=driver_name, store_code=store_code_val, store_name=str(row['매장명']).strip(),
-                    store_address=store_address_val, delivery_seq=seq_value, buffer_time=buffer_time_val, store_x=sx, store_y=sy
+                    delivery_date=delivery_date, 
+                    center_name=center_name_val,
+                    center_address=center_addr_val, 
+                    vehicle_num=str(row['차량번호']).strip(),
+                    driver_name=driver_name, 
+                    store_code=store_code_val, 
+                    store_name=str(row['매장명']).strip(),
+                    store_address=store_address_val, 
+                    delivery_seq=seq_value, 
+                    buffer_time=buffer_time_val, 
+                    store_x=sx, store_y=sy
                 )
                 db.session.add(dispatch_entry)
             db.session.commit()
@@ -190,7 +193,35 @@ def admin():
             return f"오류 발생: {str(e)} <br><br><a href='/admin'>돌아가기</a>"
             
     all_data = Dispatch.query.order_by(Dispatch.delivery_date, Dispatch.driver_name, Dispatch.delivery_seq).all()
-    return render_template('admin.html', dispatches=all_data)
+    centers = Center.query.all()
+    return render_template('admin.html', dispatches=all_data, centers=centers)
+
+# 💡 [신규] 센터 등록, 삭제, 센터별 데이터 삭제 API들
+@app.route('/admin/add_center', methods=['POST'])
+def add_center():
+    name = request.form.get('center_name').strip()
+    address = request.form.get('center_address').strip()
+    if name and address:
+        if not Center.query.filter_by(name=name).first():
+            db.session.add(Center(name=name, address=address))
+            db.session.commit()
+    return redirect(url_for('admin'))
+
+@app.route('/admin/delete_center/<int:center_id>', methods=['POST'])
+def delete_center(center_id):
+    c = Center.query.get(center_id)
+    if c:
+        db.session.delete(c)
+        db.session.commit()
+    return redirect(url_for('admin'))
+
+@app.route('/admin/delete_by_center', methods=['POST'])
+def delete_by_center():
+    center_name = request.form.get('center_name')
+    if center_name:
+        Dispatch.query.filter_by(center_name=center_name).delete()
+        db.session.commit()
+    return redirect(url_for('admin'))
 
 @app.route('/admin/delete_all', methods=['POST'])
 def delete_all():
@@ -374,6 +405,9 @@ def update_order():
 @app.route('/dashboard')
 def dashboard():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
+    
+    unique_centers = [c.name for c in Center.query.all()] # 💡 대시보드 필터용
+    
     all_dispatches = Dispatch.query.order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
     stats = {}
     for d in all_dispatches:
@@ -393,7 +427,7 @@ def dashboard():
     pending_vehicles = total_vehicles - completed_vehicles
     vehicle_stats = {'total': total_vehicles, 'completed': completed_vehicles, 'pending': pending_vehicles}
             
-    return render_template('dashboard.html', stats=stats, vehicle_stats=vehicle_stats)
+    return render_template('dashboard.html', stats=stats, vehicle_stats=vehicle_stats, unique_centers=unique_centers)
 
 @app.route('/download_excel')
 def download_excel():
@@ -401,6 +435,7 @@ def download_excel():
     data_list = []
     for d in all_data:
         data_list.append({
+            '센터명': d.center_name,
             '출발센터주소': d.center_address,
             '배송일자': d.delivery_date,
             '차량번호': d.vehicle_num,
@@ -439,11 +474,12 @@ def download_excel():
 def download_template():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
     today_str = datetime.now().strftime('%Y-%m-%d')
+    # 💡 엑셀 첫 열을 '센터명'으로 업데이트
     example_data = {
-        '출발센터주소': ['경상남도 밀양시 부북면 사포로 91', '경상남도 밀양시 부북면 사포로 91'],
+        '센터명': ['밀양센터', '오산센터'],
         '배송일자': [today_str, today_str],
-        '차량번호': ['임시00임 0000', '임시00임 0000'],
-        '기사명': ['홍길동', '홍길동'],
+        '차량번호': ['임시00임 0000', '임시00임 1111'],
+        '기사명': ['홍길동', '이순신'],
         '매장코드': ['S001', 'S002'],
         '매장명': ['강남A', '강남B'],
         '매장주소': ['서울특별시 강남구 테헤란로 123', '서울특별시 강남구 테헤란로 456'],
@@ -457,7 +493,6 @@ def download_template():
         df.to_excel(writer, index=False, sheet_name='업로드양식')
         worksheet = writer.sheets['업로드양식']
         
-        # 💡 [신규] 배송순서, 상하차시간 제목 셀에 메모 삽입
         for col_idx, col_name in enumerate(df.columns, 1):
             cell = worksheet.cell(row=1, column=col_idx)
             if col_name == '배송순서':

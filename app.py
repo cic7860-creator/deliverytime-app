@@ -9,6 +9,8 @@ import urllib3
 import json
 import concurrent.futures
 from openpyxl.comments import Comment
+# 💡 [신규] 엑셀 디자인(테두리, 색상, 정렬)을 위한 라이브러리 추가
+from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -94,6 +96,34 @@ def update_etas_for_driver(driver_name):
             current_departure = arrival_time + timedelta(minutes=d.buffer_time)
             current_x, current_y = d.store_x, d.store_y
 
+# 💡 [신규] 엑셀 스타일 일괄 적용 함수 (테두리, 볼드, 회색배경, 가운데 정렬)
+def apply_excel_styles(worksheet, df, is_sms=False):
+    thin_border = Border(left=Side(style='thin'), right=Side(style='thin'),
+                         top=Side(style='thin'), bottom=Side(style='thin'))
+    header_fill = PatternFill(start_color="E9ECEF", end_color="E9ECEF", fill_type="solid") # 연한 회색
+    header_font = Font(bold=True)
+    center_align = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    left_align = Alignment(horizontal='left', vertical='center', wrap_text=True)
+
+    # 1. 제목행 디자인
+    for col_idx in range(1, len(df.columns) + 1):
+        cell = worksheet.cell(row=1, column=col_idx)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.border = thin_border
+        cell.alignment = center_align
+
+    # 2. 데이터행 디자인 (전체 테두리 + 중앙정렬)
+    for row_idx in range(2, len(df) + 2):
+        for col_idx in range(1, len(df.columns) + 1):
+            cell = worksheet.cell(row=row_idx, column=col_idx)
+            cell.border = thin_border
+            # SMS 양식의 D열(내용)만 가독성을 위해 왼쪽 정렬
+            if is_sms and col_idx == 4:
+                cell.alignment = left_align
+            else:
+                cell.alignment = center_align
+
 @app.route('/')
 def home(): return redirect(url_for('admin_login'))
 
@@ -163,7 +193,7 @@ def admin():
                 center_addr_val = center_obj.address if center_obj else ''
 
                 store_address_val = str(row.get('매장주소', '')).strip()
-                buffer_time_val = int(row['상하차시간']) if '상하차시간' in df.columns and pd.notna(row['상하차시간']) else 10
+                buffer_time_val = int(row['상하차시간(분)']) if '상하차시간(분)' in df.columns and pd.notna(row['상하차시간(분)']) else 10
                 sx, sy = address_cache.get(store_address_val, (None, None))
 
                 dispatch_entry = Dispatch(
@@ -231,6 +261,25 @@ def delete_dispatch(dispatch_id):
     if d:
         db.session.delete(d)
         db.session.commit()
+    return redirect(url_for('admin'))
+
+# 💡 [신규] 매장 주소 개별 수정 API (수정 즉시 카카오 좌표 다시 따오기)
+@app.route('/admin/update_address/<int:dispatch_id>', methods=['POST'])
+def update_address(dispatch_id):
+    dispatch = Dispatch.query.get(dispatch_id)
+    if dispatch:
+        new_address = request.form.get('new_address', '').strip()
+        if new_address:
+            dispatch.store_address = new_address
+            # 주소 변경 시 카카오 API를 통해 좌표 재검색
+            sx, sy = get_coords(new_address)
+            dispatch.store_x = sx
+            dispatch.store_y = sy
+            db.session.commit()
+            
+            # ETA 재계산
+            update_etas_for_driver(dispatch.driver_name)
+            db.session.commit()
     return redirect(url_for('admin'))
 
 @app.route('/admin/update_buffer/<int:dispatch_id>', methods=['POST'])
@@ -398,13 +447,11 @@ def dashboard():
     }
     return render_template('dashboard.html', stats=stats, vehicle_stats=vehicle_stats, unique_centers=unique_centers)
 
-# 💡 [수정] 다운로드 시 센터 필터 적용
 @app.route('/download_excel')
 def download_excel():
     center_filter = request.args.get('center_name', '')
     query = Dispatch.query
-    if center_filter:
-        query = query.filter_by(center_name=center_filter)
+    if center_filter: query = query.filter_by(center_name=center_filter)
     all_data = query.order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
     
     data_list = []
@@ -426,6 +473,9 @@ def download_excel():
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='배송시간')
         worksheet = writer.sheets['배송시간']
+        # 💡 [신규] 서식 일괄 적용
+        apply_excel_styles(worksheet, df)
+        # 열 너비 조절
         for column_cells in worksheet.columns:
             max_len = 0
             for cell in column_cells:
@@ -455,10 +505,15 @@ def download_template():
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='업로드양식')
         worksheet = writer.sheets['업로드양식']
+        
+        # 💡 [신규] 서식 일괄 적용
+        apply_excel_styles(worksheet, df)
+        
         for col_idx, col_name in enumerate(df.columns, 1):
             cell = worksheet.cell(row=1, column=col_idx)
             if col_name == '배송순서': cell.comment = Comment('공란이어도 됩니다.', 'Admin')
             elif col_name == '상하차시간(분)': cell.comment = Comment('공란이어도 됩니다. (기본값: 10분)', 'Admin')
+            
         for column_cells in worksheet.columns:
             max_len = 0
             for cell in column_cells:
@@ -470,16 +525,11 @@ def download_template():
     output.seek(0)
     return send_file(output, download_name="JETTE_배차업로드양식.xlsx", as_attachment=True)
 
-# ==========================================
-# 💡 [신규] SMS 템플릿 및 발송 관리 라우트
-# ==========================================
 @app.route('/sms')
 def sms_page():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
     templates = SmsTemplate.query.all()
     unique_centers = [c.name for c in Center.query.all()]
-    
-    # 뷰 렌더링용으로 모든 출발건 가져오기 (필터링은 화면에서 JS로)
     departed_dispatches = Dispatch.query.filter(Dispatch.center_depart_time != None).order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
     return render_template('sms.html', dispatches=departed_dispatches, templates=templates, unique_centers=unique_centers)
 
@@ -488,13 +538,10 @@ def add_template():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
     name = request.form.get('template_name').strip()
     content = request.form.get('template_content').strip()
-    
     if name and content:
         existing = SmsTemplate.query.filter_by(name=name).first()
-        if existing:
-            existing.content = content
-        else:
-            db.session.add(SmsTemplate(name=name, content=content))
+        if existing: existing.content = content
+        else: db.session.add(SmsTemplate(name=name, content=content))
         db.session.commit()
     return redirect(url_for('sms_page'))
 
@@ -513,9 +560,7 @@ def download_sms_excel():
     center_filter = request.args.get('center_name', '')
     
     query = Dispatch.query.filter(Dispatch.center_depart_time != None)
-    if center_filter:
-        query = query.filter_by(center_name=center_filter)
-        
+    if center_filter: query = query.filter_by(center_name=center_filter)
     departed_dispatches = query.order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
     templates_dict = {t.name: t.content for t in SmsTemplate.query.all()}
     
@@ -523,22 +568,17 @@ def download_sms_excel():
     for d in departed_dispatches:
         eta_str = d.estimated_arrival.strftime('%H시 %M분') if d.estimated_arrival else "계산중"
         content_template = templates_dict.get(d.template_name, "안녕하세요 {매장명} 점주님!\n도착예정시간: {도착예정시간}\n기사명: {기사명}\n연락처: {기사전화번호}")
-        
-        # 💡 치환(Replace) 로직 적용
         sms_content = content_template.replace('{매장명}', d.store_name)\
                                       .replace('{도착예정시간}', eta_str)\
                                       .replace('{기사명}', d.driver_name)\
                                       .replace('{차량번호}', d.vehicle_num)\
                                       .replace('{기사전화번호}', d.driver_phone if d.driver_phone else "번호없음")
-        
         store_phone = d.store_phone if d.store_phone else "번호없음"
         
         data_list.append({
-            '수신인': d.store_name,
-            '연락처': store_phone,
+            '수신인': d.store_name, '연락처': store_phone,
             '제목': f"[(주)제때] {d.store_name} 배송예정시간 안내",
-            '내용': sms_content,
-            '발신번호': '1668-3136'
+            '내용': sms_content, '발신번호': '1668-3136'
         })
         
     df = pd.DataFrame(data_list)
@@ -546,15 +586,15 @@ def download_sms_excel():
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='문자발송양식')
         worksheet = writer.sheets['문자발송양식']
+        
+        # 💡 [신규] 서식 일괄 적용 (문자 내용은 왼쪽 정렬)
+        apply_excel_styles(worksheet, df, is_sms=True)
+        
         worksheet.column_dimensions['A'].width = 25
         worksheet.column_dimensions['B'].width = 20
         worksheet.column_dimensions['C'].width = 35
         worksheet.column_dimensions['D'].width = 50
         worksheet.column_dimensions['E'].width = 15
-        
-        from openpyxl.styles import Alignment
-        for row in worksheet.iter_rows(min_col=4, max_col=4, min_row=2):
-            for cell in row: cell.alignment = Alignment(wrap_text=True)
                 
     output.seek(0)
     today_str = datetime.now().strftime('%Y%m%d')

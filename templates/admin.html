@@ -25,7 +25,7 @@
         .btn-danger { background-color: #dc3545; color: white; padding: 8px 15px; font-size: 14px; }
         .section-title { margin-top: 40px; border-bottom: 2px solid #dee2e6; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
         .table-responsive { overflow-x: auto; margin-top: 15px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05); }
-        table { width: 100%; border-collapse: collapse; min-width: 1100px; background-color: white; }
+        table { width: 100%; border-collapse: collapse; min-width: 1200px; background-color: white; }
         th, td { padding: 14px 12px; text-align: left; border-bottom: 1px solid #dee2e6; font-size: 14px; vertical-align: middle; }
         th { background-color: #f8f9fa; font-weight: bold; color: #495057; white-space: nowrap; border-top: 2px solid #dee2e6; border-bottom: 2px solid #dee2e6; }
         tr:hover { background-color: #f1f3f5; }
@@ -106,7 +106,7 @@
             </div>
             
             <div class="info-box" style="font-size: 14px; padding: 15px;">
-                💡 <b>새로운 양식 안내:</b> 센터명 / 배송일자 / 차량번호 / 기사명 / 매장코드 / 매장명 / 매장주소 / 배송순서 / 상하차시간(분) / <span class="highlight-text">기사전화번호 / 매장전화번호 / 템플릿양식</span><br>
+                💡 <b>양식 안내:</b> 센터명 / 배송일자 / 차량번호 / 기사명 / 매장코드 / 매장명 / 매장주소 / 배송순서 / 상하차시간(분) / <span class="highlight-text">기사전화번호 / 매장전화번호 / 템플릿양식</span><br>
                 총 12개 열을 제목 행부터 끝까지 모두 드래그 복사하여 아래에 붙여넣어 주세요!
             </div>
             
@@ -156,7 +156,7 @@
                         <th class="text-center">기사명 / 차량</th>
                         <th>매장명</th>
                         <th class="text-center">순서</th>
-                        <th>매장 주소</th>
+                        <th style="width: 220px;">매장 주소 (오류시 즉시 수정)</th>
                         <th class="text-center">시간 수정</th>
                         <th class="text-center">배차 이관</th>
                         <th class="text-center">개별관리</th>
@@ -172,12 +172,20 @@
                         </td>
                         <td style="font-weight: bold; color: #333;">{{ d.store_name }}</td>
                         <td class="text-center" style="font-weight: bold;">{{ d.delivery_seq }}</td>
-                        <td style="font-size: 13px; color: #555;">
-                            {{ d.store_address }}
-                            {% if not d.store_x or not d.store_y %}
-                                <div style="color: #dc3545; font-weight: bold; font-size: 12px; margin-top: 4px;">🚨 주소 인식 실패 (수정 요망)</div>
-                            {% endif %}
+                        
+                        <!-- 💡 [신규] 매장 주소를 즉석에서 고칠 수 있는 입력창 -->
+                        <td>
+                            <form action="/admin/update_address/{{ d.id }}" method="POST" style="display: flex; flex-direction: column; gap: 4px; margin: 0;">
+                                <div style="display: flex; gap: 4px;">
+                                    <input type="text" name="new_address" value="{{ d.store_address }}" style="width: 100%; padding: 5px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; font-size: 12px;">
+                                    <button type="submit" style="background:#6c757d; color:white; border:none; padding:5px 8px; border-radius:4px; cursor:pointer; font-weight:bold; font-size: 11px; white-space: nowrap;">주소적용</button>
+                                </div>
+                                {% if not d.store_x or not d.store_y %}
+                                    <div style="color: #dc3545; font-weight: bold; font-size: 11px; margin-top: 2px;">🚨 주소 인식 실패 (수정 요망)</div>
+                                {% endif %}
+                            </form>
                         </td>
+
                         <td class="no-wrap">
                             <form action="/admin/update_buffer/{{ d.id }}" method="POST" style="display: flex; justify-content: center; align-items: center; gap: 6px; margin: 0;">
                                 <input type="number" name="buffer_time" value="{{ d.buffer_time }}" style="width: 45px; padding: 5px; text-align: center; border: 1px solid #ced4da; border-radius: 4px; font-weight: bold;">
@@ -193,7 +201,7 @@
                         </td>
                         <td class="text-center no-wrap">
                             <form action="/admin/delete/{{ d.id }}" method="POST" onsubmit="return confirm('해당 매장 배차를 삭제하시겠습니까?');" style="margin:0;">
-                                <button type="submit" style="background:#6c757d; color:white; border:none; padding:5px 12px; border-radius:4px; cursor:pointer; font-weight:bold;">삭제</button>
+                                <button type="submit" style="background:#dc3545; color:white; border:none; padding:5px 12px; border-radius:4px; cursor:pointer; font-weight:bold;">삭제</button>
                             </form>
                         </td>
                     </tr>

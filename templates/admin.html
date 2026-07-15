@@ -114,7 +114,13 @@
                         </td>
                         <td style="font-weight: bold; color: #333;">{{ d.store_name }}</td>
                         <td class="text-center" style="font-weight: bold;">{{ d.delivery_seq }}</td>
-                        <td style="font-size: 13px; color: #555;">{{ d.store_address }}</td>
+                        <td style="font-size: 13px; color: #555;">
+                            {{ d.store_address }}
+                            <!-- 💡 [추가] 좌표(store_x/y)가 없으면 경고 표시 -->
+                            {% if not d.store_x or not d.store_y %}
+                                <div style="color: #dc3545; font-weight: bold; font-size: 12px; margin-top: 4px;">🚨 주소 인식 실패 (수정 요망)</div>
+                            {% endif %}
+                        </td>
                         
                         <td class="no-wrap">
                             <form action="/admin/update_buffer/{{ d.id }}" method="POST" style="display: flex; justify-content: center; align-items: center; gap: 6px; margin: 0;">

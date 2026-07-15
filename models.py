@@ -2,20 +2,17 @@ from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
-# 센터 테이블
 class Center(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False, unique=True)
     address = db.Column(db.String(255), nullable=False)
 
-# 💡 [신규] 기사 및 매장 연락처 마스터 테이블
-class Contact(db.Model):
+# 💡 [신규] 문자 양식 템플릿 보관함
+class SmsTemplate(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    contact_type = db.Column(db.String(20)) # '기사' 또는 '매장'
-    name = db.Column(db.String(100))        # 기사명 또는 매장명
-    phone = db.Column(db.String(50))        # 연락처
+    name = db.Column(db.String(100), nullable=False, unique=True) # 양식 이름 (예: A 양식)
+    content = db.Column(db.Text, nullable=False)                  # 양식 내용
 
-# 배차 테이블
 class Dispatch(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     delivery_date = db.Column(db.Date)
@@ -34,3 +31,8 @@ class Dispatch(db.Model):
     departure_time = db.Column(db.DateTime)
     estimated_arrival = db.Column(db.DateTime)
     center_depart_time = db.Column(db.DateTime)
+    
+    # 💡 [신규] 엑셀에서 바로 받아오는 추가 정보들
+    driver_phone = db.Column(db.String(50))
+    store_phone = db.Column(db.String(50))
+    template_name = db.Column(db.String(100))

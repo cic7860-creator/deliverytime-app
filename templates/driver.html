@@ -6,11 +6,7 @@
     <title>JETTE 배송 기사 앱</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <style>
-        @font-face {
-            font-family: 'Binggrae-Two';
-            src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Binggrae-Two.woff') format('woff');
-            font-weight: normal; font-style: normal;
-        }
+        @font-face { font-family: 'Binggrae-Two'; src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Binggrae-Two.woff') format('woff'); font-weight: normal; font-style: normal; }
         body { font-family: 'Binggrae-Two', sans-serif; margin: 0; box-sizing: border-box; background-color: #f0f2f5; }
 
         .login-wrapper { height: 100vh; background-color: #002d72; display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; }
@@ -53,20 +49,17 @@
         .btn-green { background-color: #082c84; color: white; }
         .btn-done { background-color: #adb5bd; color: white; cursor: not-allowed; }
 
-        /* 💡 순차적 공지사항 모달 디자인 */
+        /* 모달 디자인 (공통) */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center; }
         .modal-content { background: white; width: 90%; max-width: 400px; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.2); animation: popIn 0.3s ease-out; }
         @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         .modal-header { background: #082c84; color: white; padding: 15px 20px; font-size: 18px; font-weight: bold; }
+        .modal-header.success { background: #198754; } /* 💡 배송완료 팝업 전용 초록색 헤더 */
         .modal-body { padding: 20px; max-height: 60vh; overflow-y: auto; font-size: 15px; line-height: 1.5; color: #444; }
-        
-        /* 복사/붙여넣기 한 이미지가 모바일 화면을 넘어가지 않도록 보호 */
         .modal-body img { max-width: 100% !important; height: auto !important; border-radius: 6px; margin-top: 10px; }
-        
         .modal-footer { padding: 15px 20px; background: #f8f9fa; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #eee; }
     </style>
 
-    <!-- 💡 순차적 팝업 & 기사님 개별 쿠키 제어 스크립트 -->
     <script>
         function setCookie(name, value, expiredays) {
             var todayDate = new Date();
@@ -96,49 +89,41 @@
         function showNextNotice() {
             let modal = document.getElementById("noticeModal");
             if (!modal) return;
-
             while (currentNoticeIndex < noticeElements.length) {
                 let noticeNode = noticeElements[currentNoticeIndex];
                 let noticeId = noticeNode.getAttribute("data-id");
-                
-                // 💡 해당 공지사항 + 해당 기사님 고유의 쿠키 이름 생성 (완벽한 개별화)
                 let cookieName = "hide_notice_" + noticeId + "_" + encodeURIComponent(currentDriverName);
 
                 if (getCookie(cookieName) === "Y") {
-                    currentNoticeIndex++; // 이 공지는 이미 "오늘 하루 안보기" 처리됨, 다음으로 패스
+                    currentNoticeIndex++;
                 } else {
-                    // 화면에 데이터 세팅
                     document.getElementById("modal-header-title").innerHTML = "📢 " + noticeNode.getAttribute("data-title") + " <span style='font-size:12px; color:#ddd; float:right;'>" + (currentNoticeIndex+1) + "/" + noticeElements.length + "</span>";
                     document.getElementById("modal-body-content").innerHTML = noticeNode.innerHTML;
-                    
-                    // 체크박스 초기화 후 팝업 띄우기
                     document.getElementById("chkHideToday").checked = false;
                     modal.style.display = "flex";
-                    return; // 하나 띄우고 사용자가 닫을 때까지 함수 종료
+                    return;
                 }
             }
-            // 배열을 다 돌았으면 모달 완전히 숨김
             modal.style.display = "none";
         }
 
         function closeNoticeModal() {
             if (currentNoticeIndex >= noticeElements.length) return;
-
             let noticeNode = noticeElements[currentNoticeIndex];
             let noticeId = noticeNode.getAttribute("data-id");
             let cookieName = "hide_notice_" + noticeId + "_" + encodeURIComponent(currentDriverName);
             let chkBox = document.getElementById("chkHideToday");
-
-            // 체크했다면 쿠키 굽기
             if (chkBox && chkBox.checked) {
                 setCookie(cookieName, "Y", 1);
             }
-
             document.getElementById("noticeModal").style.display = "none";
-
-            // 닫은 후 다음 공지로 넘어감
             currentNoticeIndex++;
             showNextNotice();
+        }
+
+        // 💡 신규: 배송 완료 팝업 닫기 함수
+        function closeCompletionModal() {
+            document.getElementById("completionModal").style.display = "none";
         }
 
         window.addEventListener('DOMContentLoaded', function() {
@@ -147,7 +132,21 @@
                 let container = document.getElementById("notice-data-container");
                 if (container) {
                     noticeElements = Array.from(container.getElementsByClassName("notice-item-data"));
-                    showNextNotice(); // 페이지 로드 시 첫 번째 팝업 트리거
+                    showNextNotice();
+                }
+
+                // 💡 신규: 모든 배송이 완료되었는지 확인하고, 오늘 이 기사님에게 안 띄웠다면 띄우기
+                let isAllCompleted = document.getElementById("is_all_completed_flag");
+                let compModal = document.getElementById("completionModal");
+                if (isAllCompleted && isAllCompleted.value === "true" && compModal) {
+                    let dateStr = isAllCompleted.getAttribute("data-date");
+                    let compCookie = "completed_popup_" + dateStr + "_" + encodeURIComponent(currentDriverName);
+                    
+                    if (getCookie(compCookie) !== "Y") {
+                        // 일반 공지 팝업보다 우선하거나 나중에 띄움 (여기서는 z-index로 덮음)
+                        compModal.style.display = "flex";
+                        setCookie(compCookie, "Y", 1); // 띄우자마자 쿠키를 구워서 새로고침 시 다시 안 뜨게 함
+                    }
                 }
             }
         });
@@ -182,29 +181,54 @@
     </div>
     {% else %}
 
-    <!-- 💡 백그라운드에 숨겨두는 전체 공지사항 데이터 -->
+    <!-- 일반 공지사항 데이터 -->
     {% if active_notices %}
     <div id="notice-data-container" style="display: none;">
         {% for n in active_notices %}
-        <!-- safe 필터를 적용해 복사/붙여넣기 한 이미지 태그가 정상 출력되게 합니다 -->
         <div class="notice-item-data" data-id="{{ n.id }}" data-title="{{ n.title }}">
             {{ n.content | safe }}
         </div>
         {% endfor %}
     </div>
 
-    <!-- 💡 실제 화면에 하나씩 내용을 바꿔가며 띄울 단일 모달 틀 -->
+    <!-- 일반 공지사항 팝업창 -->
     <div id="noticeModal" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-header" id="modal-header-title">📢 공지사항</div>
-            <div class="modal-body" id="modal-body-content" style="white-space: pre-wrap;">
-                <!-- 내용이 JS로 주입됩니다 -->
-            </div>
+            <div class="modal-body" id="modal-body-content" style="white-space: pre-wrap;"></div>
             <div class="modal-footer">
                 <label style="font-size: 14px; cursor: pointer; color: #555;">
                     <input type="checkbox" id="chkHideToday" style="width:18px; height:18px; vertical-align:middle; margin-right:5px;"> 오늘 하루 보지 않기
                 </label>
                 <button onclick="closeNoticeModal()" style="background:#082c84; color:white; border:none; padding:10px 18px; border-radius:6px; cursor:pointer; font-weight:bold;">확인 (다음)</button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 💡 신규: 배송 완료 상태 계산 -->
+    {% set total_count = dispatches|length %}
+    {% set completed_count = dispatches|selectattr('is_departed', 'equalto', True)|list|length %}
+    {% set is_all_completed = (total_count > 0 and total_count == completed_count) %}
+    
+    <input type="hidden" id="is_all_completed_flag" value="{{ 'true' if is_all_completed else 'false' }}" data-date="{{ date_str }}">
+
+    <!-- 💡 신규: 배송 완료 축하 팝업창 -->
+    {% if is_all_completed and completion_setting and completion_setting.content %}
+    <div id="completionModal" class="modal-overlay" style="z-index: 10001;">
+        <div class="modal-content" style="text-align: center; padding-bottom: 20px;">
+            <div class="modal-header success">🎉 모든 배송 완료!</div>
+            <div class="modal-body" style="padding-top: 30px;">
+                <h2 style="color: #082c84; margin-top: 0; margin-bottom: 5px;">고생하셨습니다!</h2>
+                <p style="font-size: 16px; font-weight: bold; color: #dc3545; background: #ffebee; padding: 10px; border-radius: 6px;">반드시 카카오톡 배송 승인을 완료해 주세요.</p>
+                
+                <!-- 관리자가 붙여넣기 한 이미지/텍스트 노출 구역 -->
+                <div style="margin-top: 15px;">
+                    {{ completion_setting.content | safe }}
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content: center; background: white; border-top: none;">
+                <button onclick="closeCompletionModal()" style="background:#198754; color:white; border:none; padding:12px 30px; border-radius:6px; font-weight:bold; font-size:16px; cursor:pointer; width: 100%;">확인했습니다</button>
             </div>
         </div>
     </div>

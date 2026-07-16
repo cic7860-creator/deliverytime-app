@@ -293,16 +293,28 @@ def driver():
     dispatches = []
     route_chunks = []
     date_str = ""
-    active_notices = Notice.query.filter_by(is_active=True).order_by(Notice.created_at.desc()).all()
+    active_notices = []
+    completion_setting = CompletionSetting.query.first() # 💡 완료 팝업 데이터 가져오기
 
     if name:
         dispatches = Dispatch.query.filter_by(driver_name=name).order_by(Dispatch.delivery_seq).all()
         if not dispatches:
             return f"<script>alert('{name} 기사님의 배차 내역이 존재하지 않습니다.'); window.location.href='/driver';</script>"
+        
         display_date = datetime.now().date()
         if dispatches and dispatches[0].delivery_date: display_date = dispatches[0].delivery_date
         weekdays = ['월', '화', '수', '목', '금', '토', '일']
         date_str = display_date.strftime('%y%m%d') + f"({weekdays[display_date.weekday()]})"
+
+        # 💡 특정 기사님 대상 공지 필터링 로직
+        all_active_notices = Notice.query.filter_by(is_active=True).order_by(Notice.created_at.desc()).all()
+        for n in all_active_notices:
+            if not n.target_drivers or n.target_drivers.strip() == '':
+                active_notices.append(n) # 지정 없으면 모두에게 보임
+            else:
+                targets = [t.strip() for t in n.target_drivers.split(',')]
+                if name in targets:
+                    active_notices.append(n) # 이름이 포함된 기사님에게만 보임
 
         valid_dispatches = [d for d in dispatches if d.store_x and d.store_y and not d.is_departed]
         chunk_size = 5
@@ -314,7 +326,7 @@ def driver():
             for idx, wp in enumerate(chunk[:-1]):
                 vp_key = 'vp' if idx == 0 else f"vp{idx+1}"
                 kakaomap_app_url += f"&{vp_key}={float(wp.store_y)},{float(wp.store_x)}"
-
+            
             center_addr = dispatches[0].center_address if dispatches[0].center_address else dispatches[0].store_address
             origin_encoded = urllib.parse.quote(center_addr)
             dest_encoded = urllib.parse.quote(dest_d.store_address)
@@ -328,7 +340,7 @@ def driver():
                 'title': f"📱 코스 ({chunk[0].delivery_seq}~{chunk[-1].delivery_seq}번)",
                 'url': kakaomap_app_url, 'pc_url': google_map_url
             })
-    return render_template('driver.html', dispatches=dispatches, driver_name=name, route_chunks=route_chunks, date_str=date_str, active_notices=active_notices)
+    return render_template('driver.html', dispatches=dispatches, driver_name=name, route_chunks=route_chunks, date_str=date_str, active_notices=active_notices, completion_setting=completion_setting)
 
 @app.route('/depart_center', methods=['POST'])
 def depart_center():
@@ -602,16 +614,32 @@ def download_sms_excel():
 def notice_page():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
     notices = Notice.query.order_by(Notice.created_at.desc()).all()
-    return render_template('notice.html', notices=notices)
+    completion_setting = CompletionSetting.query.first() # 💡 신규
+    return render_template('notice.html', notices=notices, completion_setting=completion_setting)
 
 @app.route('/notice/add', methods=['POST'])
 def add_notice():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
-    title = request.form.get('title').strip()
-    content = request.form.get('content').strip()
+    title = request.form.get('title', '').strip()
+    content = request.form.get('content', '').strip()
+    target_drivers = request.form.get('target_drivers', '').strip() # 💡 신규
     if title and content:
-        db.session.add(Notice(title=title, content=content, is_active=True))
+        db.session.add(Notice(title=title, content=content, target_drivers=target_drivers, is_active=True))
         db.session.commit()
+    return redirect(url_for('notice_page'))
+
+# 💡 (신규 추가) 배송 완료 팝업 이미지 저장 라우트
+@app.route('/notice/update_completion', methods=['POST'])
+def update_completion():
+    if not session.get('is_admin'): return redirect(url_for('admin_login'))
+    content = request.form.get('completion_content', '').strip()
+    setting = CompletionSetting.query.first()
+    if not setting:
+        setting = CompletionSetting(content=content)
+        db.session.add(setting)
+    else:
+        setting.content = content
+    db.session.commit()
     return redirect(url_for('notice_page'))
 
 @app.route('/notice/delete/<int:notice_id>', methods=['POST'])

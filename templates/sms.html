@@ -66,11 +66,12 @@
             window.location.href = "/download_sms_excel?center_name=" + encodeURIComponent(center);
         }
 
-        // 💡 [업데이트] 수정 버튼 클릭 시 폼에 내용 채워주기
-        function editTemplate(id, name, subject, content) {
+        // 💡 [업데이트] 수정 시 발신번호 값도 채워주기
+        function editTemplate(id, name, subject, sender, content) {
             document.getElementById('template_id').value = id;
             document.getElementById('template_name').value = name;
             document.getElementById('template_subject').value = subject;
+            document.getElementById('template_sender').value = sender;
             document.getElementById('template_content').value = content;
             document.getElementById('form_title').innerText = "✏️ 선택한 양식 수정 중...";
             document.getElementById('submit_btn').innerText = "수정 완료하기";
@@ -84,6 +85,7 @@
             document.getElementById('template_id').value = "";
             document.getElementById('template_name').value = "";
             document.getElementById('template_subject').value = "";
+            document.getElementById('template_sender').value = "";
             document.getElementById('template_content').value = "";
             document.getElementById('form_title').innerText = "✨ 새 양식 추가";
             document.getElementById('submit_btn').innerText = "새 양식 저장하기";
@@ -101,13 +103,13 @@
                 <a href="/driver" target="_blank">📱 기사님 페이지</a>
                 <a href="/dashboard">📊 실시간 대시보드</a>
                 <a href="/sms" style="color: #ffe812;">✉️ 도착안내 문자 발송</a>
-                <a href="/notice">📢 공지사항 관리</a> <!-- 💡 네비게이션 추가 -->
+                <a href="/notice">📢 공지사항 관리</a>
             </div>
             <a href="/admin_logout" style="color: #ff6b6b;">🚪 로그아웃</a>
         </div>
 
         <div class="template-section">
-            <h3 style="margin-top: 0; color: #082c84; border-bottom: 2px solid #dee2e6; padding-bottom: 10px;">📝 문자 양식(템플릿) 및 제목 관리</h3>
+            <h3 style="margin-top: 0; color: #082c84; border-bottom: 2px solid #dee2e6; padding-bottom: 10px;">📝 문자 양식(템플릿) 관리</h3>
             <div class="template-grid">
                 <!-- 입력/수정 폼 -->
                 <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #ced4da;">
@@ -115,17 +117,18 @@
                         <h4 id="form_title" style="margin: 0; color: #082c84;">✨ 새 양식 추가</h4>
                         <button id="cancel_btn" onclick="resetForm()" class="btn-sm btn-danger" style="display: none;">취소 (새로 작성)</button>
                     </div>
-                    <p style="font-size: 13px; color: #6c757d; margin-top: 0;">
-                        💡 <b>자동 변환 단어:</b> <span style="color: #dc3545; font-weight: bold;">{매장명} / {도착예정시간} / {기사명} / {차량번호} / {기사전화번호}</span>
-                    </p>
                     <form action="/sms/add_template" method="POST">
                         <input type="hidden" name="template_id" id="template_id">
                         
                         <label style="font-size: 13px; font-weight: bold;">양식 구분명 (엑셀에 적을 이름)</label>
                         <input type="text" name="template_name" id="template_name" class="form-control" placeholder="예) A 양식" required style="margin-bottom: 10px;">
                         
-                        <label style="font-size: 13px; font-weight: bold; color: #082c84;">문자 발송 제목 (고객에게 보이는 제목)</label>
+                        <label style="font-size: 13px; font-weight: bold; color: #082c84;">문자 발송 제목</label>
                         <input type="text" name="template_subject" id="template_subject" class="form-control" placeholder="예) [(주)제때] {매장명} 도착 안내" required style="margin-bottom: 10px;">
+                        
+                        <!-- 💡 신규: 발신번호 입력창 -->
+                        <label style="font-size: 13px; font-weight: bold; color: #198754;">발신번호 (고객에게 보이는 번호)</label>
+                        <input type="text" name="template_sender" id="template_sender" class="form-control" placeholder="예) 1668-3136" required style="margin-bottom: 10px;">
                         
                         <label style="font-size: 13px; font-weight: bold;">문자 본문 내용</label>
                         <textarea name="template_content" id="template_content" class="form-control" rows="6" placeholder="내용을 입력하세요..." required style="margin-bottom: 10px;"></textarea>
@@ -135,21 +138,22 @@
                 </div>
                 
                 <!-- 리스트 목록 -->
-                <div style="max-height: 400px; overflow-y: auto; border: 1px solid #ced4da; padding: 10px; border-radius: 4px; background: #fff;">
+                <div style="max-height: 440px; overflow-y: auto; border: 1px solid #ced4da; padding: 10px; border-radius: 4px; background: #fff;">
                     <h4 style="margin: 0 0 10px 0;">등록된 양식 리스트</h4>
                     {% for t in templates %}
                     <div style="background: white; padding: 10px; border-radius: 4px; border: 1px solid #dee2e6; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #ccc; padding-bottom: 5px; margin-bottom: 5px;">
                             <strong style="color: #082c84; font-size: 16px;">📂 {{ t.name }}</strong>
                             <div style="display: flex; gap: 5px;">
-                                <!-- 💡 [업데이트] 수정 버튼 클릭 시 폼으로 값 전달 -->
-                                <button onclick="editTemplate('{{ t.id }}', '{{ t.name }}', '{{ t.subject }}', `{{ t.content }}`)" class="btn-sm btn-edit">수정</button>
+                                <!-- 💡 수정 버튼 클릭 시 발신번호 정보도 함께 넘김 -->
+                                <button onclick="editTemplate('{{ t.id }}', '{{ t.name }}', '{{ t.subject }}', '{{ t.sender_phone if t.sender_phone else '' }}', `{{ t.content }}`)" class="btn-sm btn-edit">수정</button>
                                 <form action="/sms/delete_template/{{ t.id }}" method="POST" style="margin:0;" onsubmit="return confirm('이 양식을 삭제하시겠습니까?');">
                                     <button type="submit" class="btn-sm btn-danger">삭제</button>
                                 </form>
                             </div>
                         </div>
-                        <div style="font-size: 13px; font-weight: bold; color: #333; margin-bottom: 5px;">제목: {{ t.subject }}</div>
+                        <div style="font-size: 13px; font-weight: bold; color: #333; margin-bottom: 3px;">제목: {{ t.subject }}</div>
+                        <div style="font-size: 13px; font-weight: bold; color: #198754; margin-bottom: 5px;">발신: {{ t.sender_phone if t.sender_phone else '번호없음' }}</div>
                         <div style="font-size: 12px; color: #555; white-space: pre-wrap;">{{ t.content }}</div>
                     </div>
                     {% else %}

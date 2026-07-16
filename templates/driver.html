@@ -6,42 +6,50 @@
     <title>JETTE 배송 기사 앱</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <style>
-        @font-face { font-family: 'Binggrae-Two'; src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Binggrae-Two.woff') format('woff'); font-weight: normal; font-style: normal; }
+        @font-face {
+            font-family: 'Binggrae-Two';
+            src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Binggrae-Two.woff') format('woff');
+            font-weight: normal; font-style: normal;
+        }
         body { font-family: 'Binggrae-Two', sans-serif; margin: 0; box-sizing: border-box; background-color: #f0f2f5; }
-
+        
         .login-wrapper { height: 100vh; background-color: #002d72; display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; }
         .login-card { background: white; border-radius: 25px; width: 100%; max-width: 360px; padding: 50px 30px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); box-sizing: border-box; }
         .logo-container { margin-bottom: 50px; }
+        
         .jette-logo { font-size: 65px; font-weight: 900; font-family: 'Arial Black', sans-serif; letter-spacing: -2px; }
-        .logo-blue { color: #082c84; }
-        .logo-gray { color: #94908a; }
-
+        .logo-blue { color: #082c84; } 
+        .logo-gray { color: #94908a; } 
+        
         .input-group { display: flex; align-items: center; border-bottom: 1px solid #ccc; margin-bottom: 40px; padding-bottom: 8px; }
         .input-icon { font-size: 22px; margin-right: 15px; color: #111; }
         .input-field { border: none; outline: none; font-size: 18px; width: 100%; color: #333; font-family: 'Binggrae-Two', sans-serif;}
         .input-field::placeholder { color: #aaa; }
+        
         .btn-login { background-color: #082c84; color: white; border: none; width: 100%; padding: 16px; font-size: 18px; font-weight: bold; border-radius: 6px; cursor: pointer; }
-
+        
         .dashboard-wrapper { padding: 10px; }
         .header-container { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
         .course-btn { background-color: #ffe812; color: #3c1e1e; text-decoration: none; padding: 8px; border-radius: 4px; font-size: 13px; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.15); text-align: center; flex: 1; display: block; }
-        .pc-link { font-size: 11px; text-align: center; color: #082c84; text-decoration: underline; margin-top: 4px; display: block; font-weight: bold; }
+        .pc-link { font-size: 11px; text-align: center; color: #082c84; text-decoration: underline; margin-top: 4px; display: block; font-weight: bold;}
         .center-depart-box { background-color: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 2px solid #90caf9; }
-
+        
         .item-list { display: flex; flex-direction: column; gap: 5px; }
         .item { display: flex; align-items: flex-start; background: white; padding: 10px; border-radius: 5px; border-left: 4px solid #082c84; box-shadow: 0 1px 3px rgba(0,0,0,0.1); gap: 8px; }
+        
         .item.completed { opacity: 0.65; border-left-color: #adb5bd; background: #f8f9fa; border: 1px dashed #ced4da; }
         .item.completed .store-name { text-decoration: line-through; color: #6c757d; }
+        
         .drag-handle { font-size: 20px; color: #adb5bd; padding: 0 5px; cursor: grab; align-self: center; }
-
+        
         .info-col { flex: 1; min-width: 0; }
         .store-name { font-size: 14px; font-weight: bold; color: #111; margin-bottom: 4px; }
         .store-addr { font-size: 12px; color: #555; line-height: 1.5; word-break: keep-all; overflow-wrap: break-word; white-space: normal; margin-top: 3px; padding-right: 5px; }
-
+        
         .action-col { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
         .compact-form { display: flex; align-items: center; gap: 2px; margin: 0; }
         .seq-input { width: 32px; padding: 4px; font-size: 12px; text-align: center; border: 1px solid #ccc; border-radius: 3px; font-family: 'Binggrae-Two'; }
-
+        
         .btn-sm { padding: 6px 10px; font-size: 12px; font-weight: bold; border-radius: 4px; border: none; cursor: pointer; text-align: center; white-space: nowrap; text-decoration: none; display: inline-block; font-family: 'Binggrae-Two';}
         .btn-gray { background-color: #6c757d; color: white; }
         .btn-map { background-color: #ffe812; color: #3c1e1e; }
@@ -53,9 +61,9 @@
         .modal-content { background: white; width: 90%; max-width: 400px; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.2); animation: popIn 0.3s ease-out; }
         @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         .modal-header { background: #082c84; color: white; padding: 15px 20px; font-size: 18px; font-weight: bold; }
-        .modal-header.success { background: #198754; } 
-        .modal-body { padding: 20px; max-height: 60vh; overflow-y: auto; font-size: 15px; line-height: 1.5; color: #444; }
-        .modal-body img { max-width: 100% !important; height: auto !important; border-radius: 6px; margin-top: 10px; }
+        .modal-body { padding: 20px; max-height: 60vh; overflow-y: auto; }
+        .notice-item { margin-bottom: 15px; border-bottom: 1px dashed #ccc; padding-bottom: 10px; }
+        .notice-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
         .modal-footer { padding: 15px 20px; background: #f8f9fa; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #eee; }
     </style>
 
@@ -80,86 +88,46 @@
             }
             return "";
         }
-
-        let currentNoticeIndex = 0;
-        let noticeElements = [];
-        let currentDriverName = new URLSearchParams(window.location.search).get('driver_name') || "";
-
-        function showNextNotice() {
-            let modal = document.getElementById("noticeModal");
-            if (!modal) return;
-            while (currentNoticeIndex < noticeElements.length) {
-                let noticeNode = noticeElements[currentNoticeIndex];
-                let noticeId = noticeNode.getAttribute("data-id");
-                let cookieName = "hide_notice_" + noticeId + "_" + encodeURIComponent(currentDriverName);
-
-                if (getCookie(cookieName) === "Y") {
-                    currentNoticeIndex++;
-                } else {
-                    document.getElementById("modal-header-title").innerHTML = "📢 " + noticeNode.getAttribute("data-title") + " <span style='font-size:12px; color:#ddd; float:right;'>" + (currentNoticeIndex+1) + "/" + noticeElements.length + "</span>";
-                    document.getElementById("modal-body-content").innerHTML = noticeNode.innerHTML;
-                    document.getElementById("chkHideToday").checked = false;
-                    modal.style.display = "flex";
-                    return;
-                }
-            }
-            modal.style.display = "none";
-        }
-
         function closeNoticeModal() {
-            if (currentNoticeIndex >= noticeElements.length) return;
-            let noticeNode = noticeElements[currentNoticeIndex];
-            let noticeId = noticeNode.getAttribute("data-id");
-            let cookieName = "hide_notice_" + noticeId + "_" + encodeURIComponent(currentDriverName);
-            let chkBox = document.getElementById("chkHideToday");
-            if (chkBox && chkBox.checked) {
-                setCookie(cookieName, "Y", 1);
+            let urlParams = new URLSearchParams(window.location.search);
+            let driverName = urlParams.get('driver_name');
+            if (document.getElementById("chkHideToday") && document.getElementById("chkHideToday").checked) {
+                if (driverName) {
+                    // 💡 신규 로직: 기사님 성함을 포함한 고유 쿠키 이름으로 저장
+                    setCookie("hide_notice_" + encodeURIComponent(driverName), "Y", 1);
+                }
             }
             document.getElementById("noticeModal").style.display = "none";
-            currentNoticeIndex++;
-            showNextNotice();
         }
-
-        function closeCompletionModal() {
-            document.getElementById("completionModal").style.display = "none";
-        }
-
         window.addEventListener('DOMContentLoaded', function() {
             let urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('driver_name')) {
-                let container = document.getElementById("notice-data-container");
-                if (container) {
-                    noticeElements = Array.from(container.getElementsByClassName("notice-item-data"));
-                    showNextNotice();
-                }
-
-                let isAllCompleted = document.getElementById("is_all_completed_flag");
-                let compModal = document.getElementById("completionModal");
-                if (isAllCompleted && isAllCompleted.value === "true" && compModal) {
-                    let dateStr = isAllCompleted.getAttribute("data-date");
-                    let compCookie = "completed_popup_" + dateStr + "_" + encodeURIComponent(currentDriverName);
-                    
-                    if (getCookie(compCookie) !== "Y") {
-                        compModal.style.display = "flex";
-                        setCookie(compCookie, "Y", 1);
-                    }
+            let driverName = urlParams.get('driver_name');
+            if (driverName) {
+                let modal = document.getElementById("noticeModal");
+                // 💡 신규 로직: 본인(기사님) 전용 쿠키만 확인
+                if (modal && getCookie("hide_notice_" + encodeURIComponent(driverName)) != "Y") {
+                    modal.style.display = "flex";
                 }
             }
         });
     </script>
 </head>
 <body>
+
     {% if session.get('is_admin') %}
+    <!-- 💡 관리자용 상단 네비게이션: 현재 접속 페이지 노란색 강조 -->
     <div style="background-color: #212529; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
         <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-            <a href="/admin" style="color: white; text-decoration: none; font-weight: bold;">🖥️ 데이터 입력</a>
-            <a href="/driver" style="color: #ffe812; text-decoration: none; font-weight: bold;">🌟 📱 기사님 페이지</a>
-            <a href="/dashboard" style="color: white; text-decoration: none; font-weight: bold;">📊 대시보드</a>
+            <a href="/admin" style="color: white; text-decoration: none; font-weight: bold;">🖥️ 데이터 입력 (홈)</a>
+            <a href="/driver" style="color: #ffe812; text-decoration: none; font-weight: bold;">📱 기사님 페이지</a>
+            <a href="/dashboard" style="color: white; text-decoration: none; font-weight: bold;">📊 실시간 대시보드</a>
+            <a href="/sms" style="color: white; text-decoration: none; font-weight: bold;">✉️ 도착안내 문자 발송</a>
+            <a href="/notice" style="color: white; text-decoration: none; font-weight: bold;">📢 공지사항 관리</a>
         </div>
         <a href="/admin_logout" style="color: #ff6b6b; text-decoration: none; font-weight: bold;">🚪 로그아웃</a>
     </div>
     {% endif %}
-
+    
     {% if not driver_name %}
     <div class="login-wrapper">
         <div class="login-card">
@@ -176,49 +144,32 @@
         </div>
     </div>
     {% else %}
-
+    
+    <!-- 공지사항 팝업 -->
     {% if active_notices %}
-    <div id="notice-data-container" style="display: none;">
-        {% for n in active_notices %}
-        <div class="notice-item-data" data-id="{{ n.id }}" data-title="{{ n.title }}">
-            {{ n.content | safe }}
-        </div>
-        {% endfor %}
-    </div>
-
     <div id="noticeModal" class="modal-overlay">
         <div class="modal-content">
-            <div class="modal-header" id="modal-header-title">📢 공지사항</div>
-            <div class="modal-body" id="modal-body-content" style="white-space: pre-wrap;"></div>
+            <div class="modal-header">📢 공지사항 (필독)</div>
+            <div class="modal-body">
+                {% for n in active_notices %}
+                <div class="notice-item">
+                    <strong style="color: #082c84; font-size: 16px; display: block; margin-bottom: 5px;">{{ n.title }}</strong>
+                    <div style="font-size: 14px; white-space: pre-wrap; color: #444; margin-bottom: 10px;">{{ n.content }}</div>
+                    {% if n.image_list %}
+                    <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
+                        {% for img in n.image_list %}
+                            <img src="/static/uploads/{{ img }}" style="width: 100%; max-height: 280px; border-radius: 8px; object-fit: contain; background-color: #f1f3f5; border: 1px solid #dee2e6;">
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
             <div class="modal-footer">
                 <label style="font-size: 14px; cursor: pointer; color: #555;">
-                    <input type="checkbox" id="chkHideToday" style="width:18px; height:18px; vertical-align:middle; margin-right:5px;"> 오늘 하루 보지 않기
+                    <input type="checkbox" id="chkHideToday" style="width:16px; height:16px; vertical-align:middle; margin-right:5px;"> 오늘 하루 보지 않기
                 </label>
-                <button onclick="closeNoticeModal()" style="background:#082c84; color:white; border:none; padding:10px 18px; border-radius:6px; cursor:pointer; font-weight:bold;">확인 (다음)</button>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    {% set total_count = dispatches|length %}
-    {% set completed_count = dispatches|selectattr('is_departed', 'equalto', True)|list|length %}
-    {% set is_all_completed = (total_count > 0 and total_count == completed_count) %}
-    
-    <input type="hidden" id="is_all_completed_flag" value="{{ 'true' if is_all_completed else 'false' }}" data-date="{{ date_str }}">
-
-    {% if is_all_completed and completion_setting and completion_setting.content %}
-    <div id="completionModal" class="modal-overlay" style="z-index: 10001;">
-        <div class="modal-content" style="text-align: center; padding-bottom: 20px;">
-            <div class="modal-header success">🎉 모든 배송 완료!</div>
-            <div class="modal-body" style="padding-top: 30px;">
-                <h2 style="color: #082c84; margin-top: 0; margin-bottom: 5px;">고생하셨습니다!</h2>
-                <p style="font-size: 16px; font-weight: bold; color: #dc3545; background: #ffebee; padding: 10px; border-radius: 6px;">반드시 카카오톡 배송 승인을 완료해 주세요.</p>
-                <div style="margin-top: 15px;">
-                    {{ completion_setting.content | safe }}
-                </div>
-            </div>
-            <div class="modal-footer" style="justify-content: center; background: white; border-top: none;">
-                <button onclick="closeCompletionModal()" style="background:#198754; color:white; border:none; padding:12px 30px; border-radius:6px; font-weight:bold; font-size:16px; cursor:pointer; width: 100%;">확인했습니다</button>
+                <button onclick="closeNoticeModal()" style="background:#333; color:white; border:none; padding:8px 15px; border-radius:6px; cursor:pointer; font-weight:bold; font-family:'Binggrae-Two';">닫기</button>
             </div>
         </div>
     </div>
@@ -230,121 +181,126 @@
                 <h3 style="color: #333; margin: 0; font-size: 17px; letter-spacing: -0.5px;">🚚 {{ date_str }} {{ driver_name }} 기사님 배차내역</h3>
                 <a href="/driver" style="font-size: 12px; color: #666; text-decoration: none; font-weight: bold; padding: 5px; border: 1px solid #ccc; border-radius: 4px; background: white;">로그아웃</a>
             </div>
-
+            
             {% if route_chunks %}
             <div style="display: flex; gap: 5px; flex-wrap: wrap; width: 100%;">
                 {% for chunk in route_chunks %}
-                <div style="display: flex; flex-direction: column; flex: 1; min-width: 100px;">
-                    <a href="{{ chunk.url }}" class="course-btn">{{ chunk.title }}</a>
-                    <a href="{{ chunk.pc_url }}" target="_blank" class="pc-link">(웹맵 열기)</a>
-                </div>
+                    <div style="display: flex; flex-direction: column; flex: 1; min-width: 100px;">
+                        <a href="{{ chunk.url }}" class="course-btn">{{ chunk.title }}</a>
+                        <a href="{{ chunk.pc_url }}" target="_blank" class="pc-link">(웹맵 열기)</a>
+                    </div>
                 {% endfor %}
             </div>
             {% endif %}
         </div>
-
+        
         {% if dispatches %}
-        {% set first_item = dispatches[0] %}
-        <div class="center-depart-box">
-            <h4 style="margin-top: 0; margin-bottom: 10px; color: #082c84; text-align: center;">🏢 센터 출발</h4>
-            {% if first_item.center_depart_time %}
-            <div style="font-size: 15px; font-weight: bold; color: #2e7d32; background: white; padding: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
-                <span>✅ 출발 ({{ first_item.center_depart_time.strftime('%H:%M') }})</span>
-                <form action="/cancel_depart" method="POST" style="margin: 0;" onsubmit="return confirm('출발 시간을 초기화하시겠습니까?');">
-                    <input type="hidden" name="driver_name" value="{{ driver_name }}">
-                    <button type="submit" style="background-color: #dc3545; color: white; border: none; padding: 6px 10px; font-size: 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-family: 'Binggrae-Two';">출발 취소</button>
-                </form>
-            </div>
-            {% else %}
-            <form action="/depart_center" method="POST" onsubmit="return confirm('배송순서 지정 후 출발처리 부탁드립니다.\n진짜 출발하시겠습니까?');">
-                <input type="hidden" name="driver_name" value="{{ driver_name }}">
-                <button type="submit" style="background-color: #082c84; color: white; border: none; padding: 12px; font-size: 16px; font-weight: bold; border-radius: 6px; width: 100%; margin-bottom: 10px; cursor: pointer; font-family: 'Binggrae-Two';">
-                    🚀 지금 출발
-                </button>
-            </form>
-            <form action="/depart_center" method="POST" style="display: flex; gap: 5px; align-items: center; background: white; padding: 8px; border-radius: 6px;">
-                <input type="hidden" name="driver_name" value="{{ driver_name }}">
-                <input type="time" name="manual_time" required style="padding: 5px; border: 1px solid #ccc; border-radius: 3px; flex: 1; font-size: 14px; font-family: 'Binggrae-Two';">
-                <button type="submit" class="btn-sm btn-gray">시간지정 출발</button>
-            </form>
-            {% endif %}
-        </div>
-
-        <div class="item-list" style="margin-bottom: 15px;">
-            {% for item in dispatches %}
-            {% if item.is_departed %}
-            <div class="item completed" data-id="{{ item.id }}">
-                <div style="font-size: 20px; padding: 0 5px; align-self: center;">✅</div>
-                <div class="info-col">
-                    <div class="store-name">{{ item.delivery_seq }}. {{ item.store_name }}</div>
-                    <div class="store-addr">{{ item.store_address }}</div>
-                </div>
-                <div class="action-col">
-                    <div style="display: flex; align-items: center; justify-content: center; height: 100%;">
-                        <button class="btn-sm btn-done" disabled>배송완료</button>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-            {% endfor %}
-        </div>
-
-        <div id="sortable-list" class="item-list">
-            {% for item in dispatches %}
-            {% if not item.is_departed %}
-            <div class="item" data-id="{{ item.id }}">
-                <div class="drag-handle">☰</div>
-                <div class="info-col">
-                    <div class="store-name">{{ item.delivery_seq }}. {{ item.store_name }}</div>
-                    <div class="store-addr">
-                        {{ item.store_address }}
-                        {% if not item.store_x or not item.store_y %}
-                        <span style="color: #dc3545; font-weight: bold; display: block; margin-top: 3px;">⚠️ 지도 연동 불가 (주소 오류)</span>
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="action-col">
-                    <form action="/update_seq/{{ item.id }}" method="POST" class="compact-form">
-                        <input type="number" name="new_seq" class="seq-input" value="{{ item.delivery_seq }}" min="1">
-                        <button type="submit" class="btn-sm btn-gray">변경</button>
-                    </form>
-                    <div style="display: flex; gap: 4px;">
-                        {% if item.store_x and item.store_y %}
-                        <a href="https://map.kakao.com/link/map/{{ item.store_name | urlencode }},{{ item.store_y }},{{ item.store_x }}" target="_blank" class="btn-sm btn-map">맵</a>
-                        {% else %}
-                        <button class="btn-sm btn-map-disabled" onclick="alert('주소가 정확하지 않아 지도를 열 수 없습니다.\n관리자에게 문의해주세요.'); return false;">맵</button>
-                        {% endif %}
-                        <form action="/complete/{{ item.id }}" method="POST" class="compact-form" onsubmit="return confirm('배송을 완료하시겠습니까?');">
-                            <button type="submit" class="btn-sm btn-green">완료</button>
+            {% set first_item = dispatches[0] %}
+            
+            <div class="center-depart-box">
+                <h4 style="margin-top: 0; margin-bottom: 10px; color: #082c84; text-align: center;">🏢 센터 출발</h4>
+                {% if first_item.center_depart_time %}
+                    <div style="font-size: 15px; font-weight: bold; color: #2e7d32; background: white; padding: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
+                        <span>✅ 출발 ({{ first_item.center_depart_time.strftime('%H:%M') }})</span>
+                        <form action="/cancel_depart" method="POST" style="margin: 0;" onsubmit="return confirm('출발 시간을 초기화하시겠습니까?');">
+                            <input type="hidden" name="driver_name" value="{{ driver_name }}">
+                            <button type="submit" style="background-color: #dc3545; color: white; border: none; padding: 6px 10px; font-size: 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-family: 'Binggrae-Two';">출발 취소</button>
                         </form>
                     </div>
-                </div>
+                {% else %}
+                    <form action="/depart_center" method="POST" onsubmit="return confirm('배송순서 지정 후 출발처리 부탁드립니다.\n진짜 출발하시겠습니까?');">
+                        <input type="hidden" name="driver_name" value="{{ driver_name }}">
+                        <button type="submit" style="background-color: #082c84; color: white; border: none; padding: 12px; font-size: 16px; font-weight: bold; border-radius: 6px; width: 100%; margin-bottom: 10px; cursor: pointer; font-family: 'Binggrae-Two';">
+                            🚀 지금 출발
+                        </button>
+                    </form>
+                    <form action="/depart_center" method="POST" style="display: flex; gap: 5px; align-items: center; background: white; padding: 8px; border-radius: 6px;">
+                        <input type="hidden" name="driver_name" value="{{ driver_name }}">
+                        <input type="time" name="manual_time" required style="padding: 5px; border: 1px solid #ccc; border-radius: 3px; flex: 1; font-size: 14px; font-family: 'Binggrae-Two';">
+                        <button type="submit" class="btn-sm btn-gray">시간지정 출발</button>
+                    </form>
+                {% endif %}
             </div>
-            {% endif %}
-            {% endfor %}
-        </div>
 
-        <script>
-            new Sortable(document.getElementById('sortable-list'), {
-                handle: '.drag-handle',
-                animation: 150,
-                onEnd: function (evt) {
-                    let orderArray = [];
-                    document.querySelectorAll('#sortable-list .item').forEach(function(el) {
-                        orderArray.push(el.getAttribute('data-id'));
-                    });
-                    fetch('/update_order', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify(orderArray)
-                    })
-                    .then(response => response.json())
-                    .then(data => { if(data.status === 'success') location.reload(); });
-                }
-            });
-        </script>
+            <!-- 완료된 매장 리스트 -->
+            <div class="item-list" style="margin-bottom: 15px;">
+                {% for item in dispatches %}
+                    {% if item.is_departed %}
+                    <div class="item completed" data-id="{{ item.id }}">
+                        <div style="font-size: 20px; padding: 0 5px; align-self: center;">✅</div>
+                        <div class="info-col">
+                            <div class="store-name">{{ item.delivery_seq }}. {{ item.store_name }}</div>
+                            <div class="store-addr">{{ item.store_address }}</div>
+                        </div>
+                        <div class="action-col">
+                            <div style="display: flex; align-items: center; justify-content: center; height: 100%;">
+                                <button class="btn-sm btn-done" disabled>배송완료</button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            <!-- 대기 중인 매장 리스트 -->
+            <div id="sortable-list" class="item-list">
+                {% for item in dispatches %}
+                    {% if not item.is_departed %}
+                    <div class="item" data-id="{{ item.id }}">
+                        <div class="drag-handle">☰</div>
+                        <div class="info-col">
+                            <div class="store-name">{{ item.delivery_seq }}. {{ item.store_name }}</div>
+                            <div class="store-addr">
+                                {{ item.store_address }}
+                                {% if not item.store_x or not item.store_y %}
+                                    <span style="color: #dc3545; font-weight: bold; display: block; margin-top: 3px;">⚠️ 지도 연동 불가 (주소 오류)</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="action-col">
+                            <form action="/update_seq/{{ item.id }}" method="POST" class="compact-form">
+                                <input type="number" name="new_seq" class="seq-input" value="{{ item.delivery_seq }}" min="1">
+                                <button type="submit" class="btn-sm btn-gray">변경</button>
+                            </form>
+                            <div style="display: flex; gap: 4px;">
+                                {% if item.store_x and item.store_y %}
+                                    <a href="https://map.kakao.com/link/map/{{ item.store_name | urlencode }},{{ item.store_y }},{{ item.store_x }}" target="_blank" class="btn-sm btn-map">맵</a>
+                                {% else %}
+                                    <button class="btn-sm btn-map-disabled" onclick="alert('주소가 정확하지 않아 지도를 열 수 없습니다.\n관리자에게 문의해주세요.'); return false;">맵</button>
+                                {% endif %}
+
+                                <form action="/complete/{{ item.id }}" method="POST" class="compact-form" onsubmit="return confirm('배송을 완료하시겠습니까?');">
+                                    <button type="submit" class="btn-sm btn-green">완료</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            
+            <script>
+                new Sortable(document.getElementById('sortable-list'), {
+                    handle: '.drag-handle',
+                    animation: 150,
+                    onEnd: function (evt) {
+                        let orderArray = [];
+                        document.querySelectorAll('#sortable-list .item').forEach(function(el) {
+                            orderArray.push(el.getAttribute('data-id'));
+                        });
+                        fetch('/update_order', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify(orderArray)
+                        })
+                        .then(response => response.json())
+                        .then(data => { if(data.status === 'success') location.reload(); });
+                    }
+                });
+            </script>
         {% endif %}
     </div>
     {% endif %}
+
 </body>
 </html>

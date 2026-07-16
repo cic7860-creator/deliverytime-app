@@ -89,16 +89,23 @@
             return "";
         }
         function closeNoticeModal() {
+            let urlParams = new URLSearchParams(window.location.search);
+            let driverName = urlParams.get('driver_name');
             if (document.getElementById("chkHideToday") && document.getElementById("chkHideToday").checked) {
-                setCookie("hide_jette_notice", "Y", 1);
+                if (driverName) {
+                    // 💡 신규 로직: 기사님 성함을 포함한 고유 쿠키 이름으로 저장
+                    setCookie("hide_notice_" + encodeURIComponent(driverName), "Y", 1);
+                }
             }
             document.getElementById("noticeModal").style.display = "none";
         }
         window.addEventListener('DOMContentLoaded', function() {
             let urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('driver_name')) {
+            let driverName = urlParams.get('driver_name');
+            if (driverName) {
                 let modal = document.getElementById("noticeModal");
-                if (modal && getCookie("hide_jette_notice") != "Y") {
+                // 💡 신규 로직: 본인(기사님) 전용 쿠키만 확인
+                if (modal && getCookie("hide_notice_" + encodeURIComponent(driverName)) != "Y") {
                     modal.style.display = "flex";
                 }
             }
@@ -108,12 +115,14 @@
 <body>
 
     {% if session.get('is_admin') %}
+    <!-- 💡 관리자용 상단 네비게이션: 현재 접속 페이지 노란색 강조 -->
     <div style="background-color: #212529; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
         <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-            <a href="/admin" style="color: white; text-decoration: none; font-weight: bold;">🖥️ 데이터 입력</a>
-            <a href="/driver" style="color: white; text-decoration: none; font-weight: bold;">📱 기사님 페이지</a>
-            <a href="/dashboard" style="color: white; text-decoration: none; font-weight: bold;">📊 대시보드</a>
-            <a href="/notice">📢 공지사항 관리</a>
+            <a href="/admin" style="color: white; text-decoration: none; font-weight: bold;">🖥️ 데이터 입력 (홈)</a>
+            <a href="/driver" style="color: #ffe812; text-decoration: none; font-weight: bold;">📱 기사님 페이지</a>
+            <a href="/dashboard" style="color: white; text-decoration: none; font-weight: bold;">📊 실시간 대시보드</a>
+            <a href="/sms" style="color: white; text-decoration: none; font-weight: bold;">✉️ 도착안내 문자 발송</a>
+            <a href="/notice" style="color: white; text-decoration: none; font-weight: bold;">📢 공지사항 관리</a>
         </div>
         <a href="/admin_logout" style="color: #ff6b6b; text-decoration: none; font-weight: bold;">🚪 로그아웃</a>
     </div>
@@ -136,6 +145,7 @@
     </div>
     {% else %}
     
+    <!-- 공지사항 팝업 -->
     {% if active_notices %}
     <div id="noticeModal" class="modal-overlay">
         <div class="modal-content">
@@ -145,7 +155,6 @@
                 <div class="notice-item">
                     <strong style="color: #082c84; font-size: 16px; display: block; margin-bottom: 5px;">{{ n.title }}</strong>
                     <div style="font-size: 14px; white-space: pre-wrap; color: #444; margin-bottom: 10px;">{{ n.content }}</div>
-                    
                     {% if n.image_list %}
                     <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
                         {% for img in n.image_list %}
@@ -213,6 +222,7 @@
                 {% endif %}
             </div>
 
+            <!-- 완료된 매장 리스트 -->
             <div class="item-list" style="margin-bottom: 15px;">
                 {% for item in dispatches %}
                     {% if item.is_departed %}
@@ -232,6 +242,7 @@
                 {% endfor %}
             </div>
 
+            <!-- 대기 중인 매장 리스트 -->
             <div id="sortable-list" class="item-list">
                 {% for item in dispatches %}
                     {% if not item.is_departed %}

@@ -17,7 +17,7 @@
         .top-nav a:hover { color: #0d6efd; }
         h2 { color: #082c84; border-bottom: 2px solid #dee2e6; padding-bottom: 10px; margin-top: 0; }
         
-        input[type="text"], textarea { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; font-size: 15px; box-sizing: border-box; }
+        input[type="text"], input[type="file"], textarea { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; font-size: 15px; box-sizing: border-box; }
         .btn { padding: 12px 20px; font-size: 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
         .btn-primary { background-color: #082c84; color: white; width: 100%; }
         
@@ -46,9 +46,13 @@
             💡 작성된 공지사항 중 [노출 중]인 항목만 기사님들이 로그인했을 때 팝업창으로 나타납니다.
         </div>
 
-        <form action="/notice/add" method="POST" style="margin-bottom: 40px;">
+        <form action="/notice/add" method="POST" enctype="multipart/form-data" style="margin-bottom: 40px;">
             <input type="text" name="title" placeholder="공지 제목을 입력하세요" required>
             <textarea name="content" rows="6" placeholder="기사님들께 전달할 공지 내용을 입력하세요 (줄바꿈 가능)" required></textarea>
+            
+            <label style="font-size: 14px; font-weight: bold; color: #082c84; display: block; margin-bottom: 5px;">🖼️ 공지 첨부 사진 (최대 5장)</label>
+            <input type="file" name="images" multiple accept="image/*">
+            
             <button type="submit" class="btn btn-primary">공지사항 등록하기</button>
         </form>
 
@@ -63,7 +67,15 @@
                 {% endif %}
                 <div style="font-size: 12px; color: #6c757d; margin-bottom: 5px;">등록일: {{ n.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
                 <h3 style="margin: 0 0 10px 0; color: #333;">{{ n.title }}</h3>
-                <div style="color: #555; font-size: 14px; white-space: pre-wrap;">{{ n.content }}</div>
+                <div style="color: #555; font-size: 14px; white-space: pre-wrap; margin-bottom: 15px;">{{ n.content }}</div>
+                
+                {% if n.image_list %}
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    {% for img in n.image_list %}
+                        <img src="/static/uploads/{{ img }}" style="max-width: 120px; max-height: 120px; border-radius: 6px; border: 1px solid #dee2e6; object-fit: cover;">
+                    {% endfor %}
+                </div>
+                {% endif %}
             </div>
             <div style="display: flex; flex-direction: column; gap: 8px; min-width: 100px;">
                 <form action="/notice/toggle/{{ n.id }}" method="POST" style="margin:0;">

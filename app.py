@@ -514,27 +514,28 @@ def sms_page():
 def add_template():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
     
-    template_id = request.form.get('template_id') # 클릭해서 수정할 때 넘어오는 ID
+    template_id = request.form.get('template_id')
     name = request.form.get('template_name').strip()
     subject = request.form.get('template_subject').strip()
+    sender = request.form.get('template_sender').strip() # 💡 발신번호 받기
     content = request.form.get('template_content').strip()
     
-    if name and content and subject:
+    if name and content and subject and sender:
         if template_id:
-            # 💡 [업데이트] 기존 템플릿 덮어쓰기
             existing = SmsTemplate.query.get(template_id)
             if existing:
                 existing.name = name
                 existing.subject = subject
+                existing.sender_phone = sender
                 existing.content = content
         else:
-            # 💡 [업데이트] 새 템플릿 생성 (이름 중복 체크)
             existing = SmsTemplate.query.filter_by(name=name).first()
             if existing:
                 existing.subject = subject
+                existing.sender_phone = sender
                 existing.content = content
             else:
-                db.session.add(SmsTemplate(name=name, subject=subject, content=content))
+                db.session.add(SmsTemplate(name=name, subject=subject, sender_phone=sender, content=content))
         db.session.commit()
     return redirect(url_for('sms_page'))
 
@@ -556,23 +557,23 @@ def download_sms_excel():
     if center_filter: query = query.filter_by(center_name=center_filter)
     departed_dispatches = query.order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
     
-    # 템플릿 객체를 딕셔너리로 (제목, 내용 모두 가져옴)
     templates_dict = {t.name: t for t in SmsTemplate.query.all()}
     
     data_list = []
     for d in departed_dispatches:
         eta_str = d.estimated_arrival.strftime('%H시 %M분') if d.estimated_arrival else "계산중"
         
-        # 적용할 템플릿 찾기
+        # 💡 적용할 템플릿 가져오기 (발신번호 포함)
         t_obj = templates_dict.get(d.template_name)
         if t_obj:
             raw_subject = t_obj.subject
             raw_content = t_obj.content
+            sender_num = t_obj.sender_phone if t_obj.sender_phone else '1668-3136'
         else:
             raw_subject = "[(주)제때] {매장명} 배송예정시간 안내"
             raw_content = "안녕하세요 {매장명} 점주님!\n도착예정시간: {도착예정시간}\n기사명: {기사명}\n연락처: {기사전화번호}"
+            sender_num = "1668-3136"
 
-        # 💡 치환(Replace)
         sms_subject = raw_subject.replace('{매장명}', d.store_name)\
                                  .replace('{도착예정시간}', eta_str)\
                                  .replace('{기사명}', d.driver_name)\
@@ -584,18 +585,16 @@ def download_sms_excel():
                                  .replace('{차량번호}', d.vehicle_num)\
                                  .replace('{기사전화번호}', d.driver_phone if d.driver_phone else "번호없음")
         
-        # 💡 [업데이트] 다중 연락처 분할 ('/' 기준)
         store_phone_raw = d.store_phone if d.store_phone else "번호없음"
         phones = [p.strip() for p in store_phone_raw.replace(' / ', '/').split('/') if p.strip()]
         
-        # 연락처 개수만큼 행 생성
         for phone in phones:
             data_list.append({
                 '수신인': d.store_name, 
                 '연락처': phone,
                 '제목': sms_subject,
                 '내용': sms_content, 
-                '발신번호': '1668-3136'
+                '발신번호': sender_num  # 💡 양식별 발신번호 적용
             })
         
     df = pd.DataFrame(data_list)
@@ -603,7 +602,7 @@ def download_sms_excel():
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='문자발송양식')
         worksheet = writer.sheets['문자발송양식']
-        apply_excel_styles(worksheet, df, is_sms=True)
+        apply_excel_styles(worksheet, df, is_sms=True) # (apply_excel_styles 함수는 이전에 추가하신 그대로 둡니다)
         worksheet.column_dimensions['A'].width = 25
         worksheet.column_dimensions['B'].width = 20
         worksheet.column_dimensions['C'].width = 35

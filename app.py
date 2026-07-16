@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, send_file, session
-from models import db, Dispatch, Center, SmsTemplate, Notice
+from models import db, Dispatch, Center, SmsTemplate, Notice, CompletionSetting
 import pandas as pd
 import io
 from datetime import datetime, timedelta
@@ -96,8 +96,7 @@ def update_etas_for_driver(driver_name):
             current_x, current_y = d.store_x, d.store_y
 
 def apply_excel_styles(worksheet, df, is_sms=False):
-    thin_border = Border(left=Side(style='thin'), right=Side(style='thin'),
-                         top=Side(style='thin'), bottom=Side(style='thin'))
+    thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
     header_fill = PatternFill(start_color="E9ECEF", end_color="E9ECEF", fill_type="solid")
     header_font = Font(bold=True)
     center_align = Alignment(horizontal='center', vertical='center', wrap_text=True)
@@ -125,10 +124,10 @@ def home(): return redirect(url_for('admin_login'))
 @app.route('/admin_login', methods=['GET', 'POST'])
 def admin_login():
     if request.method == 'POST':
-        if request.form.get('password') == 'a13579!!':
+        if request.form.get('password') == '1234':
             session['is_admin'] = True
             return redirect(url_for('admin'))
-        else: return "<script>alert('비밀번호가 틀렸습니다.'); history.back();</script>"
+        else: return "<script>alert('a13579!!'); history.back();</script>"
     return '''<div style="text-align:center; margin-top:150px; font-family:'Malgun Gothic', sans-serif;"><h2 style="color:#082c84;">JETTE 관리자 로그인</h2><form method="post"><input type="password" name="password" style="padding:10px;" placeholder="비밀번호"><button type="submit" style="padding:10px; background:#082c84; color:white; border:none;">로그인</button></form></div>'''
 
 @app.route('/admin_logout')
@@ -139,7 +138,6 @@ def admin_logout():
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
-
     if request.method == 'POST':
         excel_text = request.form.get('excel_text')
         if not excel_text or excel_text.strip() == '': return "입력된 데이터가 없습니다.", 400
@@ -294,7 +292,7 @@ def driver():
     route_chunks = []
     date_str = ""
     active_notices = []
-    completion_setting = CompletionSetting.query.first() # 💡 완료 팝업 데이터 가져오기
+    completion_setting = CompletionSetting.query.first()
 
     if name:
         dispatches = Dispatch.query.filter_by(driver_name=name).order_by(Dispatch.delivery_seq).all()
@@ -306,15 +304,14 @@ def driver():
         weekdays = ['월', '화', '수', '목', '금', '토', '일']
         date_str = display_date.strftime('%y%m%d') + f"({weekdays[display_date.weekday()]})"
 
-        # 💡 특정 기사님 대상 공지 필터링 로직
         all_active_notices = Notice.query.filter_by(is_active=True).order_by(Notice.created_at.desc()).all()
         for n in all_active_notices:
             if not n.target_drivers or n.target_drivers.strip() == '':
-                active_notices.append(n) # 지정 없으면 모두에게 보임
+                active_notices.append(n)
             else:
                 targets = [t.strip() for t in n.target_drivers.split(',')]
                 if name in targets:
-                    active_notices.append(n) # 이름이 포함된 기사님에게만 보임
+                    active_notices.append(n)
 
         valid_dispatches = [d for d in dispatches if d.store_x and d.store_y and not d.is_departed]
         chunk_size = 5
@@ -348,13 +345,11 @@ def depart_center():
     manual_time_str = request.form.get('manual_time')
     dispatches = Dispatch.query.filter_by(driver_name=driver_name).order_by(Dispatch.delivery_seq).all()
     if not dispatches: return "데이터 없음", 404
-
     depart_dt = datetime.now()
     if manual_time_str:
         today = datetime.now().date()
         time_obj = datetime.strptime(manual_time_str, '%H:%M').time()
         depart_dt = datetime.combine(today, time_obj)
-
     for d in dispatches: d.center_depart_time = depart_dt
     db.session.commit()
     update_etas_for_driver(driver_name)
@@ -446,7 +441,6 @@ def download_excel():
     query = Dispatch.query
     if center_filter: query = query.filter_by(center_name=center_filter)
     all_data = query.order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
-
     data_list = []
     for d in all_data:
         data_list.append({
@@ -516,21 +510,15 @@ def add_template():
     subject = request.form.get('template_subject').strip()
     sender = request.form.get('template_sender').strip()
     content = request.form.get('template_content').strip()
-
     if name and content and subject and sender:
         if template_id:
             existing = SmsTemplate.query.get(template_id)
             if existing:
-                existing.name = name
-                existing.subject = subject
-                existing.sender_phone = sender
-                existing.content = content
+                existing.name = name; existing.subject = subject; existing.sender_phone = sender; existing.content = content
         else:
             existing = SmsTemplate.query.filter_by(name=name).first()
             if existing:
-                existing.subject = subject
-                existing.sender_phone = sender
-                existing.content = content
+                existing.subject = subject; existing.sender_phone = sender; existing.content = content
             else:
                 db.session.add(SmsTemplate(name=name, subject=subject, sender_phone=sender, content=content))
         db.session.commit()
@@ -545,7 +533,6 @@ def delete_template(template_id):
         db.session.commit()
     return redirect(url_for('sms_page'))
 
-# 💡 [신규 라우트] 발송 대기 목록에서 개별 매장의 문자 템플릿 변경하기
 @app.route('/sms/update_template/<int:dispatch_id>', methods=['POST'])
 def update_dispatch_template(dispatch_id):
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
@@ -570,28 +557,17 @@ def download_sms_excel():
         eta_str = d.estimated_arrival.strftime('%H시 %M분') if d.estimated_arrival else "계산중"
         t_obj = templates_dict.get(d.template_name)
         if t_obj:
-            raw_subject = t_obj.subject
-            raw_content = t_obj.content
-            sender_num = t_obj.sender_phone if t_obj.sender_phone else '1668-3136'
+            raw_subject = t_obj.subject; raw_content = t_obj.content; sender_num = t_obj.sender_phone if t_obj.sender_phone else '1668-3136'
         else:
-            raw_subject = "[(주)제때] {매장명} 배송예정시간 안내"
-            raw_content = "안녕하세요 {매장명} 점주님!\n도착예정시간: {도착예정시간}\n기사명: {기사명}\n연락처: {기사전화번호}"
-            sender_num = "1668-3136"
+            raw_subject = "[(주)제때] {매장명} 배송예정시간 안내"; raw_content = "안녕하세요 {매장명} 점주님!\n도착예정시간: {도착예정시간}\n기사명: {기사명}\n연락처: {기사전화번호}"; sender_num = "1668-3136"
 
         sms_subject = raw_subject.replace('{매장명}', d.store_name).replace('{도착예정시간}', eta_str).replace('{기사명}', d.driver_name).replace('{차량번호}', d.vehicle_num)
         sms_content = raw_content.replace('{매장명}', d.store_name).replace('{도착예정시간}', eta_str).replace('{기사명}', d.driver_name).replace('{차량번호}', d.vehicle_num).replace('{기사전화번호}', d.driver_phone if d.driver_phone else "번호없음")
-
         store_phone_raw = d.store_phone if d.store_phone else "번호없음"
         phones = [p.strip() for p in store_phone_raw.replace(' / ', '/').split('/') if p.strip()]
 
         for phone in phones:
-            data_list.append({
-                '수신인': d.store_name,
-                '연락처': phone,
-                '제목': sms_subject,
-                '내용': sms_content,
-                '발신번호': sender_num
-            })
+            data_list.append({'수신인': d.store_name, '연락처': phone, '제목': sms_subject, '내용': sms_content, '발신번호': sender_num})
 
     df = pd.DataFrame(data_list)
     output = io.BytesIO()
@@ -604,7 +580,6 @@ def download_sms_excel():
         worksheet.column_dimensions['C'].width = 35
         worksheet.column_dimensions['D'].width = 50
         worksheet.column_dimensions['E'].width = 15
-
     output.seek(0)
     today_str = datetime.now().strftime('%Y%m%d')
     filename = f"{center_filter}_{today_str}_알림톡발송양식.xlsx" if center_filter else f"{today_str}_알림톡발송양식.xlsx"
@@ -614,7 +589,7 @@ def download_sms_excel():
 def notice_page():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
     notices = Notice.query.order_by(Notice.created_at.desc()).all()
-    completion_setting = CompletionSetting.query.first() # 💡 신규
+    completion_setting = CompletionSetting.query.first()
     return render_template('notice.html', notices=notices, completion_setting=completion_setting)
 
 @app.route('/notice/add', methods=['POST'])
@@ -622,13 +597,12 @@ def add_notice():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
     title = request.form.get('title', '').strip()
     content = request.form.get('content', '').strip()
-    target_drivers = request.form.get('target_drivers', '').strip() # 💡 신규
+    target_drivers = request.form.get('target_drivers', '').strip()
     if title and content:
         db.session.add(Notice(title=title, content=content, target_drivers=target_drivers, is_active=True))
         db.session.commit()
     return redirect(url_for('notice_page'))
 
-# 💡 (신규 추가) 배송 완료 팝업 이미지 저장 라우트
 @app.route('/notice/update_completion', methods=['POST'])
 def update_completion():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))

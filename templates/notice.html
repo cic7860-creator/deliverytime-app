@@ -17,7 +17,7 @@
         .top-nav a:hover { color: #0d6efd; }
         h2 { color: #082c84; border-bottom: 2px solid #dee2e6; padding-bottom: 10px; margin-top: 0; }
         
-        input[type="text"], input[type="file"], textarea { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; font-size: 15px; box-sizing: border-box; }
+        input[type="text"], textarea { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; font-size: 15px; box-sizing: border-box; }
         .btn { padding: 12px 20px; font-size: 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
         .btn-primary { background-color: #082c84; color: white; width: 100%; }
         
@@ -26,10 +26,121 @@
         .badge { padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; color: white; display: inline-block; margin-bottom: 10px; }
         .badge-active { background-color: #28a745; }
         .badge-inactive { background-color: #6c757d; }
+
+        /* 붙여넣기 박스 호버 효과 */
+        #pasteArea:hover { background-color: #cce5ff !important; border-color: #0d6efd !important; }
     </style>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const pasteArea = document.getElementById('pasteArea');
+            const previewArea = document.getElementById('previewArea');
+            const imageInput = document.getElementById('imageInput');
+            let dataTransfer = new DataTransfer();
+
+            // 박스 클릭 시 시각적 반응
+            pasteArea.addEventListener('click', function() {
+                this.focus();
+                this.style.backgroundColor = '#b8daff';
+                setTimeout(() => { this.style.backgroundColor = '#e3f2fd'; }, 200);
+            });
+
+            // 화면에서 붙여넣기(Ctrl+V) 감지
+            document.addEventListener('paste', function(e) {
+                let items = e.clipboardData.items;
+                let imagePasted = false;
+                
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('image') !== -1) {
+                        if (dataTransfer.items.length >= 5) {
+                            alert("사진은 최대 5장까지만 첨부할 수 있습니다.");
+                            break;
+                        }
+                        
+                        // 클립보드의 이미지를 가상의 파일로 변환 (서버 전송용)
+                        let file = items[i].getAsFile();
+                        let ext = file.type.split('/')[1] || 'png';
+                        let newFile = new File([file], "pasted_image_" + Date.now() + "_" + i + "." + ext, {type: file.type});
+                        
+                        dataTransfer.items.add(newFile);
+                        imagePasted = true;
+                    }
+                }
+                
+                if (imagePasted) {
+                    // 변환된 파일을 숨겨진 input 파일에 밀어넣기
+                    imageInput.files = dataTransfer.files;
+                    renderPreviews();
+                }
+            });
+
+            // 붙여넣은 이미지 썸네일 그리기
+            window.renderPreviews = function() {
+                previewArea.innerHTML = '';
+                for (let i = 0; i < dataTransfer.files.length; i++) {
+                    let file = dataTransfer.files[i];
+                    let reader = new FileReader();
+                    reader.onload = function(e) {
+                        let imgDiv = document.createElement('div');
+                        imgDiv.style.position = 'relative';
+                        imgDiv.style.width = '120px';
+                        imgDiv.style.height = '120px';
+                        
+                        let img = document.createElement('img');
+                        img.src = e.target.result;
+                        img.style.width = '100%';
+                        img.style.height = '100%';
+                        img.style.objectFit = 'cover';
+                        img.style.borderRadius = '6px';
+                        img.style.border = '2px solid #ced4da';
+                        
+                        // 삭제 버튼
+                        let removeBtn = document.createElement('button');
+                        removeBtn.innerHTML = 'X';
+                        removeBtn.style.position = 'absolute';
+                        removeBtn.style.top = '-8px';
+                        removeBtn.style.right = '-8px';
+                        removeBtn.style.background = '#dc3545';
+                        removeBtn.style.color = 'white';
+                        removeBtn.style.border = 'none';
+                        removeBtn.style.borderRadius = '50%';
+                        removeBtn.style.width = '24px';
+                        removeBtn.style.height = '24px';
+                        removeBtn.style.fontSize = '12px';
+                        removeBtn.style.fontWeight = 'bold';
+                        removeBtn.style.cursor = 'pointer';
+                        removeBtn.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
+                        removeBtn.onclick = function(event) {
+                            event.preventDefault(); // 폼 제출 방지
+                            removeImage(i);
+                        };
+                        
+                        imgDiv.appendChild(img);
+                        imgDiv.appendChild(removeBtn);
+                        previewArea.appendChild(imgDiv);
+                    }
+                    reader.readAsDataURL(file);
+                }
+            };
+
+            // 이미지 삭제 로직
+            window.removeImage = function(index) {
+                let newDataTransfer = new DataTransfer();
+                for (let i = 0; i < dataTransfer.files.length; i++) {
+                    if (i !== index) {
+                        newDataTransfer.items.add(dataTransfer.files[i]);
+                    }
+                }
+                dataTransfer = newDataTransfer;
+                imageInput.files = dataTransfer.files; // input 업데이트
+                renderPreviews();
+            };
+        });
+    </script>
 </head>
 <body>
     <div class="container">
+        <!-- 상단 네비게이션: 공지사항 관리 (노란색 강조) -->
         <div class="top-nav">
             <div>
                 <a href="/admin">🖥️ 데이터 입력 (홈)</a>
@@ -50,8 +161,22 @@
             <input type="text" name="title" placeholder="공지 제목을 입력하세요" required>
             <textarea name="content" rows="6" placeholder="기사님들께 전달할 공지 내용을 입력하세요 (줄바꿈 가능)" required></textarea>
             
-            <label style="font-size: 14px; font-weight: bold; color: #082c84; display: block; margin-bottom: 5px;">🖼️ 공지 첨부 사진 (최대 5장)</label>
-            <input type="file" name="images" multiple accept="image/*">
+            <!-- 실제 파일 업로드 인풋은 숨겨둠 (보안 프로그램 우회) -->
+            <input type="file" name="images" id="imageInput" multiple accept="image/*" style="display: none;">
+            
+            <label style="font-size: 14px; font-weight: bold; color: #082c84; display: block; margin-bottom: 10px;">
+                🖼️ 공지 첨부 사진 (복사/붙여넣기 전용 - 최대 5장)
+            </label>
+            
+            <!-- 보안 우회용 클립보드 붙여넣기 박스 -->
+            <div id="pasteArea" tabindex="0" style="border: 2px dashed #082c84; padding: 40px 20px; text-align: center; border-radius: 8px; background-color: #e3f2fd; cursor: pointer; margin-bottom: 15px; outline: none; transition: 0.2s;">
+                <span style="font-size: 32px;">📋</span><br>
+                <strong style="color: #082c84; font-size: 18px; line-height: 1.5;">화면 캡처 후 이곳을 한 번 클릭하고,<br>Ctrl+V (붙여넣기)를 누르세요.</strong><br>
+                <span style="font-size: 13px; color: #6c757d; margin-top: 5px; display: inline-block;">보안 정책으로 파일 탐색기가 차단된 경우를 위한 전용 기능입니다.</span>
+            </div>
+            
+            <!-- 붙여넣은 이미지가 보여지는 곳 -->
+            <div id="previewArea" style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px;"></div>
             
             <button type="submit" class="btn btn-primary">공지사항 등록하기</button>
         </form>

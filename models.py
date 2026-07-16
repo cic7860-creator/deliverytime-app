@@ -15,21 +15,18 @@ class SmsTemplate(db.Model):
     sender_phone = db.Column(db.String(50))
     content = db.Column(db.Text, nullable=False)
 
-# 💡 [업데이트] 공지사항 모델 (이미지 필드 추가)
 class Notice(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
     content = db.Column(db.Text, nullable=False)
-    images_str = db.Column(db.Text)                               # 💡 신규: 이미지 파일명들을 구분자(|)로 묶어서 저장
+    target_drivers = db.Column(db.String(500), default='') # 💡 신규: 특정 기사님 지정 (쉼표로 구분)
     created_at = db.Column(db.DateTime, default=datetime.now)
     is_active = db.Column(db.Boolean, default=True)
 
-    # 💡 신규: HTML 템플릿에서 이미지 목록을 바로 반복문 돌릴 수 있도록 리스트로 반환
-    @property
-    def image_list(self):
-        if self.images_str:
-            return self.images_str.split('|')
-        return []
+# 💡 신규: 배송 완료 축하 팝업 설정
+class CompletionSetting(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    content = db.Column(db.Text) # 복사/붙여넣기 한 이미지 데이터 저장
 
 class Dispatch(db.Model):
     id = db.Column(db.Integer, primary_key=True)

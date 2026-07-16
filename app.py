@@ -2,7 +2,6 @@ from flask import Flask, render_template, request, redirect, url_for, send_file,
 from models import db, Dispatch, Center, SmsTemplate, Notice
 import pandas as pd
 import io
-import os  # 💡 파일 경로 생성을 위해 추가
 from datetime import datetime, timedelta
 import urllib.parse
 import requests
@@ -11,34 +10,17 @@ import json
 import concurrent.futures
 from openpyxl.comments import Comment
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
-from werkzeug.utils import secure_filename  # 💡 파일명 안전 처리를 위해 추가
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.secret_key = 'jette_super_secret_admin_key' 
-
-# 💡 [신규] 이미지 업로드용 서버 설정 추가
-UPLOAD_FOLDER = 'static/uploads'
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 최대 16MB 업로드 제한
-
-# 업로드 폴더 자동 생성
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
-
-# 이미지 확장자 검증 함수
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
+app.secret_key = 'jette_super_secret_admin_key'
 db.init_app(app)
+
 with app.app_context():
     db.create_all()
 
-# (이하 기존 카카오 API 및 driving_time 등 공통 함수 생략 - 파일 덮어쓰기 하셔도 모든 코드 완벽 유지됩니다.)
 KAKAO_API_KEY = 'f70047282a8b7f30cd02fd2cfc00f029'
 kakao_session = requests.Session()
 route_time_cache = {}
@@ -60,23 +42,24 @@ def get_driving_time(start_x, start_y, end_x, end_y):
         cache_key = f"{sx},{sy}_{ex},{ey}"
         if cache_key in route_time_cache: return route_time_cache[cache_key]
     except Exception: cache_key = None
+
     url = f"https://apis-navi.kakaomobility.com/v1/directions?origin={start_x},{start_y}&destination={end_x},{end_y}"
     headers = {"Authorization": f"KakaoAK {KAKAO_API_KEY}"}
     try:
         resp = kakao_session.get(url, headers=headers, verify=False, timeout=2).json()
-        if resp.get('routes'): 
+        if resp.get('routes'):
             duration = resp['routes'][0]['summary']['duration']
             if cache_key: route_time_cache[cache_key] = duration
             return duration
     except Exception: pass
-    return 25 * 60 
+    return 25 * 60
 
 def update_etas_for_driver(driver_name):
     dispatches = Dispatch.query.filter_by(driver_name=driver_name).order_by(Dispatch.delivery_seq).all()
     if not dispatches: return
     base_depart_time = dispatches[0].center_depart_time
-    if not base_depart_time: return 
-        
+    if not base_depart_time: return
+
     routes_to_fetch = []
     current_x, current_y = get_coords(dispatches[0].center_address if dispatches[0].center_address else dispatches[0].store_address)
     for d in dispatches:
@@ -86,12 +69,12 @@ def update_etas_for_driver(driver_name):
             if current_x and current_y and d.store_x and d.store_y:
                 routes_to_fetch.append((current_x, current_y, d.store_x, d.store_y))
             current_x, current_y = d.store_x, d.store_y
-            
+
     duration_map = {}
     def fetch_route_time(route):
         sx, sy, ex, ey = route
         return route, get_driving_time(sx, sy, ex, ey)
-        
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
         results = executor.map(fetch_route_time, list(set(routes_to_fetch)))
         for route, duration in results: duration_map[route] = duration
@@ -146,7 +129,7 @@ def admin_login():
             session['is_admin'] = True
             return redirect(url_for('admin'))
         else: return "<script>alert('비밀번호가 틀렸습니다.'); history.back();</script>"
-    return '''<div style="text-align:center; margin-top:150px; font-family:'Malgun Gothic', sans-serif;"><h2 style="color:#082c84;">JETTE 관리자 로그인</h2><form method="post"><input type="password" name="password" placeholder="비밀번호 입력" required style="padding:10px; font-size:16px; border: 1px solid #ccc; border-radius: 4px;"><button type="submit" style="padding:10px 20px; font-size:16px; background:#082c84; color:white; border:none; border-radius: 4px; cursor:pointer;">접속</button></form></div>'''
+    return '''<div style="text-align:center; margin-top:150px; font-family:'Malgun Gothic', sans-serif;"><h2 style="color:#082c84;">JETTE 관리자 로그인</h2><form method="post"><input type="password" name="password" style="padding:10px;" placeholder="비밀번호"><button type="submit" style="padding:10px; background:#082c84; color:white; border:none;">로그인</button></form></div>'''
 
 @app.route('/admin_logout')
 def admin_logout():
@@ -156,6 +139,7 @@ def admin_logout():
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
+
     if request.method == 'POST':
         excel_text = request.form.get('excel_text')
         if not excel_text or excel_text.strip() == '': return "입력된 데이터가 없습니다.", 400
@@ -164,6 +148,7 @@ def admin():
             df.columns = df.columns.str.replace(' ', '')
             driver_seq_counter = {}
             address_cache = {}
+
             if '매장주소' in df.columns:
                 unique_addresses = df['매장주소'].dropna().astype(str).str.strip().unique()
                 unique_addresses = [addr for addr in unique_addresses if addr]
@@ -178,7 +163,7 @@ def admin():
                 if len(clean_date.split('-')) == 2: clean_date = f"{datetime.now().year}-{clean_date}"
                 try: delivery_date = pd.to_datetime(clean_date).date()
                 except: delivery_date = datetime.now().date()
-                
+
                 driver_name = str(row.get('기사명', '')).strip()
                 if driver_name not in driver_seq_counter: driver_seq_counter[driver_name] = 1
 
@@ -192,16 +177,15 @@ def admin():
                 center_name_val = str(row.get('센터명', '')).strip()
                 center_obj = Center.query.filter_by(name=center_name_val).first()
                 center_addr_val = center_obj.address if center_obj else ''
-
                 store_address_val = str(row.get('매장주소', '')).strip()
                 buffer_time_val = int(row['상하차시간(분)']) if '상하차시간(분)' in df.columns and pd.notna(row['상하차시간(분)']) else 10
                 sx, sy = address_cache.get(store_address_val, (None, None))
 
                 dispatch_entry = Dispatch(
-                    delivery_date=delivery_date, center_name=center_name_val, center_address=center_addr_val, 
-                    vehicle_num=str(row.get('차량번호', '')).strip(), driver_name=driver_name, 
+                    delivery_date=delivery_date, center_name=center_name_val, center_address=center_addr_val,
+                    vehicle_num=str(row.get('차량번호', '')).strip(), driver_name=driver_name,
                     store_code=str(row.get('매장코드', '')).strip(), store_name=str(row.get('매장명', '')).strip(),
-                    store_address=store_address_val, delivery_seq=seq_value, buffer_time=buffer_time_val, 
+                    store_address=store_address_val, delivery_seq=seq_value, buffer_time=buffer_time_val,
                     store_x=sx, store_y=sy, driver_phone=str(row.get('기사전화번호', '')).strip(),
                     store_phone=str(row.get('매장전화번호', '')).strip(), template_name=str(row.get('템플릿양식', '')).strip()
                 )
@@ -211,7 +195,7 @@ def admin():
         except Exception as e:
             db.session.rollback()
             return f"오류 발생: {str(e)} <br><br><a href='/admin'>돌아가기</a>"
-            
+
     all_data = Dispatch.query.order_by(Dispatch.delivery_date, Dispatch.driver_name, Dispatch.delivery_seq).all()
     centers = Center.query.all()
     return render_template('admin.html', dispatches=all_data, centers=centers)
@@ -279,7 +263,7 @@ def update_buffer(dispatch_id):
         if new_time is not None:
             dispatch.buffer_time = new_time
             db.session.commit()
-            update_etas_for_driver(dispatch.driver_name) 
+            update_etas_for_driver(dispatch.driver_name)
             db.session.commit()
     return redirect(url_for('admin'))
 
@@ -289,7 +273,6 @@ def update_driver(dispatch_id):
     if dispatch:
         new_driver = request.form.get('new_driver_name', '').strip()
         new_vehicle = request.form.get('new_vehicle_num', '').strip()
-        
         if new_driver and new_vehicle:
             old_driver = dispatch.driver_name
             dispatch.driver_name = new_driver
@@ -308,7 +291,7 @@ def update_driver(dispatch_id):
 def driver():
     name = request.args.get('driver_name')
     dispatches = []
-    route_chunks = [] 
+    route_chunks = []
     date_str = ""
     active_notices = Notice.query.filter_by(is_active=True).order_by(Notice.created_at.desc()).all()
 
@@ -320,6 +303,7 @@ def driver():
         if dispatches and dispatches[0].delivery_date: display_date = dispatches[0].delivery_date
         weekdays = ['월', '화', '수', '목', '금', '토', '일']
         date_str = display_date.strftime('%y%m%d') + f"({weekdays[display_date.weekday()]})"
+
         valid_dispatches = [d for d in dispatches if d.store_x and d.store_y and not d.is_departed]
         chunk_size = 5
         for i in range(0, len(valid_dispatches), chunk_size):
@@ -330,6 +314,7 @@ def driver():
             for idx, wp in enumerate(chunk[:-1]):
                 vp_key = 'vp' if idx == 0 else f"vp{idx+1}"
                 kakaomap_app_url += f"&{vp_key}={float(wp.store_y)},{float(wp.store_x)}"
+
             center_addr = dispatches[0].center_address if dispatches[0].center_address else dispatches[0].store_address
             origin_encoded = urllib.parse.quote(center_addr)
             dest_encoded = urllib.parse.quote(dest_d.store_address)
@@ -338,23 +323,26 @@ def driver():
             if waypoint_addrs:
                 wp_encoded = urllib.parse.quote("|".join(waypoint_addrs))
                 google_map_url += f"&waypoints={wp_encoded}"
+
             route_chunks.append({
                 'title': f"📱 코스 ({chunk[0].delivery_seq}~{chunk[-1].delivery_seq}번)",
-                'url': kakaomap_app_url, 'pc_url': google_map_url 
+                'url': kakaomap_app_url, 'pc_url': google_map_url
             })
     return render_template('driver.html', dispatches=dispatches, driver_name=name, route_chunks=route_chunks, date_str=date_str, active_notices=active_notices)
 
 @app.route('/depart_center', methods=['POST'])
 def depart_center():
     driver_name = request.form.get('driver_name')
-    manual_time_str = request.form.get('manual_time') 
+    manual_time_str = request.form.get('manual_time')
     dispatches = Dispatch.query.filter_by(driver_name=driver_name).order_by(Dispatch.delivery_seq).all()
     if not dispatches: return "데이터 없음", 404
-    depart_dt = datetime.now() 
+
+    depart_dt = datetime.now()
     if manual_time_str:
         today = datetime.now().date()
         time_obj = datetime.strptime(manual_time_str, '%H:%M').time()
         depart_dt = datetime.combine(today, time_obj)
+
     for d in dispatches: d.center_depart_time = depart_dt
     db.session.commit()
     update_etas_for_driver(driver_name)
@@ -377,7 +365,7 @@ def complete_delivery(dispatch_id):
         dispatch.is_departed = True
         dispatch.departure_time = datetime.now()
         db.session.commit()
-        update_etas_for_driver(dispatch.driver_name) 
+        update_etas_for_driver(dispatch.driver_name)
         db.session.commit()
         return redirect(url_for('driver', driver_name=dispatch.driver_name))
     return "데이터 없음", 404
@@ -410,10 +398,10 @@ def update_order():
                 dispatch = Dispatch.query.get(int(item_id))
                 if dispatch and not dispatch.is_departed:
                     dispatch.delivery_seq = completed_count + index + 1
-        db.session.commit()
-        if driver_name:
-            update_etas_for_driver(driver_name)
             db.session.commit()
+            if driver_name:
+                update_etas_for_driver(driver_name)
+                db.session.commit()
     return {"status": "success"}
 
 @app.route('/dashboard')
@@ -429,8 +417,10 @@ def dashboard():
         if d.is_departed: stats[name]['completed'] += 1
         else: stats[name]['remaining'] += 1
         stats[name]['details'].append(d)
+
     for name, data in stats.items():
         data['progress'] = int((data['completed'] / data['total']) * 100) if data['total'] > 0 else 0
+
     vehicle_stats = {
         'total': len(stats),
         'completed': sum(1 for data in stats.values() if data['remaining'] == 0),
@@ -444,7 +434,7 @@ def download_excel():
     query = Dispatch.query
     if center_filter: query = query.filter_by(center_name=center_filter)
     all_data = query.order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
-    
+
     data_list = []
     for d in all_data:
         data_list.append({
@@ -459,7 +449,7 @@ def download_excel():
     df = pd.DataFrame(data_list)
     today_str = datetime.now().strftime('%Y-%m-%d')
     if all_data and all_data[0].delivery_date: today_str = all_data[0].delivery_date.strftime('%Y-%m-%d')
-    
+
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='배송시간')
@@ -485,7 +475,7 @@ def download_template():
         '차량번호': ['임시00임 0000', '임시00임 1111'], '기사명': ['홍길동', '이순신'],
         '매장코드': ['S001', 'S002'], '매장명': ['강남A', '강남B'],
         '매장주소': ['서울특별시 강남구 테헤란로 123', '서울특별시 강남구 테헤란로 456'],
-        '배송순서': [1, 2], '상하차시간(분)': [10, 10], 
+        '배송순서': [1, 2], '상하차시간(분)': [10, 10],
         '기사전화번호': ['010-1234-5678', '010-9876-5432'], '매장전화번호': ['02-111-2222', '031-333-4444 / 010-999-8888'],
         '템플릿양식': ['A 양식', 'B 양식']
     }
@@ -495,19 +485,6 @@ def download_template():
         df.to_excel(writer, index=False, sheet_name='업로드양식')
         worksheet = writer.sheets['업로드양식']
         apply_excel_styles(worksheet, df)
-        for col_idx, col_name in enumerate(df.columns, 1):
-            cell = worksheet.cell(row=1, column=col_idx)
-            if col_name == '배송순서': cell.comment = Comment('공란이어도 됩니다.', 'Admin')
-            elif col_name == '상하차시간(분)': cell.comment = Comment('공란이어도 됩니다. (기본값: 10분)', 'Admin')
-            
-        for column_cells in worksheet.columns:
-            max_len = 0
-            for cell in column_cells:
-                if cell.value:
-                    val_str = str(cell.value)
-                    val_len = sum(2 if ord(c) > 127 else 1.2 for c in val_str)
-                    if val_len > max_len: max_len = val_len
-            worksheet.column_dimensions[column_cells[0].column_letter].width = max_len + 2
     output.seek(0)
     return send_file(output, download_name="JETTE_배차업로드양식.xlsx", as_attachment=True)
 
@@ -522,13 +499,12 @@ def sms_page():
 @app.route('/sms/add_template', methods=['POST'])
 def add_template():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
-    
     template_id = request.form.get('template_id')
     name = request.form.get('template_name').strip()
     subject = request.form.get('template_subject').strip()
     sender = request.form.get('template_sender').strip()
     content = request.form.get('template_content').strip()
-    
+
     if name and content and subject and sender:
         if template_id:
             existing = SmsTemplate.query.get(template_id)
@@ -557,17 +533,26 @@ def delete_template(template_id):
         db.session.commit()
     return redirect(url_for('sms_page'))
 
+# 💡 [신규 라우트] 발송 대기 목록에서 개별 매장의 문자 템플릿 변경하기
+@app.route('/sms/update_template/<int:dispatch_id>', methods=['POST'])
+def update_dispatch_template(dispatch_id):
+    if not session.get('is_admin'): return redirect(url_for('admin_login'))
+    dispatch = Dispatch.query.get(dispatch_id)
+    if dispatch:
+        new_template = request.form.get('new_template', '').strip()
+        dispatch.template_name = new_template
+        db.session.commit()
+    return redirect(url_for('sms_page'))
+
 @app.route('/download_sms_excel')
 def download_sms_excel():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
     center_filter = request.args.get('center_name', '')
-    
     query = Dispatch.query.filter(Dispatch.center_depart_time != None)
     if center_filter: query = query.filter_by(center_name=center_filter)
     departed_dispatches = query.order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
-    
+
     templates_dict = {t.name: t for t in SmsTemplate.query.all()}
-    
     data_list = []
     for d in departed_dispatches:
         eta_str = d.estimated_arrival.strftime('%H시 %M분') if d.estimated_arrival else "계산중"
@@ -581,26 +566,21 @@ def download_sms_excel():
             raw_content = "안녕하세요 {매장명} 점주님!\n도착예정시간: {도착예정시간}\n기사명: {기사명}\n연락처: {기사전화번호}"
             sender_num = "1668-3136"
 
-        sms_subject = raw_subject.replace('{매장명}', d.store_name)\
-                                 .replace('{도착예정시간}', eta_str)\
-                                 .replace('{기사명}', d.driver_name)\
-                                 .replace('{차량번호}', d.vehicle_num)
-        
-        sms_content = raw_content.replace('{매장명}', d.store_name)\
-                                 .replace('{도착예정시간}', eta_str)\
-                                 .replace('{기사명}', d.driver_name)\
-                                 .replace('{차량번호}', d.vehicle_num)\
-                                 .replace('{기사전화번호}', d.driver_phone if d.driver_phone else "번호없음")
-        
+        sms_subject = raw_subject.replace('{매장명}', d.store_name).replace('{도착예정시간}', eta_str).replace('{기사명}', d.driver_name).replace('{차량번호}', d.vehicle_num)
+        sms_content = raw_content.replace('{매장명}', d.store_name).replace('{도착예정시간}', eta_str).replace('{기사명}', d.driver_name).replace('{차량번호}', d.vehicle_num).replace('{기사전화번호}', d.driver_phone if d.driver_phone else "번호없음")
+
         store_phone_raw = d.store_phone if d.store_phone else "번호없음"
         phones = [p.strip() for p in store_phone_raw.replace(' / ', '/').split('/') if p.strip()]
-        
+
         for phone in phones:
             data_list.append({
-                '수신인': d.store_name, '연락처': phone,
-                '제목': sms_subject, '내용': sms_content, '발신번호': sender_num
+                '수신인': d.store_name,
+                '연락처': phone,
+                '제목': sms_subject,
+                '내용': sms_content,
+                '발신번호': sender_num
             })
-        
+
     df = pd.DataFrame(data_list)
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -612,7 +592,7 @@ def download_sms_excel():
         worksheet.column_dimensions['C'].width = 35
         worksheet.column_dimensions['D'].width = 50
         worksheet.column_dimensions['E'].width = 15
-                
+
     output.seek(0)
     today_str = datetime.now().strftime('%Y%m%d')
     filename = f"{center_filter}_{today_str}_알림톡발송양식.xlsx" if center_filter else f"{today_str}_알림톡발송양식.xlsx"
@@ -624,33 +604,13 @@ def notice_page():
     notices = Notice.query.order_by(Notice.created_at.desc()).all()
     return render_template('notice.html', notices=notices)
 
-# 💡 [업데이트] 공지사항 이미지 업로드 (최대 5장) 처리 라우트
 @app.route('/notice/add', methods=['POST'])
 def add_notice():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
     title = request.form.get('title').strip()
     content = request.form.get('content').strip()
-    
-    uploaded_images = []
-    # HTML form에서 multiple로 전달된 파일 리스트 확보
-    files = request.files.getlist('images')
-    
-    # 기사님들 모바일 로딩 및 서버 보존을 위해 최대 5장만 잘라서 업로드 처리
-    files = files[:5]
-    
-    for file in files:
-        if file and file.filename != '' and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            # 파일명 중복 방지를 위해 타임스탬프 결합
-            unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
-            file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename))
-            uploaded_images.append(unique_filename)
-            
-    # 구분값(|)을 합쳐서 단일 문자열로 가공
-    images_str_val = "|".join(uploaded_images) if uploaded_images else None
-    
     if title and content:
-        db.session.add(Notice(title=title, content=content, images_str=images_str_val, is_active=True))
+        db.session.add(Notice(title=title, content=content, is_active=True))
         db.session.commit()
     return redirect(url_for('notice_page'))
 
@@ -659,11 +619,6 @@ def delete_notice(notice_id):
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
     n = Notice.query.get(notice_id)
     if n:
-        # 💡 보존을 위해 서버 저장 폴더 내 실물 이미지 파일도 자동 삭제
-        for img in n.image_list:
-            try:
-                os.remove(os.path.join(app.config['UPLOAD_FOLDER'], img))
-            except Exception: pass
         db.session.delete(n)
         db.session.commit()
     return redirect(url_for('notice_page'))

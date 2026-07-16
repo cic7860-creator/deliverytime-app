@@ -24,7 +24,6 @@
         .badge-active { background-color: #28a745; }
         .badge-inactive { background-color: #6c757d; }
         
-        /* 이미지 복사 붙여넣기 전용 박스 디자인 */
         .paste-zone { border: 2px dashed #0d6efd; background-color: #f8f9fa; padding: 20px; text-align: center; color: #0d6efd; font-weight: bold; cursor: pointer; border-radius: 6px; margin-bottom: 15px; min-height: 100px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .paste-zone:focus { outline: none; background-color: #e9ecef; }
         .paste-zone img { max-width: 100%; height: auto; border-radius: 4px; margin-top: 10px; }
@@ -59,9 +58,8 @@
             });
             zone.addEventListener('input', syncContent);
             function syncContent() {
-                // 처음에 적혀있던 안내 텍스트 제거
                 if(zone.innerHTML.includes("여기를 클릭하고")) {
-                    zone.innerHTML = zone.innerHTML.replace("여기를 클릭하고 Ctrl+V 로 사진이나 텍스트를 붙여넣으세요 (최대 5장)", "");
+                    zone.innerHTML = zone.innerHTML.replace("여기를 클릭하고 Ctrl+V 로 사진이나 텍스트를 붙여넣으세요", "");
                 }
                 hiddenInput.value = zone.innerHTML;
             }
@@ -86,7 +84,6 @@
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 40px;">
-            <!-- 좌측: 일반 공지사항 등록 -->
             <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #dee2e6;">
                 <h2>📢 기사님 앱 팝업 공지사항 등록</h2>
                 <div style="background: #e3f2fd; padding: 15px; border-radius: 6px; margin-bottom: 20px; font-size: 13px; color: #082c84;">
@@ -95,13 +92,11 @@
                 <form action="/notice/add" method="POST">
                     <input type="text" name="title" placeholder="공지 제목을 입력하세요" required>
                     
-                    <!-- 💡 신규: 특정 기사님 지정 필드 -->
                     <label style="font-size: 13px; font-weight: bold; color: #dc3545; display: block; margin-bottom: 5px;">🎯 특정 기사님 노출 (선택사항)</label>
                     <input type="text" name="target_drivers" placeholder="예) 홍길동, 김철수 (비워두면 전체 기사님 노출)" style="border-color: #dc3545;">
 
-                    <!-- 💡 복사 붙여넣기 에어리어 -->
                     <div class="paste-zone" id="pasteZoneNotice" contenteditable="true">
-                        여기를 클릭하고 Ctrl+V 로 사진이나 텍스트를 붙여넣으세요 (최대 5장)
+                        여기를 클릭하고 Ctrl+V 로 사진이나 텍스트를 붙여넣으세요
                     </div>
                     <input type="hidden" name="content" id="noticeContent" required>
 
@@ -109,7 +104,6 @@
                 </form>
             </div>
 
-            <!-- 우측: 배송 완료 축하 팝업 등록 -->
             <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 2px dashed #198754;">
                 <h2 style="color: #198754;">🎉 배송 완료 축하 팝업 설정</h2>
                 <div style="background: #e8f5e9; padding: 15px; border-radius: 6px; margin-bottom: 20px; font-size: 13px; color: #198754;">
@@ -139,7 +133,6 @@
                 <span class="badge badge-inactive">⚫ 노출 안함 (숨김)</span>
                 {% endif %}
                 
-                <!-- 💡 타겟 기사님 뱃지 노출 -->
                 {% if n.target_drivers %}
                 <span class="badge" style="background: #dc3545;">🎯 노출대상: {{ n.target_drivers }}</span>
                 {% else %}

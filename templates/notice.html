@@ -4,148 +4,207 @@
     <meta charset="UTF-8">
     <title>공지사항 관리 - JETTE</title>
     <style>
-        @font-face { font-family: 'Binggrae-Two'; src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Binggrae-Two.woff') format('woff'); font-weight: normal; font-style: normal; }
+        @font-face {
+            font-family: 'Binggrae-Two';
+            src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Binggrae-Two.woff') format('woff');
+            font-weight: normal; font-style: normal;
+        }
         body { font-family: 'Binggrae-Two', sans-serif; padding: 20px; background-color: #f8f9fa; margin: 0; }
         .container { max-width: 1000px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .top-nav { background-color: #212529; padding: 15px 20px; border-radius: 6px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
+        .top-nav { background-color: #212529; padding: 15px 20px; border-radius: 6px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
         .top-nav div { display: flex; gap: 20px; flex-wrap: wrap; }
         .top-nav a { color: #f8f9fa; text-decoration: none; font-size: 16px; font-weight: bold; }
         .top-nav a:hover { color: #0d6efd; }
         h2 { color: #082c84; border-bottom: 2px solid #dee2e6; padding-bottom: 10px; margin-top: 0; }
-
-        input[type="text"], textarea { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; box-sizing: border-box; }
+        
+        input[type="text"], textarea { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; font-size: 15px; box-sizing: border-box; }
         .btn { padding: 12px 20px; font-size: 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
         .btn-primary { background-color: #082c84; color: white; width: 100%; }
-        .btn-success { background-color: #198754; color: white; width: 100%; }
-
-        .notice-card { border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 15px; display: flex; justify-content: space-between; background: white; }
+        
+        .notice-card { border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: flex-start; }
         .notice-card.inactive { background-color: #f1f3f5; opacity: 0.7; }
         .badge { padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; color: white; display: inline-block; margin-bottom: 10px; }
         .badge-active { background-color: #28a745; }
         .badge-inactive { background-color: #6c757d; }
-        
-        .paste-zone { border: 2px dashed #0d6efd; background-color: #f8f9fa; padding: 20px; text-align: center; color: #0d6efd; font-weight: bold; cursor: pointer; border-radius: 6px; margin-bottom: 15px; min-height: 100px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .paste-zone:focus { outline: none; background-color: #e9ecef; }
-        .paste-zone img { max-width: 100%; height: auto; border-radius: 4px; margin-top: 10px; }
-    </style>
-    <script>
-        function setupPasteZone(zoneId, inputId) {
-            let zone = document.getElementById(zoneId);
-            let hiddenInput = document.getElementById(inputId);
 
-            zone.addEventListener('paste', function (e) {
-                e.preventDefault();
-                let items = (e.clipboardData || e.originalEvent.clipboardData).items;
-                for (let index in items) {
-                    let item = items[index];
-                    if (item.kind === 'file') {
-                        let blob = item.getAsFile();
-                        let reader = new FileReader();
-                        reader.onload = function (event) {
-                            let img = document.createElement("img");
-                            img.src = event.target.result;
-                            zone.appendChild(img);
-                            syncContent();
-                        };
-                        reader.readAsDataURL(blob);
-                    } else if (item.type === 'text/plain') {
-                        item.getAsString(function(str) {
-                            zone.innerHTML += str + "<br>";
-                            syncContent();
-                        });
+        /* 붙여넣기 박스 호버 효과 */
+        #pasteArea:hover { background-color: #cce5ff !important; border-color: #0d6efd !important; }
+    </style>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const pasteArea = document.getElementById('pasteArea');
+            const previewArea = document.getElementById('previewArea');
+            const imageInput = document.getElementById('imageInput');
+            let dataTransfer = new DataTransfer();
+
+            // 박스 클릭 시 시각적 반응
+            pasteArea.addEventListener('click', function() {
+                this.focus();
+                this.style.backgroundColor = '#b8daff';
+                setTimeout(() => { this.style.backgroundColor = '#e3f2fd'; }, 200);
+            });
+
+            // 화면에서 붙여넣기(Ctrl+V) 감지
+            document.addEventListener('paste', function(e) {
+                let items = e.clipboardData.items;
+                let imagePasted = false;
+                
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('image') !== -1) {
+                        if (dataTransfer.items.length >= 5) {
+                            alert("사진은 최대 5장까지만 첨부할 수 있습니다.");
+                            break;
+                        }
+                        
+                        // 클립보드의 이미지를 가상의 파일로 변환 (서버 전송용)
+                        let file = items[i].getAsFile();
+                        let ext = file.type.split('/')[1] || 'png';
+                        let newFile = new File([file], "pasted_image_" + Date.now() + "_" + i + "." + ext, {type: file.type});
+                        
+                        dataTransfer.items.add(newFile);
+                        imagePasted = true;
                     }
                 }
-            });
-            zone.addEventListener('input', syncContent);
-            function syncContent() {
-                if(zone.innerHTML.includes("여기를 클릭하고")) {
-                    zone.innerHTML = zone.innerHTML.replace("여기를 클릭하고 Ctrl+V 로 사진이나 텍스트를 붙여넣으세요", "");
+                
+                if (imagePasted) {
+                    // 변환된 파일을 숨겨진 input 파일에 밀어넣기
+                    imageInput.files = dataTransfer.files;
+                    renderPreviews();
                 }
-                hiddenInput.value = zone.innerHTML;
-            }
-        }
-        window.onload = function() {
-            setupPasteZone("pasteZoneNotice", "noticeContent");
-            setupPasteZone("pasteZoneCompletion", "completionContent");
-        };
+            });
+
+            // 붙여넣은 이미지 썸네일 그리기
+            window.renderPreviews = function() {
+                previewArea.innerHTML = '';
+                for (let i = 0; i < dataTransfer.files.length; i++) {
+                    let file = dataTransfer.files[i];
+                    let reader = new FileReader();
+                    reader.onload = function(e) {
+                        let imgDiv = document.createElement('div');
+                        imgDiv.style.position = 'relative';
+                        imgDiv.style.width = '120px';
+                        imgDiv.style.height = '120px';
+                        
+                        let img = document.createElement('img');
+                        img.src = e.target.result;
+                        img.style.width = '100%';
+                        img.style.height = '100%';
+                        img.style.objectFit = 'cover';
+                        img.style.borderRadius = '6px';
+                        img.style.border = '2px solid #ced4da';
+                        
+                        // 삭제 버튼
+                        let removeBtn = document.createElement('button');
+                        removeBtn.innerHTML = 'X';
+                        removeBtn.style.position = 'absolute';
+                        removeBtn.style.top = '-8px';
+                        removeBtn.style.right = '-8px';
+                        removeBtn.style.background = '#dc3545';
+                        removeBtn.style.color = 'white';
+                        removeBtn.style.border = 'none';
+                        removeBtn.style.borderRadius = '50%';
+                        removeBtn.style.width = '24px';
+                        removeBtn.style.height = '24px';
+                        removeBtn.style.fontSize = '12px';
+                        removeBtn.style.fontWeight = 'bold';
+                        removeBtn.style.cursor = 'pointer';
+                        removeBtn.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
+                        removeBtn.onclick = function(event) {
+                            event.preventDefault(); // 폼 제출 방지
+                            removeImage(i);
+                        };
+                        
+                        imgDiv.appendChild(img);
+                        imgDiv.appendChild(removeBtn);
+                        previewArea.appendChild(imgDiv);
+                    }
+                    reader.readAsDataURL(file);
+                }
+            };
+
+            // 이미지 삭제 로직
+            window.removeImage = function(index) {
+                let newDataTransfer = new DataTransfer();
+                for (let i = 0; i < dataTransfer.files.length; i++) {
+                    if (i !== index) {
+                        newDataTransfer.items.add(dataTransfer.files[i]);
+                    }
+                }
+                dataTransfer = newDataTransfer;
+                imageInput.files = dataTransfer.files; // input 업데이트
+                renderPreviews();
+            };
+        });
     </script>
 </head>
 <body>
     <div class="container">
+        <!-- 상단 네비게이션: 공지사항 관리 (노란색 강조) -->
         <div class="top-nav">
             <div>
                 <a href="/admin">🖥️ 데이터 입력 (홈)</a>
                 <a href="/driver" target="_blank">📱 기사님 페이지</a>
                 <a href="/dashboard">📊 실시간 대시보드</a>
                 <a href="/sms">✉️ 도착안내 문자 발송</a>
-                <a href="/notice" style="color: #ffe812;">🌟 📢 공지사항 관리</a>
+                <a href="/notice" style="color: #ffe812;">📢 공지사항 관리</a>
             </div>
             <a href="/admin_logout" style="color: #ff6b6b;">🚪 로그아웃</a>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 40px;">
-            <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #dee2e6;">
-                <h2>📢 기사님 앱 팝업 공지사항 등록</h2>
-                <div style="background: #e3f2fd; padding: 15px; border-radius: 6px; margin-bottom: 20px; font-size: 13px; color: #082c84;">
-                    💡 보안상의 이유로 파일 업로드 대신 <b>복사(Ctrl+C) 후 파란 박스에 붙여넣기(Ctrl+V)</b> 하세요.
-                </div>
-                <form action="/notice/add" method="POST">
-                    <input type="text" name="title" placeholder="공지 제목을 입력하세요" required>
-                    
-                    <label style="font-size: 13px; font-weight: bold; color: #dc3545; display: block; margin-bottom: 5px;">🎯 특정 기사님 노출 (선택사항)</label>
-                    <input type="text" name="target_drivers" placeholder="예) 홍길동, 김철수 (비워두면 전체 기사님 노출)" style="border-color: #dc3545;">
-
-                    <div class="paste-zone" id="pasteZoneNotice" contenteditable="true">
-                        여기를 클릭하고 Ctrl+V 로 사진이나 텍스트를 붙여넣으세요
-                    </div>
-                    <input type="hidden" name="content" id="noticeContent" required>
-
-                    <button type="submit" class="btn btn-primary">공지사항 등록하기</button>
-                </form>
-            </div>
-
-            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 2px dashed #198754;">
-                <h2 style="color: #198754;">🎉 배송 완료 축하 팝업 설정</h2>
-                <div style="background: #e8f5e9; padding: 15px; border-radius: 6px; margin-bottom: 20px; font-size: 13px; color: #198754;">
-                    💡 모든 배송이 완료되었을 때 마지막에 뜨는 <b>카카오톡 승인 안내 및 고생하셨다는 팝업창</b>입니다.
-                </div>
-                <form action="/notice/update_completion" method="POST">
-                    <div class="paste-zone" id="pasteZoneCompletion" contenteditable="true" style="border-color: #198754; color: #198754;">
-                        {% if completion_setting and completion_setting.content %}
-                            {{ completion_setting.content | safe }}
-                        {% else %}
-                            여기를 클릭하고 Ctrl+V 로 사진이나 텍스트를 붙여넣으세요
-                        {% endif %}
-                    </div>
-                    <input type="hidden" name="completion_content" id="completionContent" value="{{ completion_setting.content if completion_setting else '' }}">
-                    <button type="submit" class="btn btn-success">완료 팝업 저장 / 업데이트</button>
-                </form>
-            </div>
+        <h2>📢 기사님 앱(웹) 팝업 공지사항 등록</h2>
+        <div style="background: #e3f2fd; padding: 15px; border-radius: 6px; margin-bottom: 20px; font-size: 14px; color: #082c84; font-weight: bold;">
+            💡 작성된 공지사항 중 [노출 중]인 항목만 기사님들이 로그인했을 때 팝업창으로 나타납니다.
         </div>
 
-        <h2>📋 등록된 일반 공지사항 목록</h2>
+        <form action="/notice/add" method="POST" enctype="multipart/form-data" style="margin-bottom: 40px;">
+            <input type="text" name="title" placeholder="공지 제목을 입력하세요" required>
+            <textarea name="content" rows="6" placeholder="기사님들께 전달할 공지 내용을 입력하세요 (줄바꿈 가능)" required></textarea>
+            
+            <!-- 실제 파일 업로드 인풋은 숨겨둠 (보안 프로그램 우회) -->
+            <input type="file" name="images" id="imageInput" multiple accept="image/*" style="display: none;">
+            
+            <label style="font-size: 14px; font-weight: bold; color: #082c84; display: block; margin-bottom: 10px;">
+                🖼️ 공지 첨부 사진 (복사/붙여넣기 전용 - 최대 5장)
+            </label>
+            
+            <!-- 보안 우회용 클립보드 붙여넣기 박스 -->
+            <div id="pasteArea" tabindex="0" style="border: 2px dashed #082c84; padding: 40px 20px; text-align: center; border-radius: 8px; background-color: #e3f2fd; cursor: pointer; margin-bottom: 15px; outline: none; transition: 0.2s;">
+                <span style="font-size: 32px;">📋</span><br>
+                <strong style="color: #082c84; font-size: 18px; line-height: 1.5;">화면 캡처 후 이곳을 한 번 클릭하고,<br>Ctrl+V (붙여넣기)를 누르세요.</strong><br>
+                <span style="font-size: 13px; color: #6c757d; margin-top: 5px; display: inline-block;">보안 정책으로 파일 탐색기가 차단된 경우를 위한 전용 기능입니다.</span>
+            </div>
+            
+            <!-- 붙여넣은 이미지가 보여지는 곳 -->
+            <div id="previewArea" style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px;"></div>
+            
+            <button type="submit" class="btn btn-primary">공지사항 등록하기</button>
+        </form>
+
+        <h2>📋 등록된 공지사항 목록</h2>
         {% for n in notices %}
         <div class="notice-card {% if not n.is_active %}inactive{% endif %}">
-            <div style="flex: 1; padding-right: 20px; overflow: hidden;">
+            <div style="flex: 1; padding-right: 20px;">
                 {% if n.is_active %}
-                <span class="badge badge-active">🟢 현재 앱 팝업 노출 중</span>
+                    <span class="badge badge-active">🟢 현재 앱 팝업 노출 중</span>
                 {% else %}
-                <span class="badge badge-inactive">⚫ 노출 안함 (숨김)</span>
+                    <span class="badge badge-inactive">⚫ 노출 안함 (숨김)</span>
                 {% endif %}
-                
-                {% if n.target_drivers %}
-                <span class="badge" style="background: #dc3545;">🎯 노출대상: {{ n.target_drivers }}</span>
-                {% else %}
-                <span class="badge" style="background: #0d6efd;">🌐 전체 기사님 노출</span>
-                {% endif %}
-
                 <div style="font-size: 12px; color: #6c757d; margin-bottom: 5px;">등록일: {{ n.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
                 <h3 style="margin: 0 0 10px 0; color: #333;">{{ n.title }}</h3>
-                <div style="color: #555; font-size: 14px; white-space: pre-wrap; max-height: 150px; overflow-y: auto;">{{ n.content | safe }}</div>
+                <div style="color: #555; font-size: 14px; white-space: pre-wrap; margin-bottom: 15px;">{{ n.content }}</div>
+                
+                {% if n.image_list %}
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    {% for img in n.image_list %}
+                        <img src="/static/uploads/{{ img }}" style="max-width: 120px; max-height: 120px; border-radius: 6px; border: 1px solid #dee2e6; object-fit: cover;">
+                    {% endfor %}
+                </div>
+                {% endif %}
             </div>
             <div style="display: flex; flex-direction: column; gap: 8px; min-width: 100px;">
                 <form action="/notice/toggle/{{ n.id }}" method="POST" style="margin:0;">
-                    <button type="submit" class="btn" style="width:100%; background:{% if n.is_active %}#ffc107{% else %}#198754{% endif %}; color:{% if n.is_active %}#000{% else %}#fff{% endif %}; font-size:13px; padding:8px;">
+                    <button type="submit" class="btn" style="width:100%; background:{% if n.is_active %}#ffc107{% else %}#198754{% endif %}; color:{% if n.is_active %}black{% else %}white{% endif %}; font-size:13px; padding:8px;">
                         {% if n.is_active %}노출 끄기{% else %}다시 켜기{% endif %}
                     </button>
                 </form>

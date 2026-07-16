@@ -14,10 +14,9 @@
         
         .top-nav { background-color: #212529; padding: 15px 20px; border-radius: 6px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
         .top-nav div { display: flex; gap: 20px; }
-        .top-nav a { color: #f8f9fa; text-decoration: none; font-size: 16px; font-weight: bold; transition: color 0.2s; }
+        .top-nav a { color: white; text-decoration: none; font-size: 16px; font-weight: bold; transition: color 0.2s; }
         .top-nav a:hover { color: #0d6efd; }
 
-        /* 💡 상단 헤더 카드 스타일 (문자발송 페이지와 통일감 부여) */
         .header-card { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; border-left: 6px solid #082c84; flex-wrap: wrap; gap: 15px; }
         .header-title h1 { margin: 0; color: #2c3e50; font-size: 26px; }
         .header-title p { margin: 5px 0 0 0; color: #6c757d; font-size: 15px; }
@@ -88,8 +87,6 @@
                 element.style.display = "none"; btn.innerHTML = "매장별 상세정보 보기 ▾";
             }
         }
-        
-        // 💡 [수정] 센터 필터 값에 따라 다운로드 요청
         function downloadExcelFiltered() {
             let center = document.getElementById('dashboardCenterFilter').value;
             window.location.href = "/download_excel?center_name=" + encodeURIComponent(center);
@@ -97,18 +94,18 @@
     </script>
 </head>
 <body>
+    <!-- 💡 네비게이션: 대시보드 강조 -->
     <div class="top-nav">
         <div>
             <a href="/admin">🖥️ 데이터 입력 (홈)</a>
             <a href="/driver" target="_blank">📱 기사님 페이지</a>
-            <a href="/dashboard">📊 실시간 대시보드</a>
-            <a href="/sms" style="color: #ffe812;">✉️ 도착안내 문자 발송</a>
+            <a href="/dashboard" style="color: #ffe812;">📊 실시간 대시보드</a>
+            <a href="/sms">✉️ 도착안내 문자 발송</a>
             <a href="/notice">📢 공지사항 관리</a>
         </div>
         <a href="/admin_logout" style="color: #ff6b6b;">🚪 로그아웃</a>
     </div>
 
-    <!-- 💡 상단 다운로드 버튼 위치 변경 및 통일 -->
     <div class="header-card">
         <div class="header-title">
             <h1>🏢 실시간 배송 현황판</h1>
@@ -121,7 +118,6 @@
                 <option value="{{ center }}">{{ center }}</option>
                 {% endfor %}
             </select>
-            <!-- 센터 필터와 나란히 배치된 다운로드 버튼 -->
             <button onclick="downloadExcelFiltered()" class="btn-download">📥 선택 센터 배송시간 다운로드</button>
         </div>
     </div>

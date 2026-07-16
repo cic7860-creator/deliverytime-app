@@ -19,14 +19,13 @@ class Notice(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
     content = db.Column(db.Text, nullable=False)
-    target_drivers = db.Column(db.String(500), default='') # 💡 신규: 특정 기사님 지정 (쉼표로 구분)
+    target_drivers = db.Column(db.String(500), default='') # 특정 기사님 지정
     created_at = db.Column(db.DateTime, default=datetime.now)
     is_active = db.Column(db.Boolean, default=True)
 
-# 💡 신규: 배송 완료 축하 팝업 설정
 class CompletionSetting(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    content = db.Column(db.Text) # 복사/붙여넣기 한 이미지 데이터 저장
+    content = db.Column(db.Text) # 배송완료 팝업 내용
 
 class Dispatch(db.Model):
     id = db.Column(db.Integer, primary_key=True)

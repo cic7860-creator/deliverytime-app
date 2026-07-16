@@ -15,7 +15,7 @@
         
         .top-nav { background-color: #212529; padding: 15px 20px; border-radius: 6px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
         .top-nav div { display: flex; gap: 20px; flex-wrap: wrap; }
-        .top-nav a { color: #f8f9fa; text-decoration: none; font-size: 16px; font-weight: bold; transition: color 0.2s; }
+        .top-nav a { color: white; text-decoration: none; font-size: 16px; font-weight: bold; transition: color 0.2s; }
         .top-nav a:hover { color: #0d6efd; }
 
         .header-card { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; border-left: 6px solid #ffe812; flex-wrap: wrap; gap: 15px; }
@@ -66,7 +66,6 @@
             window.location.href = "/download_sms_excel?center_name=" + encodeURIComponent(center);
         }
 
-        // 💡 [업데이트] 수정 시 발신번호 값도 채워주기
         function editTemplate(id, name, subject, sender, content) {
             document.getElementById('template_id').value = id;
             document.getElementById('template_name').value = name;
@@ -97,6 +96,7 @@
 </head>
 <body>
     <div class="container">
+        <!-- 💡 네비게이션: 문자 발송 강조 -->
         <div class="top-nav">
             <div>
                 <a href="/admin">🖥️ 데이터 입력 (홈)</a>
@@ -111,7 +111,6 @@
         <div class="template-section">
             <h3 style="margin-top: 0; color: #082c84; border-bottom: 2px solid #dee2e6; padding-bottom: 10px;">📝 문자 양식(템플릿) 관리</h3>
             <div class="template-grid">
-                <!-- 입력/수정 폼 -->
                 <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #ced4da;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                         <h4 id="form_title" style="margin: 0; color: #082c84;">✨ 새 양식 추가</h4>
@@ -126,7 +125,6 @@
                         <label style="font-size: 13px; font-weight: bold; color: #082c84;">문자 발송 제목</label>
                         <input type="text" name="template_subject" id="template_subject" class="form-control" placeholder="예) [(주)제때] {매장명} 도착 안내" required style="margin-bottom: 10px;">
                         
-                        <!-- 💡 신규: 발신번호 입력창 -->
                         <label style="font-size: 13px; font-weight: bold; color: #198754;">발신번호 (고객에게 보이는 번호)</label>
                         <input type="text" name="template_sender" id="template_sender" class="form-control" placeholder="예) 1668-3136" required style="margin-bottom: 10px;">
                         
@@ -137,7 +135,6 @@
                     </form>
                 </div>
                 
-                <!-- 리스트 목록 -->
                 <div style="max-height: 440px; overflow-y: auto; border: 1px solid #ced4da; padding: 10px; border-radius: 4px; background: #fff;">
                     <h4 style="margin: 0 0 10px 0;">등록된 양식 리스트</h4>
                     {% for t in templates %}
@@ -145,7 +142,6 @@
                         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #ccc; padding-bottom: 5px; margin-bottom: 5px;">
                             <strong style="color: #082c84; font-size: 16px;">📂 {{ t.name }}</strong>
                             <div style="display: flex; gap: 5px;">
-                                <!-- 💡 수정 버튼 클릭 시 발신번호 정보도 함께 넘김 -->
                                 <button onclick="editTemplate('{{ t.id }}', '{{ t.name }}', '{{ t.subject }}', '{{ t.sender_phone if t.sender_phone else '' }}', `{{ t.content }}`)" class="btn-sm btn-edit">수정</button>
                                 <form action="/sms/delete_template/{{ t.id }}" method="POST" style="margin:0;" onsubmit="return confirm('이 양식을 삭제하시겠습니까?');">
                                     <button type="submit" class="btn-sm btn-danger">삭제</button>

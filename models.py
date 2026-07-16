@@ -8,20 +8,20 @@ class Center(db.Model):
     name = db.Column(db.String(100), nullable=False, unique=True)
     address = db.Column(db.String(255), nullable=False)
 
-# 💡 [업데이트] 문자 양식 템플릿 (제목 추가)
+# 💡 [업데이트] 문자 양식 템플릿 (발신번호 추가)
 class SmsTemplate(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False, unique=True) # 양식 이름 (예: A 양식)
-    subject = db.Column(db.String(255))                           # 💡 신규: 문자 발송 제목
-    content = db.Column(db.Text, nullable=False)                  # 양식 내용
+    name = db.Column(db.String(100), nullable=False, unique=True)
+    subject = db.Column(db.String(255))
+    sender_phone = db.Column(db.String(50))                       # 💡 신규: 발신번호
+    content = db.Column(db.Text, nullable=False)
 
-# 💡 [신규] 기사님 공지사항 모델
 class Notice(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
     content = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.now)
-    is_active = db.Column(db.Boolean, default=True)               # 활성화(노출) 여부
+    is_active = db.Column(db.Boolean, default=True)
 
 class Dispatch(db.Model):
     id = db.Column(db.Integer, primary_key=True)

@@ -95,7 +95,6 @@
         <div class="template-section">
             <h3 style="margin-top: 0; color: #082c84; border-bottom: 2px solid #dee2e6; padding-bottom: 10px;">📝 문자 양식(템플릿) 관리</h3>
             <div class="template-grid">
-                <!-- 입력/수정 폼 -->
                 <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #ced4da;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                         <h4 id="form_title" style="margin: 0; color: #082c84;">✨ 새 양식 추가</h4>
@@ -115,7 +114,6 @@
                     </form>
                 </div>
 
-                <!-- 등록된 리스트 -->
                 <div style="max-height: 440px; overflow-y: auto; border: 1px solid #ced4da; padding: 10px; border-radius: 4px; background: #fff;">
                     <h4 style="margin: 0 0 10px 0;">등록된 양식 리스트</h4>
                     {% for t in templates %}
@@ -183,7 +181,6 @@
                         <td style="color: #dc3545; font-weight: bold;">
                             {% if d.estimated_arrival %}{{ d.estimated_arrival.strftime('%H시 %M분') }}{% else %}계산중{% endif %}
                         </td>
-                        <!-- 💡 신규: 매장별 양식 개별 변경 폼 -->
                         <td style="font-weight: bold;">
                             <form action="/sms/update_template/{{ d.id }}" method="POST" style="display: flex; gap: 5px; align-items: center; margin: 0;">
                                 <select name="new_template" style="padding: 6px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; font-size: 13px; width: 100%; color: #198754; font-weight: bold;">

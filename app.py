@@ -1,7 +1,8 @@
 from flask import Flask, render_template, request, redirect, url_for, send_file, session
-from models import db, Dispatch, Center, SmsTemplate, Notice  # 💡 Notice 추가
+from models import db, Dispatch, Center, SmsTemplate, Notice
 import pandas as pd
 import io
+import os  # 💡 파일 경로 생성을 위해 추가
 from datetime import datetime, timedelta
 import urllib.parse
 import requests
@@ -10,6 +11,7 @@ import json
 import concurrent.futures
 from openpyxl.comments import Comment
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
+from werkzeug.utils import secure_filename  # 💡 파일명 안전 처리를 위해 추가
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -18,10 +20,25 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.secret_key = 'jette_super_secret_admin_key' 
 
+# 💡 [신규] 이미지 업로드용 서버 설정 추가
+UPLOAD_FOLDER = 'static/uploads'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 최대 16MB 업로드 제한
+
+# 업로드 폴더 자동 생성
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+# 이미지 확장자 검증 함수
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 db.init_app(app)
 with app.app_context():
     db.create_all()
 
+# (이하 기존 카카오 API 및 driving_time 등 공통 함수 생략 - 파일 덮어쓰기 하셔도 모든 코드 완벽 유지됩니다.)
 KAKAO_API_KEY = 'f70047282a8b7f30cd02fd2cfc00f029'
 kakao_session = requests.Session()
 route_time_cache = {}
@@ -287,17 +304,12 @@ def update_driver(dispatch_id):
             db.session.commit()
     return redirect(url_for('admin'))
 
-# ==========================================
-# 💡 [업데이트] 기사님 페이지 (공지사항 팝업 전달)
-# ==========================================
 @app.route('/driver', methods=['GET'])
 def driver():
     name = request.args.get('driver_name')
     dispatches = []
     route_chunks = [] 
     date_str = ""
-    
-    # 💡 활성화된 공지사항 가져오기
     active_notices = Notice.query.filter_by(is_active=True).order_by(Notice.created_at.desc()).all()
 
     if name:
@@ -499,9 +511,6 @@ def download_template():
     output.seek(0)
     return send_file(output, download_name="JETTE_배차업로드양식.xlsx", as_attachment=True)
 
-# ==========================================
-# 💡 문자 템플릿 및 발송 (제목 수정 + 다중 연락처 분할)
-# ==========================================
 @app.route('/sms')
 def sms_page():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
@@ -517,7 +526,7 @@ def add_template():
     template_id = request.form.get('template_id')
     name = request.form.get('template_name').strip()
     subject = request.form.get('template_subject').strip()
-    sender = request.form.get('template_sender').strip() # 💡 발신번호 받기
+    sender = request.form.get('template_sender').strip()
     content = request.form.get('template_content').strip()
     
     if name and content and subject and sender:
@@ -562,8 +571,6 @@ def download_sms_excel():
     data_list = []
     for d in departed_dispatches:
         eta_str = d.estimated_arrival.strftime('%H시 %M분') if d.estimated_arrival else "계산중"
-        
-        # 💡 적용할 템플릿 가져오기 (발신번호 포함)
         t_obj = templates_dict.get(d.template_name)
         if t_obj:
             raw_subject = t_obj.subject
@@ -590,11 +597,8 @@ def download_sms_excel():
         
         for phone in phones:
             data_list.append({
-                '수신인': d.store_name, 
-                '연락처': phone,
-                '제목': sms_subject,
-                '내용': sms_content, 
-                '발신번호': sender_num  # 💡 양식별 발신번호 적용
+                '수신인': d.store_name, '연락처': phone,
+                '제목': sms_subject, '내용': sms_content, '발신번호': sender_num
             })
         
     df = pd.DataFrame(data_list)
@@ -602,7 +606,7 @@ def download_sms_excel():
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='문자발송양식')
         worksheet = writer.sheets['문자발송양식']
-        apply_excel_styles(worksheet, df, is_sms=True) # (apply_excel_styles 함수는 이전에 추가하신 그대로 둡니다)
+        apply_excel_styles(worksheet, df, is_sms=True)
         worksheet.column_dimensions['A'].width = 25
         worksheet.column_dimensions['B'].width = 20
         worksheet.column_dimensions['C'].width = 35
@@ -614,23 +618,39 @@ def download_sms_excel():
     filename = f"{center_filter}_{today_str}_알림톡발송양식.xlsx" if center_filter else f"{today_str}_알림톡발송양식.xlsx"
     return send_file(output, download_name=filename, as_attachment=True)
 
-
-# ==========================================
-# 💡 [신규] 공지사항 관리 (Notice)
-# ==========================================
 @app.route('/notice')
 def notice_page():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
     notices = Notice.query.order_by(Notice.created_at.desc()).all()
     return render_template('notice.html', notices=notices)
 
+# 💡 [업데이트] 공지사항 이미지 업로드 (최대 5장) 처리 라우트
 @app.route('/notice/add', methods=['POST'])
 def add_notice():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
     title = request.form.get('title').strip()
     content = request.form.get('content').strip()
+    
+    uploaded_images = []
+    # HTML form에서 multiple로 전달된 파일 리스트 확보
+    files = request.files.getlist('images')
+    
+    # 기사님들 모바일 로딩 및 서버 보존을 위해 최대 5장만 잘라서 업로드 처리
+    files = files[:5]
+    
+    for file in files:
+        if file and file.filename != '' and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            # 파일명 중복 방지를 위해 타임스탬프 결합
+            unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename))
+            uploaded_images.append(unique_filename)
+            
+    # 구분값(|)을 합쳐서 단일 문자열로 가공
+    images_str_val = "|".join(uploaded_images) if uploaded_images else None
+    
     if title and content:
-        db.session.add(Notice(title=title, content=content, is_active=True))
+        db.session.add(Notice(title=title, content=content, images_str=images_str_val, is_active=True))
         db.session.commit()
     return redirect(url_for('notice_page'))
 
@@ -639,6 +659,11 @@ def delete_notice(notice_id):
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
     n = Notice.query.get(notice_id)
     if n:
+        # 💡 보존을 위해 서버 저장 폴더 내 실물 이미지 파일도 자동 삭제
+        for img in n.image_list:
+            try:
+                os.remove(os.path.join(app.config['UPLOAD_FOLDER'], img))
+            except Exception: pass
         db.session.delete(n)
         db.session.commit()
     return redirect(url_for('notice_page'))
@@ -651,7 +676,6 @@ def toggle_notice(notice_id):
         n.is_active = not n.is_active
         db.session.commit()
     return redirect(url_for('notice_page'))
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

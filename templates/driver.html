@@ -16,14 +16,12 @@
         .login-wrapper { height: 100vh; background-color: #002d72; display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; }
         .login-card { background: white; border-radius: 25px; width: 100%; max-width: 360px; padding: 50px 30px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); box-sizing: border-box; }
         .logo-container { margin-bottom: 50px; }
-        
         .jette-logo { font-size: 65px; font-weight: 900; font-family: 'Arial Black', sans-serif; letter-spacing: -2px; }
         .logo-blue { color: #082c84; } .logo-gray { color: #94908a; } 
         
         .input-group { display: flex; align-items: center; border-bottom: 1px solid #ccc; margin-bottom: 40px; padding-bottom: 8px; }
         .input-icon { font-size: 22px; margin-right: 15px; color: #111; }
         .input-field { border: none; outline: none; font-size: 18px; width: 100%; color: #333; font-family: 'Binggrae-Two', sans-serif;}
-        
         .btn-login { background-color: #082c84; color: white; border: none; width: 100%; padding: 16px; font-size: 18px; font-weight: bold; border-radius: 6px; cursor: pointer; }
         
         .dashboard-wrapper { padding: 10px; }
@@ -96,14 +94,13 @@
     <!-- 💡 순차적으로 노출될 공지사항 컨테이너 -->
     <div id="notice-container"></div>
     
-    <!-- 💡 마지막 퇴근 팝업 모달 -->
+    <!-- 💡 [수정됨] 마지막 퇴근 팝업 모달 (관리자가 수정한 텍스트 적용) -->
     <div id="finalModal" class="modal-overlay" style="display:none; z-index: 10001;">
         <div class="modal-content" style="text-align: center;">
             <div class="modal-header" style="background-color: #198754;">🎉 금일 배송 완료!</div>
             <div class="modal-body" style="font-size: 16px; font-weight: bold; color: #333;">
-                금일 배송도 고생 많으셨습니다!<br>
-                <span style="color: #082c84;">제때에서 발송된 카카오톡 배송승인</span> 부탁드리겠습니다.<br>
-                <img src="/static/uploads/completion.png" onerror="this.style.display='none'" style="width: 100%; max-height: 250px; margin-top: 15px; border-radius: 8px; object-fit: contain; border: 1px solid #ced4da; background-color: #f1f3f5;">
+                <div style="white-space: pre-wrap; margin-bottom: 15px; font-size: 16px; font-weight: bold;">{{ completion_message | replace('\n', '<br>') | safe }}</div>
+                <img src="/static/uploads/completion.png?t={{ range(1, 10000) | random }}" onerror="this.style.display='none'" style="width: 100%; max-height: 250px; border-radius: 8px; object-fit: contain; border: 1px solid #ced4da; background-color: #f1f3f5;">
             </div>
             <div class="modal-footer" style="justify-content: center;">
                 <button id="finalConfirmBtn" style="background:#198754; color:white; border:none; padding:12px 30px; border-radius:6px; font-size:16px; font-weight:bold; cursor:pointer; font-family:'Binggrae-Two';">최종 퇴근하기</button>
@@ -197,7 +194,6 @@
                                     <button class="btn-sm btn-map-disabled" onclick="alert('주소가 정확하지 않아 지도를 열 수 없습니다.'); return false;">맵</button>
                                 {% endif %}
                                 
-                                <!-- 💡 폼 제출 방지 및 마지막 배송처 확인을 위한 함수 호출 -->
                                 <form action="/complete/{{ item.id }}" method="POST" class="compact-form" id="complete-form-{{ item.id }}">
                                     <button type="button" class="btn-sm btn-green" onclick="checkFinalAndSubmit({{ item.id }})">완료</button>
                                 </form>
@@ -209,7 +205,6 @@
             </div>
             
             <script>
-                // 드래그앤드롭 스크립트
                 new Sortable(document.getElementById('sortable-list'), {
                     handle: '.drag-handle', animation: 150,
                     onEnd: function (evt) {
@@ -220,30 +215,21 @@
                     }
                 });
 
-                // ==========================================
-                // 💡 [기능 1] 마지막 배송(퇴근) 팝업 처리 로직
-                // ==========================================
                 function checkFinalAndSubmit(dispatchId) {
-                    // 남은 배송처가 1개(현재 누르는 항목)뿐인지 확인
                     let remainingCount = document.querySelectorAll('#sortable-list .item').length;
                     
                     if (remainingCount === 1) {
-                        // 마지막 배송지라면 퇴근 팝업 노출
                         document.getElementById('finalModal').style.display = 'flex';
                         document.getElementById('finalConfirmBtn').onclick = function() {
                             document.getElementById('complete-form-' + dispatchId).submit();
                         };
                     } else {
-                        // 일반 배송지라면 확인창만 띄우고 즉시 폼 전송
                         if(confirm('배송을 완료하시겠습니까?')) {
                             document.getElementById('complete-form-' + dispatchId).submit();
                         }
                     }
                 }
 
-                // ==========================================
-                // 💡 [기능 2] 공지사항 1개씩 순차 팝업 로직
-                // ==========================================
                 const driverName = "{{ driver_name or '' }}";
                 const notices = [
                     {% for n in active_notices %}
@@ -268,10 +254,9 @@
                     if (match) return match[2]; return null;
                 }
 
-                // 화면에 현재 차례의 공지사항 HTML 그려주기
                 function showNextNotice() {
                     const container = document.getElementById('notice-container');
-                    container.innerHTML = ''; // 초기화
+                    container.innerHTML = ''; 
 
                     if (currentIndex < visibleNotices.length) {
                         const n = visibleNotices[currentIndex];
@@ -302,11 +287,9 @@
                     }
                 }
 
-                // 공지 닫기 버튼 클릭 시 다음 공지로 넘어감
                 window.closeNotice = function(noticeId) {
                     const chk = document.getElementById('chkHide_' + noticeId);
                     if (chk && chk.checked) {
-                        // 💡 기사님 이름과 공지 ID를 조합해 쿠키를 구우므로 기사님별 독립적 설정 완료
                         const cookieName = "hide_notice_" + encodeURIComponent(driverName) + "_" + noticeId;
                         setCookie(cookieName, "Y", 1);
                     }
@@ -314,13 +297,12 @@
                     showNextNotice();
                 };
 
-                // 로딩 시 기사님이 봐야 할(쿠키 체크 안된) 공지만 추려서 배열에 담음
                 if (driverName && driverName.trim() !== '') {
                     visibleNotices = notices.filter(n => {
                         const cookieName = "hide_notice_" + encodeURIComponent(driverName) + "_" + n.id;
                         return getCookie(cookieName) !== "Y";
                     });
-                    showNextNotice(); // 첫 번째 공지 노출 시작
+                    showNextNotice(); 
                 }
             </script>
         {% endif %}

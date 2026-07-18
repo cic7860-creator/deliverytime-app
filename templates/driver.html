@@ -18,13 +18,11 @@
         .logo-container { margin-bottom: 50px; }
         
         .jette-logo { font-size: 65px; font-weight: 900; font-family: 'Arial Black', sans-serif; letter-spacing: -2px; }
-        .logo-blue { color: #082c84; } 
-        .logo-gray { color: #94908a; } 
+        .logo-blue { color: #082c84; } .logo-gray { color: #94908a; } 
         
         .input-group { display: flex; align-items: center; border-bottom: 1px solid #ccc; margin-bottom: 40px; padding-bottom: 8px; }
         .input-icon { font-size: 22px; margin-right: 15px; color: #111; }
         .input-field { border: none; outline: none; font-size: 18px; width: 100%; color: #333; font-family: 'Binggrae-Two', sans-serif;}
-        .input-field::placeholder { color: #aaa; }
         
         .btn-login { background-color: #082c84; color: white; border: none; width: 100%; padding: 16px; font-size: 18px; font-weight: bold; border-radius: 6px; cursor: pointer; }
         
@@ -36,12 +34,10 @@
         
         .item-list { display: flex; flex-direction: column; gap: 5px; }
         .item { display: flex; align-items: flex-start; background: white; padding: 10px; border-radius: 5px; border-left: 4px solid #082c84; box-shadow: 0 1px 3px rgba(0,0,0,0.1); gap: 8px; }
-        
         .item.completed { opacity: 0.65; border-left-color: #adb5bd; background: #f8f9fa; border: 1px dashed #ced4da; }
         .item.completed .store-name { text-decoration: line-through; color: #6c757d; }
         
         .drag-handle { font-size: 20px; color: #adb5bd; padding: 0 5px; cursor: grab; align-self: center; }
-        
         .info-col { flex: 1; min-width: 0; }
         .store-name { font-size: 14px; font-weight: bold; color: #111; margin-bottom: 4px; }
         .store-addr { font-size: 12px; color: #555; line-height: 1.5; word-break: keep-all; overflow-wrap: break-word; white-space: normal; margin-top: 3px; padding-right: 5px; }
@@ -57,70 +53,22 @@
         .btn-green { background-color: #082c84; color: white; }
         .btn-done { background-color: #adb5bd; color: white; cursor: not-allowed; }
 
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center; }
-        .modal-content { background: white; width: 90%; max-width: 400px; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.2); animation: popIn 0.3s ease-out; }
+        /* 공지사항 / 퇴근 팝업 모달 스타일 */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; display: flex; align-items: center; justify-content: center; }
+        .modal-content { background: white; width: 90%; max-width: 400px; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.2); animation: popIn 0.3s ease-out; display: flex; flex-direction: column; }
         @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         .modal-header { background: #082c84; color: white; padding: 15px 20px; font-size: 18px; font-weight: bold; }
-        .modal-body { padding: 20px; max-height: 60vh; overflow-y: auto; }
-        .notice-item { margin-bottom: 15px; border-bottom: 1px dashed #ccc; padding-bottom: 10px; }
-        .notice-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .modal-body { padding: 20px; max-height: 60vh; overflow-y: auto; color: #333; line-height: 1.5; font-size: 15px; }
         .modal-footer { padding: 15px 20px; background: #f8f9fa; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #eee; }
     </style>
-
-    <script>
-        function setCookie(name, value, expiredays) {
-            var todayDate = new Date();
-            todayDate.setHours(23, 59, 59, 0);
-            document.cookie = name + "=" + escape(value) + "; path=/; expires=" + todayDate.toGMTString() + ";";
-        }
-        function getCookie(name) {
-            var nameOfCookie = name + "=";
-            var x = 0;
-            while (x <= document.cookie.length) {
-                var y = (x + nameOfCookie.length);
-                if (document.cookie.substring(x, y) == nameOfCookie) {
-                    if ((endOfCookie = document.cookie.indexOf(";", y)) == -1)
-                        endOfCookie = document.cookie.length;
-                    return unescape(document.cookie.substring(y, endOfCookie));
-                }
-                x = document.cookie.indexOf(" ", x) + 1;
-                if (x == 0) break;
-            }
-            return "";
-        }
-        function closeNoticeModal() {
-            let urlParams = new URLSearchParams(window.location.search);
-            let driverName = urlParams.get('driver_name');
-            if (document.getElementById("chkHideToday") && document.getElementById("chkHideToday").checked) {
-                if (driverName) {
-                    // 💡 신규 로직: 기사님 성함을 포함한 고유 쿠키 이름으로 저장
-                    setCookie("hide_notice_" + encodeURIComponent(driverName), "Y", 1);
-                }
-            }
-            document.getElementById("noticeModal").style.display = "none";
-        }
-        window.addEventListener('DOMContentLoaded', function() {
-            let urlParams = new URLSearchParams(window.location.search);
-            let driverName = urlParams.get('driver_name');
-            if (driverName) {
-                let modal = document.getElementById("noticeModal");
-                // 💡 신규 로직: 본인(기사님) 전용 쿠키만 확인
-                if (modal && getCookie("hide_notice_" + encodeURIComponent(driverName)) != "Y") {
-                    modal.style.display = "flex";
-                }
-            }
-        });
-    </script>
 </head>
 <body>
-
     {% if session.get('is_admin') %}
-    <!-- 💡 관리자용 상단 네비게이션: 현재 접속 페이지 노란색 강조 -->
     <div style="background-color: #212529; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
         <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-            <a href="/admin" style="color: white; text-decoration: none; font-weight: bold;">🖥️ 데이터 입력 (홈)</a>
+            <a href="/admin" style="color: white; text-decoration: none; font-weight: bold;">🖥️ 데이터 입력</a>
             <a href="/driver" style="color: #ffe812; text-decoration: none; font-weight: bold;">📱 기사님 페이지</a>
-            <a href="/dashboard" style="color: white; text-decoration: none; font-weight: bold;">📊 실시간 대시보드</a>
+            <a href="/dashboard" style="color: white; text-decoration: none; font-weight: bold;">📊 대시보드</a>
             <a href="/sms" style="color: white; text-decoration: none; font-weight: bold;">✉️ 도착안내 문자 발송</a>
             <a href="/notice" style="color: white; text-decoration: none; font-weight: bold;">📢 공지사항 관리</a>
         </div>
@@ -145,35 +93,23 @@
     </div>
     {% else %}
     
-    <!-- 공지사항 팝업 -->
-    {% if active_notices %}
-    <div id="noticeModal" class="modal-overlay">
-        <div class="modal-content">
-            <div class="modal-header">📢 공지사항 (필독)</div>
-            <div class="modal-body">
-                {% for n in active_notices %}
-                <div class="notice-item">
-                    <strong style="color: #082c84; font-size: 16px; display: block; margin-bottom: 5px;">{{ n.title }}</strong>
-                    <div style="font-size: 14px; white-space: pre-wrap; color: #444; margin-bottom: 10px;">{{ n.content }}</div>
-                    {% if n.image_list %}
-                    <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
-                        {% for img in n.image_list %}
-                            <img src="/static/uploads/{{ img }}" style="width: 100%; max-height: 280px; border-radius: 8px; object-fit: contain; background-color: #f1f3f5; border: 1px solid #dee2e6;">
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-                </div>
-                {% endfor %}
+    <!-- 💡 순차적으로 노출될 공지사항 컨테이너 -->
+    <div id="notice-container"></div>
+    
+    <!-- 💡 마지막 퇴근 팝업 모달 -->
+    <div id="finalModal" class="modal-overlay" style="display:none; z-index: 10001;">
+        <div class="modal-content" style="text-align: center;">
+            <div class="modal-header" style="background-color: #198754;">🎉 금일 배송 완료!</div>
+            <div class="modal-body" style="font-size: 16px; font-weight: bold; color: #333;">
+                금일 배송도 고생 많으셨습니다!<br>
+                <span style="color: #082c84;">제때에서 발송된 카카오톡 배송승인</span> 부탁드리겠습니다.<br>
+                <img src="/static/uploads/completion.png" onerror="this.style.display='none'" style="width: 100%; max-height: 250px; margin-top: 15px; border-radius: 8px; object-fit: contain; border: 1px solid #ced4da; background-color: #f1f3f5;">
             </div>
-            <div class="modal-footer">
-                <label style="font-size: 14px; cursor: pointer; color: #555;">
-                    <input type="checkbox" id="chkHideToday" style="width:16px; height:16px; vertical-align:middle; margin-right:5px;"> 오늘 하루 보지 않기
-                </label>
-                <button onclick="closeNoticeModal()" style="background:#333; color:white; border:none; padding:8px 15px; border-radius:6px; cursor:pointer; font-weight:bold; font-family:'Binggrae-Two';">닫기</button>
+            <div class="modal-footer" style="justify-content: center;">
+                <button id="finalConfirmBtn" style="background:#198754; color:white; border:none; padding:12px 30px; border-radius:6px; font-size:16px; font-weight:bold; cursor:pointer; font-family:'Binggrae-Two';">최종 퇴근하기</button>
             </div>
         </div>
     </div>
-    {% endif %}
 
     <div class="dashboard-wrapper">
         <div class="header-container">
@@ -181,7 +117,6 @@
                 <h3 style="color: #333; margin: 0; font-size: 17px; letter-spacing: -0.5px;">🚚 {{ date_str }} {{ driver_name }} 기사님 배차내역</h3>
                 <a href="/driver" style="font-size: 12px; color: #666; text-decoration: none; font-weight: bold; padding: 5px; border: 1px solid #ccc; border-radius: 4px; background: white;">로그아웃</a>
             </div>
-            
             {% if route_chunks %}
             <div style="display: flex; gap: 5px; flex-wrap: wrap; width: 100%;">
                 {% for chunk in route_chunks %}
@@ -196,7 +131,6 @@
         
         {% if dispatches %}
             {% set first_item = dispatches[0] %}
-            
             <div class="center-depart-box">
                 <h4 style="margin-top: 0; margin-bottom: 10px; color: #082c84; text-align: center;">🏢 센터 출발</h4>
                 {% if first_item.center_depart_time %}
@@ -210,9 +144,7 @@
                 {% else %}
                     <form action="/depart_center" method="POST" onsubmit="return confirm('배송순서 지정 후 출발처리 부탁드립니다.\n진짜 출발하시겠습니까?');">
                         <input type="hidden" name="driver_name" value="{{ driver_name }}">
-                        <button type="submit" style="background-color: #082c84; color: white; border: none; padding: 12px; font-size: 16px; font-weight: bold; border-radius: 6px; width: 100%; margin-bottom: 10px; cursor: pointer; font-family: 'Binggrae-Two';">
-                            🚀 지금 출발
-                        </button>
+                        <button type="submit" style="background-color: #082c84; color: white; border: none; padding: 12px; font-size: 16px; font-weight: bold; border-radius: 6px; width: 100%; margin-bottom: 10px; cursor: pointer; font-family: 'Binggrae-Two';">🚀 지금 출발</button>
                     </form>
                     <form action="/depart_center" method="POST" style="display: flex; gap: 5px; align-items: center; background: white; padding: 8px; border-radius: 6px;">
                         <input type="hidden" name="driver_name" value="{{ driver_name }}">
@@ -222,7 +154,6 @@
                 {% endif %}
             </div>
 
-            <!-- 완료된 매장 리스트 -->
             <div class="item-list" style="margin-bottom: 15px;">
                 {% for item in dispatches %}
                     {% if item.is_departed %}
@@ -233,16 +164,13 @@
                             <div class="store-addr">{{ item.store_address }}</div>
                         </div>
                         <div class="action-col">
-                            <div style="display: flex; align-items: center; justify-content: center; height: 100%;">
-                                <button class="btn-sm btn-done" disabled>배송완료</button>
-                            </div>
+                            <div style="display: flex; align-items: center; justify-content: center; height: 100%;"><button class="btn-sm btn-done" disabled>배송완료</button></div>
                         </div>
                     </div>
                     {% endif %}
                 {% endfor %}
             </div>
 
-            <!-- 대기 중인 매장 리스트 -->
             <div id="sortable-list" class="item-list">
                 {% for item in dispatches %}
                     {% if not item.is_departed %}
@@ -266,11 +194,12 @@
                                 {% if item.store_x and item.store_y %}
                                     <a href="https://map.kakao.com/link/map/{{ item.store_name | urlencode }},{{ item.store_y }},{{ item.store_x }}" target="_blank" class="btn-sm btn-map">맵</a>
                                 {% else %}
-                                    <button class="btn-sm btn-map-disabled" onclick="alert('주소가 정확하지 않아 지도를 열 수 없습니다.\n관리자에게 문의해주세요.'); return false;">맵</button>
+                                    <button class="btn-sm btn-map-disabled" onclick="alert('주소가 정확하지 않아 지도를 열 수 없습니다.'); return false;">맵</button>
                                 {% endif %}
-
-                                <form action="/complete/{{ item.id }}" method="POST" class="compact-form" onsubmit="return confirm('배송을 완료하시겠습니까?');">
-                                    <button type="submit" class="btn-sm btn-green">완료</button>
+                                
+                                <!-- 💡 폼 제출 방지 및 마지막 배송처 확인을 위한 함수 호출 -->
+                                <form action="/complete/{{ item.id }}" method="POST" class="compact-form" id="complete-form-{{ item.id }}">
+                                    <button type="button" class="btn-sm btn-green" onclick="checkFinalAndSubmit({{ item.id }})">완료</button>
                                 </form>
                             </div>
                         </div>
@@ -280,27 +209,122 @@
             </div>
             
             <script>
+                // 드래그앤드롭 스크립트
                 new Sortable(document.getElementById('sortable-list'), {
-                    handle: '.drag-handle',
-                    animation: 150,
+                    handle: '.drag-handle', animation: 150,
                     onEnd: function (evt) {
                         let orderArray = [];
-                        document.querySelectorAll('#sortable-list .item').forEach(function(el) {
-                            orderArray.push(el.getAttribute('data-id'));
-                        });
-                        fetch('/update_order', {
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify(orderArray)
-                        })
-                        .then(response => response.json())
-                        .then(data => { if(data.status === 'success') location.reload(); });
+                        document.querySelectorAll('#sortable-list .item').forEach(function(el) { orderArray.push(el.getAttribute('data-id')); });
+                        fetch('/update_order', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(orderArray) })
+                        .then(response => response.json()).then(data => { if(data.status === 'success') location.reload(); });
                     }
                 });
+
+                // ==========================================
+                // 💡 [기능 1] 마지막 배송(퇴근) 팝업 처리 로직
+                // ==========================================
+                function checkFinalAndSubmit(dispatchId) {
+                    // 남은 배송처가 1개(현재 누르는 항목)뿐인지 확인
+                    let remainingCount = document.querySelectorAll('#sortable-list .item').length;
+                    
+                    if (remainingCount === 1) {
+                        // 마지막 배송지라면 퇴근 팝업 노출
+                        document.getElementById('finalModal').style.display = 'flex';
+                        document.getElementById('finalConfirmBtn').onclick = function() {
+                            document.getElementById('complete-form-' + dispatchId).submit();
+                        };
+                    } else {
+                        // 일반 배송지라면 확인창만 띄우고 즉시 폼 전송
+                        if(confirm('배송을 완료하시겠습니까?')) {
+                            document.getElementById('complete-form-' + dispatchId).submit();
+                        }
+                    }
+                }
+
+                // ==========================================
+                // 💡 [기능 2] 공지사항 1개씩 순차 팝업 로직
+                // ==========================================
+                const driverName = "{{ driver_name or '' }}";
+                const notices = [
+                    {% for n in active_notices %}
+                    {
+                        id: "{{ n.id }}",
+                        title: `{{ n.title | replace('\n', '\\n') | replace('`', '\\`') }}`,
+                        content: `{{ n.content | replace('\n', '\\n') | replace('`', '\\`') }}`,
+                        images: [{% for img in n.image_list %}"{{ img }}"{% if not loop.last %},{% endif %}{% endfor %}]
+                    }{% if not loop.last %},{% endif %}
+                    {% endfor %}
+                ];
+
+                let currentIndex = 0;
+                let visibleNotices = [];
+
+                function setCookie(name, value, days) {
+                    let d = new Date(); d.setTime(d.getTime() + (days*24*60*60*1000));
+                    document.cookie = name + "=" + value + ";path=/;expires=" + d.toUTCString();
+                }
+                function getCookie(name) {
+                    let match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+                    if (match) return match[2]; return null;
+                }
+
+                // 화면에 현재 차례의 공지사항 HTML 그려주기
+                function showNextNotice() {
+                    const container = document.getElementById('notice-container');
+                    container.innerHTML = ''; // 초기화
+
+                    if (currentIndex < visibleNotices.length) {
+                        const n = visibleNotices[currentIndex];
+                        let imgHtml = '';
+                        n.images.forEach(img => {
+                            if(img && img.trim() !== '') { imgHtml += `<img src="/static/uploads/${img}" style="width:100%; max-height:280px; object-fit:contain; margin-top:10px; border-radius:8px; border:1px solid #eee;">`; }
+                        });
+
+                        container.innerHTML = `
+                            <div class="modal-overlay">
+                                <div class="modal-content">
+                                    <div class="modal-header">📢 ${n.title}</div>
+                                    <div class="modal-body">
+                                        <div style="white-space: pre-wrap;">${n.content}</div>
+                                        ${imgHtml}
+                                    </div>
+                                    <div class="modal-footer">
+                                        <label style="cursor: pointer; font-size: 14px; color:#555;">
+                                            <input type="checkbox" id="chkHide_${n.id}" style="width:16px; height:16px; vertical-align:middle;"> 오늘 하루 보지 않기
+                                        </label>
+                                        <button onclick="closeNotice('${n.id}')" style="background:#333; color:white; border:none; padding:8px 20px; border-radius:6px; font-weight:bold; cursor:pointer; font-family:'Binggrae-Two';">
+                                            ${(currentIndex === visibleNotices.length - 1) ? '닫기' : '다음 공지 보기 ❯'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                }
+
+                // 공지 닫기 버튼 클릭 시 다음 공지로 넘어감
+                window.closeNotice = function(noticeId) {
+                    const chk = document.getElementById('chkHide_' + noticeId);
+                    if (chk && chk.checked) {
+                        // 💡 기사님 이름과 공지 ID를 조합해 쿠키를 구우므로 기사님별 독립적 설정 완료
+                        const cookieName = "hide_notice_" + encodeURIComponent(driverName) + "_" + noticeId;
+                        setCookie(cookieName, "Y", 1);
+                    }
+                    currentIndex++;
+                    showNextNotice();
+                };
+
+                // 로딩 시 기사님이 봐야 할(쿠키 체크 안된) 공지만 추려서 배열에 담음
+                if (driverName && driverName.trim() !== '') {
+                    visibleNotices = notices.filter(n => {
+                        const cookieName = "hide_notice_" + encodeURIComponent(driverName) + "_" + n.id;
+                        return getCookie(cookieName) !== "Y";
+                    });
+                    showNextNotice(); // 첫 번째 공지 노출 시작
+                }
             </script>
         {% endif %}
     </div>
     {% endif %}
-
 </body>
 </html>

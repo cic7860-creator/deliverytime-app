@@ -12,6 +12,7 @@ import concurrent.futures
 from openpyxl.comments import Comment
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 from werkzeug.utils import secure_filename  # 💡 파일명 안전 처리를 위해 추가
+from models import db, Dispatch, Center, SmsTemplate, Notice, SystemSettings
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -310,10 +311,25 @@ def driver():
     dispatches = []
     route_chunks = [] 
     date_str = ""
-    active_notices = Notice.query.filter_by(is_active=True).order_by(Notice.created_at.desc()).all()
+    active_notices = []
+    
+    # 퇴근 팝업 문구 불러오기
+    comp_msg_setting = SystemSettings.query.filter_by(key='completion_msg').first()
+    completion_message = comp_msg_setting.value if comp_msg_setting else "금일 배송도 고생 많으셨습니다!\n제때에서 발송된 카카오톡 배송승인 부탁드리겠습니다."
 
     if name:
         dispatches = Dispatch.query.filter_by(driver_name=name).order_by(Dispatch.delivery_seq).all()
+        # 💡 [신규] 기사님 이름에 맞춰 지정된 공지사항만 필터링
+        all_active_notices = Notice.query.filter_by(is_active=True).order_by(Notice.created_at.desc()).all()
+        for n in all_active_notices:
+            if not n.target_drivers: # 지정 안했으면 모두에게 표출
+                active_notices.append(n)
+            else: # 지정한 기사님에게만 표출
+                target_list = [d.strip() for d in n.target_drivers.split(',')]
+                if name in target_list:
+                    active_notices.append(n)
+                    
+        # (...기존 노선 chunk 및 ETA 로직 동일하게 유지...)
         if not dispatches:
             return f"<script>alert('{name} 기사님의 배차 내역이 존재하지 않습니다.'); window.location.href='/driver';</script>"
         display_date = datetime.now().date()
@@ -342,7 +358,8 @@ def driver():
                 'title': f"📱 코스 ({chunk[0].delivery_seq}~{chunk[-1].delivery_seq}번)",
                 'url': kakaomap_app_url, 'pc_url': google_map_url 
             })
-    return render_template('driver.html', dispatches=dispatches, driver_name=name, route_chunks=route_chunks, date_str=date_str, active_notices=active_notices)
+            
+    return render_template('driver.html', dispatches=dispatches, driver_name=name, route_chunks=route_chunks, date_str=date_str, active_notices=active_notices, completion_message=completion_message)
 
 @app.route('/depart_center', methods=['POST'])
 def depart_center():
@@ -622,7 +639,10 @@ def download_sms_excel():
 def notice_page():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
     notices = Notice.query.order_by(Notice.created_at.desc()).all()
-    return render_template('notice.html', notices=notices)
+    # 퇴근 문구 기존값 불러와서 폼에 채워주기
+    comp_msg_setting = SystemSettings.query.filter_by(key='completion_msg').first()
+    completion_message = comp_msg_setting.value if comp_msg_setting else "금일 배송도 고생 많으셨습니다!\n제때에서 발송된 카카오톡 배송승인 부탁드리겠습니다."
+    return render_template('notice.html', notices=notices, completion_message=completion_message)
 
 # 💡 [업데이트] 공지사항 이미지 업로드 (최대 5장) 처리 라우트
 @app.route('/notice/add', methods=['POST'])
@@ -630,27 +650,22 @@ def add_notice():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
     title = request.form.get('title').strip()
     content = request.form.get('content').strip()
+    target_drivers = request.form.get('target_drivers', '').strip() # 💡 신규 추가
     
     uploaded_images = []
-    # HTML form에서 multiple로 전달된 파일 리스트 확보
     files = request.files.getlist('images')
-    
-    # 기사님들 모바일 로딩 및 서버 보존을 위해 최대 5장만 잘라서 업로드 처리
     files = files[:5]
-    
     for file in files:
         if file and file.filename != '' and allowed_file(file.filename):
             filename = secure_filename(file.filename)
-            # 파일명 중복 방지를 위해 타임스탬프 결합
             unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename))
             uploaded_images.append(unique_filename)
             
-    # 구분값(|)을 합쳐서 단일 문자열로 가공
     images_str_val = "|".join(uploaded_images) if uploaded_images else None
     
     if title and content:
-        db.session.add(Notice(title=title, content=content, images_str=images_str_val, is_active=True))
+        db.session.add(Notice(title=title, content=content, images_str=images_str_val, target_drivers=target_drivers, is_active=True))
         db.session.commit()
     return redirect(url_for('notice_page'))
 
@@ -691,16 +706,28 @@ def update_template(dispatch_id):
     return redirect(url_for('admin'))
 
 # ==========================================
-# 💡 [신규 추가] 마지막 배송(퇴근) 팝업 이미지 등록
+# 💡 퇴근(마지막 팝업) 텍스트 및 이미지 복사붙여넣기 등록
 # ==========================================
-@app.route('/upload_completion_img', methods=['POST'])
-def upload_completion_img():
+@app.route('/upload_completion', methods=['POST'])
+def upload_completion():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
+    
+    # 1. 텍스트 문구 저장
+    comp_text = request.form.get('completion_text', '').strip()
+    if comp_text:
+        setting = SystemSettings.query.filter_by(key='completion_msg').first()
+        if setting:
+            setting.value = comp_text
+        else:
+            db.session.add(SystemSettings(key='completion_msg', value=comp_text))
+        db.session.commit()
+        
+    # 2. 이미지 저장 (복사/붙여넣기로 만들어진 가상의 파일 받기)
     file = request.files.get('completion_image')
     if file and file.filename != '':
-        # 고정된 파일명(completion.png)으로 덮어쓰기 저장 (DB 용량 차지 안함)
         save_path = os.path.join(app.config['UPLOAD_FOLDER'], 'completion.png')
         file.save(save_path)
+        
     return redirect(url_for('notice_page'))
 
 if __name__ == '__main__':

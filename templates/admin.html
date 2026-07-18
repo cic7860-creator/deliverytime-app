@@ -11,7 +11,7 @@
             font-weight: normal; font-style: normal;
         }
         body { font-family: 'Binggrae-Two', sans-serif; padding: 20px; background-color: #f8f9fa; color: #333; margin: 0; }
-        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .container { max-width: 1300px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         h2 { margin-top: 0; color: #082c84; }
         .top-nav { background-color: #212529; padding: 15px 20px; border-radius: 6px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
         .top-nav div { display: flex; gap: 20px; flex-wrap: wrap; }
@@ -26,7 +26,7 @@
         .section-title { margin-top: 40px; border-bottom: 2px solid #dee2e6; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
         .table-responsive { overflow-x: auto; margin-top: 15px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05); }
         table { width: 100%; border-collapse: collapse; min-width: 1200px; background-color: white; }
-        th, td { padding: 14px 12px; text-align: left; border-bottom: 1px solid #dee2e6; font-size: 14px; vertical-align: middle; }
+        th, td { padding: 12px 10px; text-align: left; border-bottom: 1px solid #dee2e6; font-size: 14px; vertical-align: middle; }
         th { background-color: #f8f9fa; font-weight: bold; color: #495057; white-space: nowrap; border-top: 2px solid #dee2e6; border-bottom: 2px solid #dee2e6; }
         tr:hover { background-color: #f1f3f5; }
         .btn-update { padding: 5px 10px; background-color: #198754; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
@@ -36,7 +36,6 @@
         .search-container select, .search-container input { padding: 12px; font-size: 15px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; }
         .search-container input { flex: 1; }
         .info-box { background-color: #e3f2fd; color: #082c84; padding: 15px 20px; border-radius: 6px; margin-bottom: 15px; border-left: 5px solid #082c84; font-weight: bold; font-size: 15px; }
-        .highlight-text { color: #dc3545; }
     </style>
     <script>
         function filterTable(tableId, inputId, centerFilterId) {
@@ -44,11 +43,9 @@
             let centerFilter = centerFilterId ? document.getElementById(centerFilterId).value : "";
             let table = document.getElementById(tableId);
             let tr = table.getElementsByTagName("tr");
-            
             for (let i = 1; i < tr.length; i++) {
                 let tds = tr[i].getElementsByTagName("td");
-                let rowText = "";
-                let rowCenter = tds[0] ? tds[0].innerText.trim() : ""; 
+                let rowText = ""; let rowCenter = tds[0] ? tds[0].innerText.trim() : ""; 
                 for (let j = 0; j < tds.length; j++) { if (tds[j]) rowText += tds[j].innerText.toLowerCase() + " "; }
                 let matchText = rowText.includes(textInput);
                 let matchCenter = (centerFilter === "" || rowCenter === centerFilter);
@@ -59,7 +56,7 @@
 </head>
 <body>
     <div class="container">
-        <!-- 💡 네비게이션: 데이터 입력 (홈) 강조 -->
+        <!-- 네비게이션 -->
         <div class="top-nav">
             <div>
                 <a href="/admin" style="color: #ffe812;">🖥️ 데이터 입력 (홈)</a>
@@ -81,13 +78,10 @@
                 <button type="submit" class="btn btn-primary">신규 센터 등록</button>
             </form>
             <table style="min-width: 100%;">
-                <thead>
-                    <tr><th style="width: 20%;">센터명</th><th style="width: 65%;">출발지 주소</th><th style="width: 15%; text-align: center;">관리</th></tr>
-                </thead>
+                <thead><tr><th style="width: 20%;">센터명</th><th style="width: 65%;">출발지 주소</th><th style="width: 15%; text-align: center;">관리</th></tr></thead>
                 <tbody>
                     {% for c in centers %}
-                    <tr>
-                        <td style="font-weight: bold; color: #082c84;">{{ c.name }}</td><td>{{ c.address }}</td>
+                    <tr><td style="font-weight: bold; color: #082c84;">{{ c.name }}</td><td>{{ c.address }}</td>
                         <td class="text-center">
                             <form action="/admin/delete_center/{{ c.id }}" method="POST" onsubmit="return confirm('이 센터를 정말 삭제하시겠습니까?');" style="margin: 0;">
                                 <button type="submit" class="btn btn-danger" style="padding: 5px 10px;">삭제</button>
@@ -95,7 +89,7 @@
                         </td>
                     </tr>
                     {% else %}
-                    <tr><td colspan="3" class="text-center" style="color: #6c757d; padding: 20px;">등록된 센터가 없습니다. 먼저 센터를 추가해 주세요.</td></tr>
+                    <tr><td colspan="3" class="text-center" style="color: #6c757d; padding: 20px;">등록된 센터가 없습니다.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -106,12 +100,9 @@
                 <h2 style="margin: 0; font-size: 24px;">🚚 통합 배차 데이터 엑셀 업로드</h2>
                 <a href="/download_template" class="btn-outline">📥 업로드 12열 양식 다운로드</a>
             </div>
-            
             <div class="info-box" style="font-size: 14px; padding: 15px;">
-                💡 <b>양식 안내:</b> 센터명 / 배송일자 / 차량번호 / 기사명 / 매장코드 / 매장명 / 매장주소 / 배송순서 / 상하차시간(분) / <span class="highlight-text">기사전화번호 / 매장전화번호 / 템플릿양식</span><br>
-                총 12개 열을 제목 행부터 끝까지 모두 드래그 복사하여 아래에 붙여넣어 주세요!
+                💡 <b>양식 안내:</b> 센터명 / 배송일자 / 차량번호 / 기사명 / 매장코드 / 매장명 / 매장주소 / 배송순서 / 상하차시간(분) / 기사전화번호 / 매장전화번호 / 템플릿양식
             </div>
-            
             <form action="/admin" method="POST">
                 <textarea name="excel_text" placeholder="여기에 엑셀 데이터를 붙여넣으세요" required style="height: 150px; font-size: 14px;"></textarea>
                 <div style="text-align: right; margin-top: 10px;">
@@ -122,18 +113,15 @@
 
         <div class="section-title">
             <h3 style="margin: 0;">📋 금일 배차 내역 <span style="color:#6c757d; font-size:16px;">(총 {{ dispatches|length }} 건)</span></h3>
-            
             <div style="display: flex; gap: 10px;">
                 <form action="/admin/delete_by_center" method="POST" onsubmit="return confirm('선택한 센터의 배차 데이터를 모두 삭제하시겠습니까?');" style="margin: 0; display: flex; gap: 5px;">
                     <select name="center_name" required style="padding: 8px; border-radius: 4px; border: 1px solid #ced4da; font-family: 'Binggrae-Two';">
                         <option value="">센터 선택</option>
-                        {% for c in centers %}
-                        <option value="{{ c.name }}">{{ c.name }}</option>
-                        {% endfor %}
+                        {% for c in centers %} <option value="{{ c.name }}">{{ c.name }}</option> {% endfor %}
                     </select>
                     <button type="submit" class="btn btn-danger" style="background-color: #ff9800;">선택 센터 일괄삭제</button>
                 </form>
-                <form action="/admin/delete_all" method="POST" onsubmit="return confirm('정말 모든 배차 데이터를 삭제하시겠습니까?\n이 작업은 되돌릴 수 변없습니다.');" style="margin: 0;">
+                <form action="/admin/delete_all" method="POST" onsubmit="return confirm('정말 모든 배차 데이터를 삭제하시겠습니까?');" style="margin: 0;">
                     <button type="submit" class="btn btn-danger">🚨 전체 삭제 (초기화)</button>
                 </form>
             </div>
@@ -143,11 +131,9 @@
         <div class="search-container">
             <select id="adminCenterFilter" onchange="filterTable('dispatchTable', 'adminSearchInput', 'adminCenterFilter')">
                 <option value="">🏢 전체 센터</option>
-                {% for c in centers %}
-                <option value="{{ c.name }}">{{ c.name }}</option>
-                {% endfor %}
+                {% for c in centers %} <option value="{{ c.name }}">{{ c.name }}</option> {% endfor %}
             </select>
-            <input type="text" id="adminSearchInput" onkeyup="filterTable('dispatchTable', 'adminSearchInput', 'adminCenterFilter')" placeholder="🔍 기사명, 매장명, 주소 등으로 빠르게 검색하세요...">
+            <input type="text" id="adminSearchInput" onkeyup="filterTable('dispatchTable', 'adminSearchInput', 'adminCenterFilter')" placeholder="🔍 검색어 입력...">
         </div>
 
         <div class="table-responsive">
@@ -158,10 +144,12 @@
                         <th class="text-center">기사명 / 차량</th>
                         <th>매장명</th>
                         <th class="text-center">순서</th>
-                        <th style="width: 220px;">매장 주소 (오류시 즉시 수정)</th>
-                        <th class="text-center">시간 수정</th>
-                        <th class="text-center">배차 이관</th>
-                        <th class="text-center">개별관리</th>
+                        <th style="width: 200px;">주소 (오류시 수정)</th>
+                        <th class="text-center">시간수정</th>
+                        <th class="text-center">기사변경</th>
+                        <!-- 💡 신규: 문자 양식 수정 헤더 -->
+                        <th class="text-center" style="color: #d63384;">문자 양식 수정</th>
+                        <th class="text-center">관리</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -174,34 +162,36 @@
                         </td>
                         <td style="font-weight: bold; color: #333;">{{ d.store_name }}</td>
                         <td class="text-center" style="font-weight: bold;">{{ d.delivery_seq }}</td>
-                        
                         <td>
                             <form action="/admin/update_address/{{ d.id }}" method="POST" style="display: flex; flex-direction: column; gap: 4px; margin: 0;">
                                 <div style="display: flex; gap: 4px;">
                                     <input type="text" name="new_address" value="{{ d.store_address }}" style="width: 100%; padding: 5px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; font-size: 12px;">
-                                    <button type="submit" style="background:#6c757d; color:white; border:none; padding:5px 8px; border-radius:4px; cursor:pointer; font-weight:bold; font-size: 11px; white-space: nowrap;">주소적용</button>
+                                    <button type="submit" style="background:#6c757d; color:white; border:none; padding:5px 8px; border-radius:4px; cursor:pointer; font-weight:bold; font-size: 11px;">적용</button>
                                 </div>
-                                {% if not d.store_x or not d.store_y %}
-                                    <div style="color: #dc3545; font-weight: bold; font-size: 11px; margin-top: 2px;">🚨 주소 인식 실패 (수정 요망)</div>
-                                {% endif %}
                             </form>
                         </td>
-
-                        <td class="no-wrap">
-                            <form action="/admin/update_buffer/{{ d.id }}" method="POST" style="display: flex; justify-content: center; align-items: center; gap: 6px; margin: 0;">
+                        <td class="no-wrap text-center">
+                            <form action="/admin/update_buffer/{{ d.id }}" method="POST" style="display: flex; justify-content: center; align-items: center; gap: 4px; margin: 0;">
                                 <input type="number" name="buffer_time" value="{{ d.buffer_time }}" style="width: 45px; padding: 5px; text-align: center; border: 1px solid #ced4da; border-radius: 4px; font-weight: bold;">
                                 <button type="submit" class="btn-update">적용</button>
                             </form>
                         </td>
-                        <td class="no-wrap">
-                            <form action="/admin/update_driver/{{ d.id }}" method="POST" style="display: flex; justify-content: center; align-items: center; gap: 6px; margin: 0;">
-                                <input type="text" name="new_driver_name" value="{{ d.driver_name }}" placeholder="기사명" style="width: 65px; padding: 5px; text-align: center; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two';" required>
-                                <input type="text" name="new_vehicle_num" value="{{ d.vehicle_num }}" placeholder="차량번호" style="width: 100px; padding: 5px; text-align: center; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two';" required>
-                                <button type="submit" class="btn-update" style="background-color: #0d6efd;" onclick="return confirm('이 매장의 기사님과 차량번호를 모두 변경하시겠습니까?');">변경</button>
+                        <td class="no-wrap text-center">
+                            <form action="/admin/update_driver/{{ d.id }}" method="POST" style="display: flex; justify-content: center; align-items: center; gap: 4px; margin: 0;">
+                                <input type="text" name="new_driver_name" value="{{ d.driver_name }}" style="width: 55px; padding: 5px; text-align: center; border: 1px solid #ced4da; border-radius: 4px;" required>
+                                <input type="text" name="new_vehicle_num" value="{{ d.vehicle_num }}" style="width: 80px; padding: 5px; text-align: center; border: 1px solid #ced4da; border-radius: 4px;" required>
+                                <button type="submit" class="btn-update" style="background-color: #0d6efd;">변경</button>
+                            </form>
+                        </td>
+                        <!-- 💡 신규: 문자 템플릿(양식) 변경 폼 -->
+                        <td class="no-wrap text-center">
+                            <form action="/admin/update_template/{{ d.id }}" method="POST" style="display: flex; justify-content: center; align-items: center; gap: 4px; margin: 0;">
+                                <input type="text" name="template_name" value="{{ d.template_name or '' }}" placeholder="기본" style="width: 70px; padding: 5px; text-align: center; border: 1px solid #d63384; border-radius: 4px; font-family: 'Binggrae-Two'; color: #d63384; font-weight: bold;">
+                                <button type="submit" class="btn-update" style="background-color: #d63384;">수정</button>
                             </form>
                         </td>
                         <td class="text-center no-wrap">
-                            <form action="/admin/delete/{{ d.id }}" method="POST" onsubmit="return confirm('해당 매장 배차를 삭제하시겠습니까?');" style="margin:0;">
+                            <form action="/admin/delete/{{ d.id }}" method="POST" onsubmit="return confirm('해당 매장을 삭제하시겠습니까?');" style="margin:0;">
                                 <button type="submit" style="background:#dc3545; color:white; border:none; padding:5px 12px; border-radius:4px; cursor:pointer; font-weight:bold;">삭제</button>
                             </form>
                         </td>
@@ -210,8 +200,6 @@
                 </tbody>
             </table>
         </div>
-        {% else %}
-            <p style="text-align: center; color: #666; margin-top: 30px;">현재 등록된 배차 데이터가 없습니다.</p>
         {% endif %}
     </div>
 </body>

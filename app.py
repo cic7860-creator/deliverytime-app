@@ -677,5 +677,31 @@ def toggle_notice(notice_id):
         db.session.commit()
     return redirect(url_for('notice_page'))
 
+# ==========================================
+# 💡 [신규 추가] 매장별 문자 템플릿 양식 개별 수정
+# ==========================================
+@app.route('/admin/update_template/<int:dispatch_id>', methods=['POST'])
+def update_template(dispatch_id):
+    if not session.get('is_admin'): return redirect(url_for('admin_login'))
+    dispatch = Dispatch.query.get(dispatch_id)
+    if dispatch:
+        template_name = request.form.get('template_name', '').strip()
+        dispatch.template_name = template_name
+        db.session.commit()
+    return redirect(url_for('admin'))
+
+# ==========================================
+# 💡 [신규 추가] 마지막 배송(퇴근) 팝업 이미지 등록
+# ==========================================
+@app.route('/upload_completion_img', methods=['POST'])
+def upload_completion_img():
+    if not session.get('is_admin'): return redirect(url_for('admin_login'))
+    file = request.files.get('completion_image')
+    if file and file.filename != '':
+        # 고정된 파일명(completion.png)으로 덮어쓰기 저장 (DB 용량 차지 안함)
+        save_path = os.path.join(app.config['UPLOAD_FOLDER'], 'completion.png')
+        file.save(save_path)
+    return redirect(url_for('notice_page'))
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

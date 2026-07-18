@@ -319,13 +319,13 @@ def driver():
     if name:
         dispatches = Dispatch.query.filter_by(driver_name=name).order_by(Dispatch.delivery_seq).all()
         
-        all_active_notices = Notice.query.filter_by(is_active=True).order_by(Notice.created_at.desc()).all()
+        # 💡 [수정] 순서(display_seq)를 오름차순(1,2,3..)으로 먼저 정렬한 뒤 최신순 정렬
+        all_active_notices = Notice.query.filter_by(is_active=True).order_by(Notice.display_seq.asc(), Notice.created_at.desc()).all()
         for n in all_active_notices:
             target_str = n.target_drivers.strip() if n.target_drivers else ""
             
-            # 💡 [신규] 조건부 기사 필터링 로직
             if not target_str:
-                active_notices.append(n) # 빈칸: 모두에게 표출
+                active_notices.append(n) 
             elif target_str.lower().startswith("contain "):
                 keywords = [k.strip() for k in target_str[8:].split(',') if k.strip()]
                 if any(k in name for k in keywords):
@@ -647,8 +647,8 @@ def download_sms_excel():
 @app.route('/notice')
 def notice_page():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
-    notices = Notice.query.order_by(Notice.created_at.desc()).all()
-    # 퇴근 문구 기존값 불러와서 폼에 채워주기
+    # 💡 [수정] 목록에서도 순서대로 정렬해서 보여주기
+    notices = Notice.query.order_by(Notice.display_seq.asc(), Notice.created_at.desc()).all()
     comp_msg_setting = SystemSettings.query.filter_by(key='completion_msg').first()
     completion_message = comp_msg_setting.value if comp_msg_setting else "금일 배송도 고생 많으셨습니다!\n제때에서 발송된 카카오톡 배송승인 부탁드리겠습니다."
     return render_template('notice.html', notices=notices, completion_message=completion_message)
@@ -658,10 +658,11 @@ def notice_page():
 def add_notice():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
     
-    notice_id = request.form.get('notice_id') # 수정 모드일 때 넘어오는 ID
+    notice_id = request.form.get('notice_id') 
     title = request.form.get('title').strip()
     content = request.form.get('content').strip()
     target_drivers = request.form.get('target_drivers', '').strip()
+    display_seq = request.form.get('display_seq', type=int) or 1 # 💡 [신규] 노출 순서값 가져오기 (기본값 1)
     
     uploaded_images = []
     files = request.files.getlist('images')
@@ -676,19 +677,18 @@ def add_notice():
     images_str_val = "|".join(uploaded_images) if uploaded_images else None
     
     if notice_id:
-        # 기존 공지사항 수정
         n = Notice.query.get(notice_id)
         if n:
             n.title = title
             n.content = content
             n.target_drivers = target_drivers
-            # 새로운 사진이 복사/붙여넣기 된 경우에만 사진을 덮어씌움 (비워두면 기존 사진 유지)
+            n.display_seq = display_seq # 💡 업데이트 반영
             if images_str_val:
                 n.images_str = images_str_val
     else:
-        # 신규 공지사항 등록
         if title and content:
-            db.session.add(Notice(title=title, content=content, images_str=images_str_val, target_drivers=target_drivers, is_active=True))
+            # 💡 [수정] 저장할 때 display_seq 포함
+            db.session.add(Notice(title=title, content=content, images_str=images_str_val, target_drivers=target_drivers, display_seq=display_seq, is_active=True))
             
     db.session.commit()
     return redirect(url_for('notice_page'))

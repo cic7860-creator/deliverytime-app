@@ -313,23 +313,32 @@ def driver():
     date_str = ""
     active_notices = []
     
-    # 퇴근 팝업 문구 불러오기
     comp_msg_setting = SystemSettings.query.filter_by(key='completion_msg').first()
     completion_message = comp_msg_setting.value if comp_msg_setting else "금일 배송도 고생 많으셨습니다!\n제때에서 발송된 카카오톡 배송승인 부탁드리겠습니다."
 
     if name:
         dispatches = Dispatch.query.filter_by(driver_name=name).order_by(Dispatch.delivery_seq).all()
-        # 💡 [신규] 기사님 이름에 맞춰 지정된 공지사항만 필터링
+        
         all_active_notices = Notice.query.filter_by(is_active=True).order_by(Notice.created_at.desc()).all()
         for n in all_active_notices:
-            if not n.target_drivers: # 지정 안했으면 모두에게 표출
-                active_notices.append(n)
-            else: # 지정한 기사님에게만 표출
-                target_list = [d.strip() for d in n.target_drivers.split(',')]
+            target_str = n.target_drivers.strip() if n.target_drivers else ""
+            
+            # 💡 [신규] 조건부 기사 필터링 로직
+            if not target_str:
+                active_notices.append(n) # 빈칸: 모두에게 표출
+            elif target_str.lower().startswith("contain "):
+                keywords = [k.strip() for k in target_str[8:].split(',') if k.strip()]
+                if any(k in name for k in keywords):
+                    active_notices.append(n)
+            elif target_str.lower().startswith("not contain "):
+                keywords = [k.strip() for k in target_str[12:].split(',') if k.strip()]
+                if not any(k in name for k in keywords):
+                    active_notices.append(n)
+            else:
+                target_list = [d.strip() for d in target_str.split(',') if d.strip()]
                 if name in target_list:
                     active_notices.append(n)
                     
-        # (...기존 노선 chunk 및 ETA 로직 동일하게 유지...)
         if not dispatches:
             return f"<script>alert('{name} 기사님의 배차 내역이 존재하지 않습니다.'); window.location.href='/driver';</script>"
         display_date = datetime.now().date()
@@ -648,9 +657,11 @@ def notice_page():
 @app.route('/notice/add', methods=['POST'])
 def add_notice():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
+    
+    notice_id = request.form.get('notice_id') # 수정 모드일 때 넘어오는 ID
     title = request.form.get('title').strip()
     content = request.form.get('content').strip()
-    target_drivers = request.form.get('target_drivers', '').strip() # 💡 신규 추가
+    target_drivers = request.form.get('target_drivers', '').strip()
     
     uploaded_images = []
     files = request.files.getlist('images')
@@ -664,9 +675,22 @@ def add_notice():
             
     images_str_val = "|".join(uploaded_images) if uploaded_images else None
     
-    if title and content:
-        db.session.add(Notice(title=title, content=content, images_str=images_str_val, target_drivers=target_drivers, is_active=True))
-        db.session.commit()
+    if notice_id:
+        # 기존 공지사항 수정
+        n = Notice.query.get(notice_id)
+        if n:
+            n.title = title
+            n.content = content
+            n.target_drivers = target_drivers
+            # 새로운 사진이 복사/붙여넣기 된 경우에만 사진을 덮어씌움 (비워두면 기존 사진 유지)
+            if images_str_val:
+                n.images_str = images_str_val
+    else:
+        # 신규 공지사항 등록
+        if title and content:
+            db.session.add(Notice(title=title, content=content, images_str=images_str_val, target_drivers=target_drivers, is_active=True))
+            
+    db.session.commit()
     return redirect(url_for('notice_page'))
 
 @app.route('/notice/delete/<int:notice_id>', methods=['POST'])

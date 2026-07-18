@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=1300"> <!-- 💡수정: 1300 픽셀로 고정하여 데스크탑 뷰 유지 -->
+    <meta name="viewport" content="width=1300">
     <title>배차 데이터 관리</title>
     <style>
         @font-face {
@@ -147,7 +147,6 @@
                         <th style="width: 200px;">주소 (오류시 수정)</th>
                         <th class="text-center">시간수정</th>
                         <th class="text-center">기사변경</th>
-                        <!-- 💡 신규: 문자 양식 수정 헤더 -->
                         <th class="text-center" style="color: #d63384;">문자 양식 수정</th>
                         <th class="text-center">관리</th>
                     </tr>
@@ -162,14 +161,21 @@
                         </td>
                         <td style="font-weight: bold; color: #333;">{{ d.store_name }}</td>
                         <td class="text-center" style="font-weight: bold;">{{ d.delivery_seq }}</td>
+                        
+                        <!-- 💡 주소 수정 영역: 카카오맵 좌표가 없으면 경고 표시 -->
                         <td>
+                            {% if not d.store_x or not d.store_y %}
+                                <div style="color: #dc3545; font-size: 12px; font-weight: bold; margin-bottom: 4px;">⚠️ 주소 수정 요망 (지도 인식 실패)</div>
+                            {% endif %}
                             <form action="/admin/update_address/{{ d.id }}" method="POST" style="display: flex; flex-direction: column; gap: 4px; margin: 0;">
                                 <div style="display: flex; gap: 4px;">
-                                    <input type="text" name="new_address" value="{{ d.store_address }}" style="width: 100%; padding: 5px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; font-size: 12px;">
+                                    <input type="text" name="new_address" value="{{ d.store_address }}" 
+                                           style="width: 100%; padding: 5px; border: {% if not d.store_x or not d.store_y %}2px solid #dc3545{% else %}1px solid #ced4da{% endif %}; border-radius: 4px; font-family: 'Binggrae-Two'; font-size: 12px;">
                                     <button type="submit" style="background:#6c757d; color:white; border:none; padding:5px 8px; border-radius:4px; cursor:pointer; font-weight:bold; font-size: 11px;">적용</button>
                                 </div>
                             </form>
                         </td>
+
                         <td class="no-wrap text-center">
                             <form action="/admin/update_buffer/{{ d.id }}" method="POST" style="display: flex; justify-content: center; align-items: center; gap: 4px; margin: 0;">
                                 <input type="number" name="buffer_time" value="{{ d.buffer_time }}" style="width: 45px; padding: 5px; text-align: center; border: 1px solid #ced4da; border-radius: 4px; font-weight: bold;">
@@ -183,7 +189,6 @@
                                 <button type="submit" class="btn-update" style="background-color: #0d6efd;">변경</button>
                             </form>
                         </td>
-                        <!-- 💡 신규: 문자 템플릿(양식) 변경 폼 -->
                         <td class="no-wrap text-center">
                             <form action="/admin/update_template/{{ d.id }}" method="POST" style="display: flex; justify-content: center; align-items: center; gap: 4px; margin: 0;">
                                 <input type="text" name="template_name" value="{{ d.template_name or '' }}" placeholder="기본" style="width: 70px; padding: 5px; text-align: center; border: 1px solid #d63384; border-radius: 4px; font-family: 'Binggrae-Two'; color: #d63384; font-weight: bold;">

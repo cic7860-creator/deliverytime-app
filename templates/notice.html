@@ -2,7 +2,6 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <!-- 💡 모바일에서도 데스크톱처럼 넓게 보이도록 뷰포트 고정 -->
     <meta name="viewport" content="width=1100">
     <title>공지사항 관리 - JETTE</title>
     <style>
@@ -19,7 +18,7 @@
         .top-nav a:hover { color: #0d6efd; }
         h2 { color: #082c84; border-bottom: 2px solid #dee2e6; padding-bottom: 10px; margin-top: 0; }
         
-        input[type="text"], textarea { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; font-size: 15px; box-sizing: border-box; }
+        input[type="text"], input[type="number"], textarea { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; font-size: 15px; box-sizing: border-box; }
         .btn { padding: 12px 20px; font-size: 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
         .btn-primary { background-color: #082c84; color: white; width: 100%; }
         
@@ -104,12 +103,13 @@
             };
         });
 
-        // 💡 [수정 기능] 목록의 수정 버튼을 누르면 위 폼에 데이터를 채워줌
-        function editNotice(id, title, content, targetDrivers) {
+        // 💡 수정 시 호출되는 자바스크립트 함수에 displaySeq 추가
+        function editNotice(id, title, content, targetDrivers, displaySeq) {
             document.getElementById('notice_id').value = id;
             document.querySelector('input[name="title"]').value = title;
             document.querySelector('textarea[name="content"]').value = content;
             document.querySelector('input[name="target_drivers"]').value = targetDrivers;
+            document.querySelector('input[name="display_seq"]').value = displaySeq;
             
             document.getElementById('editModeAlert').style.display = "block";
             const submitBtn = document.getElementById('submitBtnNotice');
@@ -129,6 +129,7 @@
             document.querySelector('input[name="title"]').value = "";
             document.querySelector('textarea[name="content"]').value = "";
             document.querySelector('input[name="target_drivers"]').value = "";
+            document.querySelector('input[name="display_seq"]').value = "1";
             
             document.getElementById('editModeAlert').style.display = "none";
             const submitBtn = document.getElementById('submitBtnNotice');
@@ -154,7 +155,6 @@
 
         <h2>📢 기사님 앱(웹) 팝업 공지사항 등록 / 수정</h2>
         
-        <!-- 💡 폼 상단에 규칙 설명 추가 -->
         <div style="background: #e3f2fd; padding: 15px; border-radius: 6px; margin-bottom: 20px; font-size: 14px; color: #082c84; font-weight: bold; line-height: 1.6;">
             💡 <strong>[대상 기사 지정 규칙]</strong><br>
             - <strong>빈칸</strong>: 모든 기사님께 표출<br>
@@ -163,7 +163,6 @@
             - <strong>제외 조건</strong>: <code>not contain 홍길동, 김길동</code> (해당 기사님들만 제외하고 모두에게 표출)
         </div>
 
-        <!-- 💡 수정 모드 알림바 -->
         <div id="editModeAlert" style="display:none; background:#ffc107; padding:15px; font-weight:bold; border-radius:6px; margin-bottom:15px; color:#000;">
             ✏️ 기존 공지사항을 수정 중입니다. 내용을 수정한 뒤 버튼을 눌러주세요.
             <button type="button" onclick="resetNoticeForm()" style="margin-left:15px; cursor:pointer; padding:5px 10px; border:none; background:#dc3545; color:white; font-weight:bold; border-radius:4px;">작성 취소 (새로 작성하기)</button>
@@ -172,9 +171,18 @@
         <form action="/notice/add" method="POST" enctype="multipart/form-data" style="margin-bottom: 40px;">
             <input type="hidden" name="notice_id" id="notice_id">
             
-            <label style="font-size: 14px; font-weight: bold; color: #333;">🎯 대상 기사 지정 (위 규칙 참고)</label>
-            <input type="text" name="target_drivers" placeholder="예: contain 김 / not contain 홍길동">
-            
+            <div style="display: flex; gap: 10px;">
+                <div style="flex: 2;">
+                    <label style="font-size: 14px; font-weight: bold; color: #333;">🎯 대상 기사 지정</label>
+                    <input type="text" name="target_drivers" placeholder="예: contain 김 / not contain 홍길동">
+                </div>
+                <div style="flex: 1;">
+                    <!-- 💡 신규 추가된 순서 입력 폼 -->
+                    <label style="font-size: 14px; font-weight: bold; color: #082c84;">🔢 노출 순서</label>
+                    <input type="number" name="display_seq" value="1" placeholder="작은 숫자부터 팝업" required style="border: 2px solid #082c84;">
+                </div>
+            </div>
+
             <label style="font-size: 14px; font-weight: bold; color: #333;">공지 제목 및 내용</label>
             <input type="text" name="title" placeholder="공지 제목을 입력하세요" required>
             <textarea name="content" rows="4" placeholder="기사님들께 전달할 공지 내용을 입력하세요" required></textarea>
@@ -220,6 +228,8 @@
             <div style="flex: 1; padding-right: 20px;">
                 {% if n.is_active %}<span class="badge badge-active">🟢 노출 중</span>{% else %}<span class="badge badge-inactive">⚫ 숨김</span>{% endif %}
                 <span class="badge" style="background: #17a2b8;">대상: {% if n.target_drivers %}{{ n.target_drivers }}{% else %}전체 기사님{% endif %}</span>
+                <!-- 💡 목록에도 순서 뱃지 추가 -->
+                <span class="badge" style="background: #6f42c1;">팝업 순서: {{ n.display_seq }}번째</span>
                 <div style="font-size: 12px; color: #6c757d; margin-bottom: 5px; margin-top: 5px;">등록일: {{ n.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
                 <h3 style="margin: 0 0 10px 0; color: #333;">{{ n.title }}</h3>
                 <div style="color: #555; font-size: 14px; white-space: pre-wrap; margin-bottom: 15px;">{{ n.content }}</div>
@@ -233,8 +243,9 @@
             </div>
             <div style="display: flex; flex-direction: column; gap: 8px; min-width: 100px;">
                 <form action="/notice/toggle/{{ n.id }}" method="POST" style="margin:0;"><button type="submit" class="btn" style="width:100%; background:{% if n.is_active %}#ffc107{% else %}#198754{% endif %}; color:{% if n.is_active %}black{% else %}white{% endif %}; font-size:13px; padding:8px;">{% if n.is_active %}노출 끄기{% else %}다시 켜기{% endif %}</button></form>
-                <!-- 💡 [신규] 수정 버튼 추가 -->
-                <button type="button" onclick="editNotice('{{ n.id }}', `{{ n.title | replace('`', '\\`') }}`, `{{ n.content | replace('`', '\\`') }}`, `{{ n.target_drivers | replace('`', '\\`') if n.target_drivers else '' }}`)" class="btn" style="width:100%; background:#0dcaf0; color:black; font-size:13px; padding:8px;">수정</button>
+                
+                <!-- 💡 자바스크립트 함수에 n.display_seq 파라미터 추가 전송 -->
+                <button type="button" onclick="editNotice('{{ n.id }}', `{{ n.title | replace('`', '\\`') }}`, `{{ n.content | replace('`', '\\`') }}`, `{{ n.target_drivers | replace('`', '\\`') if n.target_drivers else '' }}`, {{ n.display_seq }})" class="btn" style="width:100%; background:#0dcaf0; color:black; font-size:13px; padding:8px;">수정</button>
                 
                 <form action="/notice/delete/{{ n.id }}" method="POST" style="margin:0;" onsubmit="return confirm('이 공지사항을 완전히 삭제하시겠습니까?');"><button type="submit" class="btn" style="width:100%; background:#dc3545; color:white; font-size:13px; padding:8px;">삭제</button></form>
             </div>

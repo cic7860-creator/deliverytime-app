@@ -15,13 +15,13 @@ class SmsTemplate(db.Model):
     sender_phone = db.Column(db.String(50))
     content = db.Column(db.Text, nullable=False)
 
-# 💡 [수정됨] 공지사항 모델 - 대상 기사 지정 컬럼 추가
 class Notice(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
     content = db.Column(db.Text, nullable=False)
     images_str = db.Column(db.Text)
-    target_drivers = db.Column(db.String(500), default="") # 💡 쉼표로 구분하여 기사명 저장
+    target_drivers = db.Column(db.String(500), default="") 
+    display_seq = db.Column(db.Integer, default=1) # 💡 [신규] 공지 노출 순서 저장
     created_at = db.Column(db.DateTime, default=datetime.now)
     is_active = db.Column(db.Boolean, default=True)
 
@@ -31,7 +31,6 @@ class Notice(db.Model):
             return self.images_str.split('|')
         return []
 
-# 💡 [신규] 관리자 설정 모델 - 퇴근 팝업 문구 등을 저장
 class SystemSettings(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     key = db.Column(db.String(50), unique=True, nullable=False)

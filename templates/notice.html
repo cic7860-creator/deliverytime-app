@@ -26,8 +26,6 @@
         .badge { padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; color: white; display: inline-block; margin-bottom: 10px; }
         .badge-active { background-color: #28a745; }
         .badge-inactive { background-color: #6c757d; }
-
-        /* 붙여넣기 박스 호버 효과 */
         #pasteArea:hover { background-color: #cce5ff !important; border-color: #0d6efd !important; }
     </style>
     
@@ -38,43 +36,28 @@
             const imageInput = document.getElementById('imageInput');
             let dataTransfer = new DataTransfer();
 
-            // 박스 클릭 시 시각적 반응
             pasteArea.addEventListener('click', function() {
                 this.focus();
                 this.style.backgroundColor = '#b8daff';
                 setTimeout(() => { this.style.backgroundColor = '#e3f2fd'; }, 200);
             });
 
-            // 화면에서 붙여넣기(Ctrl+V) 감지
             document.addEventListener('paste', function(e) {
                 let items = e.clipboardData.items;
                 let imagePasted = false;
-                
                 for (let i = 0; i < items.length; i++) {
                     if (items[i].type.indexOf('image') !== -1) {
-                        if (dataTransfer.items.length >= 5) {
-                            alert("사진은 최대 5장까지만 첨부할 수 있습니다.");
-                            break;
-                        }
-                        
-                        // 클립보드의 이미지를 가상의 파일로 변환 (서버 전송용)
+                        if (dataTransfer.items.length >= 5) { alert("사진은 최대 5장까지만 첨부할 수 있습니다."); break; }
                         let file = items[i].getAsFile();
                         let ext = file.type.split('/')[1] || 'png';
                         let newFile = new File([file], "pasted_image_" + Date.now() + "_" + i + "." + ext, {type: file.type});
-                        
                         dataTransfer.items.add(newFile);
                         imagePasted = true;
                     }
                 }
-                
-                if (imagePasted) {
-                    // 변환된 파일을 숨겨진 input 파일에 밀어넣기
-                    imageInput.files = dataTransfer.files;
-                    renderPreviews();
-                }
+                if (imagePasted) { imageInput.files = dataTransfer.files; renderPreviews(); }
             });
 
-            // 붙여넣은 이미지 썸네일 그리기
             window.renderPreviews = function() {
                 previewArea.innerHTML = '';
                 for (let i = 0; i < dataTransfer.files.length; i++) {
@@ -82,65 +65,27 @@
                     let reader = new FileReader();
                     reader.onload = function(e) {
                         let imgDiv = document.createElement('div');
-                        imgDiv.style.position = 'relative';
-                        imgDiv.style.width = '120px';
-                        imgDiv.style.height = '120px';
-                        
+                        imgDiv.style.position = 'relative'; imgDiv.style.width = '120px'; imgDiv.style.height = '120px';
                         let img = document.createElement('img');
-                        img.src = e.target.result;
-                        img.style.width = '100%';
-                        img.style.height = '100%';
-                        img.style.objectFit = 'cover';
-                        img.style.borderRadius = '6px';
-                        img.style.border = '2px solid #ced4da';
-                        
-                        // 삭제 버튼
+                        img.src = e.target.result; img.style.width = '100%'; img.style.height = '100%'; img.style.objectFit = 'cover'; img.style.borderRadius = '6px'; img.style.border = '2px solid #ced4da';
                         let removeBtn = document.createElement('button');
-                        removeBtn.innerHTML = 'X';
-                        removeBtn.style.position = 'absolute';
-                        removeBtn.style.top = '-8px';
-                        removeBtn.style.right = '-8px';
-                        removeBtn.style.background = '#dc3545';
-                        removeBtn.style.color = 'white';
-                        removeBtn.style.border = 'none';
-                        removeBtn.style.borderRadius = '50%';
-                        removeBtn.style.width = '24px';
-                        removeBtn.style.height = '24px';
-                        removeBtn.style.fontSize = '12px';
-                        removeBtn.style.fontWeight = 'bold';
-                        removeBtn.style.cursor = 'pointer';
-                        removeBtn.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
-                        removeBtn.onclick = function(event) {
-                            event.preventDefault(); // 폼 제출 방지
-                            removeImage(i);
-                        };
-                        
-                        imgDiv.appendChild(img);
-                        imgDiv.appendChild(removeBtn);
-                        previewArea.appendChild(imgDiv);
+                        removeBtn.innerHTML = 'X'; removeBtn.style.position = 'absolute'; removeBtn.style.top = '-8px'; removeBtn.style.right = '-8px'; removeBtn.style.background = '#dc3545'; removeBtn.style.color = 'white'; removeBtn.style.border = 'none'; removeBtn.style.borderRadius = '50%'; removeBtn.style.width = '24px'; removeBtn.style.height = '24px'; removeBtn.style.fontSize = '12px'; removeBtn.style.fontWeight = 'bold'; removeBtn.style.cursor = 'pointer';
+                        removeBtn.onclick = function(event) { event.preventDefault(); removeImage(i); };
+                        imgDiv.appendChild(img); imgDiv.appendChild(removeBtn); previewArea.appendChild(imgDiv);
                     }
                     reader.readAsDataURL(file);
                 }
             };
-
-            // 이미지 삭제 로직
             window.removeImage = function(index) {
                 let newDataTransfer = new DataTransfer();
-                for (let i = 0; i < dataTransfer.files.length; i++) {
-                    if (i !== index) {
-                        newDataTransfer.items.add(dataTransfer.files[i]);
-                    }
-                }
-                dataTransfer = newDataTransfer;
-                imageInput.files = dataTransfer.files; // input 업데이트
-                renderPreviews();
+                for (let i = 0; i < dataTransfer.files.length; i++) { if (i !== index) newDataTransfer.items.add(dataTransfer.files[i]); }
+                dataTransfer = newDataTransfer; imageInput.files = dataTransfer.files; renderPreviews();
             };
         });
     </script>
 </head>
 <body>
     <div class="container">
-        <!-- 상단 네비게이션: 공지사항 관리 (노란색 강조) -->
         <div class="top-nav">
             <div>
                 <a href="/admin">🖥️ 데이터 입력 (홈)</a>
@@ -152,48 +97,49 @@
             <a href="/admin_logout" style="color: #ff6b6b;">🚪 로그아웃</a>
         </div>
 
+        <!-- 공지사항 등록 -->
         <h2>📢 기사님 앱(웹) 팝업 공지사항 등록</h2>
         <div style="background: #e3f2fd; padding: 15px; border-radius: 6px; margin-bottom: 20px; font-size: 14px; color: #082c84; font-weight: bold;">
             💡 작성된 공지사항 중 [노출 중]인 항목만 기사님들이 로그인했을 때 팝업창으로 나타납니다.
         </div>
-
         <form action="/notice/add" method="POST" enctype="multipart/form-data" style="margin-bottom: 40px;">
             <input type="text" name="title" placeholder="공지 제목을 입력하세요" required>
             <textarea name="content" rows="6" placeholder="기사님들께 전달할 공지 내용을 입력하세요 (줄바꿈 가능)" required></textarea>
-            
-            <!-- 실제 파일 업로드 인풋은 숨겨둠 (보안 프로그램 우회) -->
             <input type="file" name="images" id="imageInput" multiple accept="image/*" style="display: none;">
-            
-            <label style="font-size: 14px; font-weight: bold; color: #082c84; display: block; margin-bottom: 10px;">
-                🖼️ 공지 첨부 사진 (복사/붙여넣기 전용 - 최대 5장)
-            </label>
-            
-            <!-- 보안 우회용 클립보드 붙여넣기 박스 -->
+            <label style="font-size: 14px; font-weight: bold; color: #082c84; display: block; margin-bottom: 10px;">🖼️ 공지 첨부 사진 (복사/붙여넣기 전용 - 최대 5장)</label>
             <div id="pasteArea" tabindex="0" style="border: 2px dashed #082c84; padding: 40px 20px; text-align: center; border-radius: 8px; background-color: #e3f2fd; cursor: pointer; margin-bottom: 15px; outline: none; transition: 0.2s;">
                 <span style="font-size: 32px;">📋</span><br>
                 <strong style="color: #082c84; font-size: 18px; line-height: 1.5;">화면 캡처 후 이곳을 한 번 클릭하고,<br>Ctrl+V (붙여넣기)를 누르세요.</strong><br>
                 <span style="font-size: 13px; color: #6c757d; margin-top: 5px; display: inline-block;">보안 정책으로 파일 탐색기가 차단된 경우를 위한 전용 기능입니다.</span>
             </div>
-            
-            <!-- 붙여넣은 이미지가 보여지는 곳 -->
             <div id="previewArea" style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px;"></div>
-            
             <button type="submit" class="btn btn-primary">공지사항 등록하기</button>
         </form>
 
+        <!-- 💡 [신규] 퇴근(완료) 팝업 이미지 등록 -->
+        <div style="margin-bottom: 40px; padding: 25px; background: #fff3cd; border-radius: 8px; border: 1px solid #ffe69c;">
+            <h3 style="margin-top: 0; color: #664d03;">🎉 기사님 퇴근(마지막 배송 완료) 팝업 이미지 등록</h3>
+            <p style="font-size: 14px; color: #664d03; margin-bottom: 15px;">기사님이 제일 마지막 배송지에서 <strong>[완료]</strong> 버튼을 누를 때 칭찬/감사 문구와 함께 노출할 사진(결과물 등)을 등록합니다. (일반 파일 선택 방식)</p>
+            <form action="/upload_completion_img" method="POST" enctype="multipart/form-data" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <input type="file" name="completion_image" accept="image/*" required style="flex: 1; min-width: 200px; padding: 10px; border: 1px solid #ffe69c; background: white; border-radius: 4px; margin: 0;">
+                <button type="submit" class="btn" style="background-color: #198754; color: white;">적용 및 저장</button>
+            </form>
+            <div style="margin-top: 15px; border-top: 1px dashed #ffc107; padding-top: 15px;">
+                <span style="font-size: 13px; font-weight: bold; color: #664d03;">[현재 등록된 이미지 미리보기]</span><br>
+                <!-- 브라우저 캐시 방지를 위해 난수 파라미터 추가 -->
+                <img src="/static/uploads/completion.png?t={{ range(1, 10000) | random }}" onerror="this.style.display='none'" style="max-height: 120px; margin-top: 10px; border-radius: 4px; border: 1px solid #ced4da;">
+            </div>
+        </div>
+
+        <!-- 등록된 공지사항 목록 -->
         <h2>📋 등록된 공지사항 목록</h2>
         {% for n in notices %}
         <div class="notice-card {% if not n.is_active %}inactive{% endif %}">
             <div style="flex: 1; padding-right: 20px;">
-                {% if n.is_active %}
-                    <span class="badge badge-active">🟢 현재 앱 팝업 노출 중</span>
-                {% else %}
-                    <span class="badge badge-inactive">⚫ 노출 안함 (숨김)</span>
-                {% endif %}
+                {% if n.is_active %}<span class="badge badge-active">🟢 현재 앱 팝업 노출 중</span>{% else %}<span class="badge badge-inactive">⚫ 노출 안함 (숨김)</span>{% endif %}
                 <div style="font-size: 12px; color: #6c757d; margin-bottom: 5px;">등록일: {{ n.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
                 <h3 style="margin: 0 0 10px 0; color: #333;">{{ n.title }}</h3>
                 <div style="color: #555; font-size: 14px; white-space: pre-wrap; margin-bottom: 15px;">{{ n.content }}</div>
-                
                 {% if n.image_list %}
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                     {% for img in n.image_list %}
@@ -203,14 +149,8 @@
                 {% endif %}
             </div>
             <div style="display: flex; flex-direction: column; gap: 8px; min-width: 100px;">
-                <form action="/notice/toggle/{{ n.id }}" method="POST" style="margin:0;">
-                    <button type="submit" class="btn" style="width:100%; background:{% if n.is_active %}#ffc107{% else %}#198754{% endif %}; color:{% if n.is_active %}black{% else %}white{% endif %}; font-size:13px; padding:8px;">
-                        {% if n.is_active %}노출 끄기{% else %}다시 켜기{% endif %}
-                    </button>
-                </form>
-                <form action="/notice/delete/{{ n.id }}" method="POST" style="margin:0;" onsubmit="return confirm('이 공지사항을 완전히 삭제하시겠습니까?');">
-                    <button type="submit" class="btn" style="width:100%; background:#dc3545; color:white; font-size:13px; padding:8px;">삭제</button>
-                </form>
+                <form action="/notice/toggle/{{ n.id }}" method="POST" style="margin:0;"><button type="submit" class="btn" style="width:100%; background:{% if n.is_active %}#ffc107{% else %}#198754{% endif %}; color:{% if n.is_active %}black{% else %}white{% endif %}; font-size:13px; padding:8px;">{% if n.is_active %}노출 끄기{% else %}다시 켜기{% endif %}</button></form>
+                <form action="/notice/delete/{{ n.id }}" method="POST" style="margin:0;" onsubmit="return confirm('이 공지사항을 완전히 삭제하시겠습니까?');"><button type="submit" class="btn" style="width:100%; background:#dc3545; color:white; font-size:13px; padding:8px;">삭제</button></form>
             </div>
         </div>
         {% else %}

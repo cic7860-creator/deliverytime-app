@@ -129,6 +129,7 @@
         {% if dispatches %}
             {% set first_item = dispatches[0] %}
 <!-- 💡 출발 및 출발 취소 박스 -->
+<!-- 💡 출발 및 출발 취소 박스 -->
 <div class="center-depart-box">
     <h4 style="margin-top: 0; margin-bottom: 10px; color: #082c84; text-align: center;">🏢 센터 출발</h4>
     
@@ -161,18 +162,6 @@
         </form>
     {% endif %}
 </div>
-                {% else %}
-                    <form action="/depart_center" method="POST" onsubmit="return confirm('배송순서 지정 후 출발처리 부탁드립니다.\n진짜 출발하시겠습니까?');">
-                        <input type="hidden" name="driver_name" value="{{ driver_name }}">
-                        <button type="submit" style="background-color: #082c84; color: white; border: none; padding: 12px; font-size: 16px; font-weight: bold; border-radius: 6px; width: 100%; margin-bottom: 10px; cursor: pointer; font-family: 'Binggrae-Two';">🚀 지금 출발</button>
-                    </form>
-                    <form action="/depart_center" method="POST" style="display: flex; gap: 5px; align-items: center; background: white; padding: 8px; border-radius: 6px;">
-                        <input type="hidden" name="driver_name" value="{{ driver_name }}">
-                        <input type="time" name="manual_time" required style="padding: 5px; border: 1px solid #ccc; border-radius: 3px; flex: 1; font-size: 14px; font-family: 'Binggrae-Two';">
-                        <button type="submit" class="btn-sm btn-gray">시간지정 출발</button>
-                    </form>
-                {% endif %}
-            </div>
 
             <div class="item-list" style="margin-bottom: 15px;">
                 {% for item in dispatches %}

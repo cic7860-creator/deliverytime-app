@@ -2,6 +2,8 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
+    <!-- 💡 모바일에서도 데스크톱처럼 넓게 보이도록 뷰포트 고정 -->
+    <meta name="viewport" content="width=1100">
     <title>공지사항 관리 - JETTE</title>
     <style>
         @font-face {
@@ -27,7 +29,6 @@
         .badge-active { background-color: #28a745; }
         .badge-inactive { background-color: #6c757d; }
         
-        /* 박스 클릭 및 호버 스타일 */
         .paste-box { border: 2px dashed #082c84; padding: 40px 20px; text-align: center; border-radius: 8px; cursor: pointer; margin-bottom: 15px; outline: none; transition: 0.2s; }
         .paste-box.notice { background-color: #e3f2fd; }
         .paste-box.notice:focus, .paste-box.notice:hover { background-color: #b8daff; border-color: #0d6efd; }
@@ -38,16 +39,14 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             let activeTarget = null;
-            let dtNotice = new DataTransfer();
-            let dtComp = new DataTransfer();
+            window.dtNotice = new DataTransfer();
+            window.dtComp = new DataTransfer();
 
-            // 어떤 박스를 클릭했는지 감지
             document.getElementById('pasteAreaNotice').addEventListener('click', function() { activeTarget = 'notice'; this.focus(); });
             document.getElementById('pasteAreaComp').addEventListener('click', function() { activeTarget = 'comp'; this.focus(); });
 
             document.addEventListener('paste', function(e) {
-                if (!activeTarget) return; // 클릭한 박스가 없으면 무시
-                
+                if (!activeTarget) return; 
                 let items = e.clipboardData.items;
                 let imagePasted = false;
                 
@@ -58,23 +57,23 @@
                         let newFile = new File([file], "pasted_" + Date.now() + "_" + i + "." + ext, {type: file.type});
                         
                         if (activeTarget === 'notice') {
-                            if (dtNotice.items.length >= 5) { alert("공지 사진은 최대 5장까지 가능합니다."); break; }
-                            dtNotice.items.add(newFile);
+                            if (window.dtNotice.items.length >= 5) { alert("공지 사진은 최대 5장까지 가능합니다."); break; }
+                            window.dtNotice.items.add(newFile);
                             imagePasted = 'notice';
                         } else if (activeTarget === 'comp') {
-                            dtComp = new DataTransfer(); // 퇴근 팝업은 1장만 필요하므로 초기화 덮어쓰기
-                            dtComp.items.add(newFile);
+                            window.dtComp = new DataTransfer(); 
+                            window.dtComp.items.add(newFile);
                             imagePasted = 'comp';
                         }
                     }
                 }
                 
                 if (imagePasted === 'notice') {
-                    document.getElementById('imageInputNotice').files = dtNotice.files;
-                    renderPreviews('previewAreaNotice', dtNotice, 'notice');
+                    document.getElementById('imageInputNotice').files = window.dtNotice.files;
+                    renderPreviews('previewAreaNotice', window.dtNotice, 'notice');
                 } else if (imagePasted === 'comp') {
-                    document.getElementById('imageInputComp').files = dtComp.files;
-                    renderPreviews('previewAreaComp', dtComp, 'comp');
+                    document.getElementById('imageInputComp').files = window.dtComp.files;
+                    renderPreviews('previewAreaComp', window.dtComp, 'comp');
                 }
             });
 
@@ -95,8 +94,8 @@
                             event.preventDefault();
                             let newDt = new DataTransfer();
                             for (let j = 0; j < dataTransferObj.files.length; j++) { if (j !== i) newDt.items.add(dataTransferObj.files[j]); }
-                            if (type === 'notice') { dtNotice = newDt; document.getElementById('imageInputNotice').files = dtNotice.files; renderPreviews(previewId, dtNotice, type); }
-                            else { dtComp = newDt; document.getElementById('imageInputComp').files = dtComp.files; renderPreviews(previewId, dtComp, type); }
+                            if (type === 'notice') { window.dtNotice = newDt; document.getElementById('imageInputNotice').files = window.dtNotice.files; renderPreviews(previewId, window.dtNotice, type); }
+                            else { window.dtComp = newDt; document.getElementById('imageInputComp').files = window.dtComp.files; renderPreviews(previewId, window.dtComp, type); }
                         };
                         imgDiv.appendChild(img); imgDiv.appendChild(removeBtn); previewArea.appendChild(imgDiv);
                     }
@@ -104,6 +103,40 @@
                 }
             };
         });
+
+        // 💡 [수정 기능] 목록의 수정 버튼을 누르면 위 폼에 데이터를 채워줌
+        function editNotice(id, title, content, targetDrivers) {
+            document.getElementById('notice_id').value = id;
+            document.querySelector('input[name="title"]').value = title;
+            document.querySelector('textarea[name="content"]').value = content;
+            document.querySelector('input[name="target_drivers"]').value = targetDrivers;
+            
+            document.getElementById('editModeAlert').style.display = "block";
+            const submitBtn = document.getElementById('submitBtnNotice');
+            submitBtn.innerText = "공지사항 수정 완료";
+            submitBtn.style.backgroundColor = "#ffc107";
+            submitBtn.style.color = "#000";
+            
+            document.getElementById('previewAreaNotice').innerHTML = '<span style="color:#dc3545; font-weight:bold; font-size:14px;">⚠️ 사진을 새로 붙여넣으면 기존 사진을 덮어씌웁니다. 비워두면 기존 사진이 유지됩니다.</span>';
+            window.dtNotice = new DataTransfer();
+            document.getElementById('imageInputNotice').files = window.dtNotice.files;
+            
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        
+        function resetNoticeForm() {
+            document.getElementById('notice_id').value = "";
+            document.querySelector('input[name="title"]').value = "";
+            document.querySelector('textarea[name="content"]').value = "";
+            document.querySelector('input[name="target_drivers"]').value = "";
+            
+            document.getElementById('editModeAlert').style.display = "none";
+            const submitBtn = document.getElementById('submitBtnNotice');
+            submitBtn.innerText = "공지사항 등록하기";
+            submitBtn.style.backgroundColor = "#082c84";
+            submitBtn.style.color = "#fff";
+            document.getElementById('previewAreaNotice').innerHTML = '';
+        }
     </script>
 </head>
 <body>
@@ -119,14 +152,28 @@
             <a href="/admin_logout" style="color: #ff6b6b;">🚪 로그아웃</a>
         </div>
 
-        <!-- 💡 공지사항 등록 -->
-        <h2>📢 기사님 앱(웹) 팝업 공지사항 등록</h2>
-        <div style="background: #e3f2fd; padding: 15px; border-radius: 6px; margin-bottom: 20px; font-size: 14px; color: #082c84; font-weight: bold;">
-            💡 특정 기사님만 지정할 수 있습니다. (여러 명일 경우 쉼표(,)로 구분)
+        <h2>📢 기사님 앱(웹) 팝업 공지사항 등록 / 수정</h2>
+        
+        <!-- 💡 폼 상단에 규칙 설명 추가 -->
+        <div style="background: #e3f2fd; padding: 15px; border-radius: 6px; margin-bottom: 20px; font-size: 14px; color: #082c84; font-weight: bold; line-height: 1.6;">
+            💡 <strong>[대상 기사 지정 규칙]</strong><br>
+            - <strong>빈칸</strong>: 모든 기사님께 표출<br>
+            - <strong>이름 직접 입력</strong>: <code>홍길동, 김길동</code> (해당 기사에게만 표출)<br>
+            - <strong>포함 조건</strong>: <code>contain 김</code> (이름에 '김'이 들어가는 모든 기사님께 표출)<br>
+            - <strong>제외 조건</strong>: <code>not contain 홍길동, 김길동</code> (해당 기사님들만 제외하고 모두에게 표출)
         </div>
+
+        <!-- 💡 수정 모드 알림바 -->
+        <div id="editModeAlert" style="display:none; background:#ffc107; padding:15px; font-weight:bold; border-radius:6px; margin-bottom:15px; color:#000;">
+            ✏️ 기존 공지사항을 수정 중입니다. 내용을 수정한 뒤 버튼을 눌러주세요.
+            <button type="button" onclick="resetNoticeForm()" style="margin-left:15px; cursor:pointer; padding:5px 10px; border:none; background:#dc3545; color:white; font-weight:bold; border-radius:4px;">작성 취소 (새로 작성하기)</button>
+        </div>
+
         <form action="/notice/add" method="POST" enctype="multipart/form-data" style="margin-bottom: 40px;">
-            <label style="font-size: 14px; font-weight: bold; color: #333;">🎯 대상 기사님 지정</label>
-            <input type="text" name="target_drivers" placeholder="예: 홍길동, 김길동 (비워두면 모든 기사님에게 노출됩니다)">
+            <input type="hidden" name="notice_id" id="notice_id">
+            
+            <label style="font-size: 14px; font-weight: bold; color: #333;">🎯 대상 기사 지정 (위 규칙 참고)</label>
+            <input type="text" name="target_drivers" placeholder="예: contain 김 / not contain 홍길동">
             
             <label style="font-size: 14px; font-weight: bold; color: #333;">공지 제목 및 내용</label>
             <input type="text" name="title" placeholder="공지 제목을 입력하세요" required>
@@ -140,10 +187,9 @@
             </div>
             <div id="previewAreaNotice" style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px;"></div>
             
-            <button type="submit" class="btn btn-primary">공지사항 등록하기</button>
+            <button type="submit" id="submitBtnNotice" class="btn btn-primary">공지사항 등록하기</button>
         </form>
 
-        <!-- 💡 퇴근(마지막 팝업) 문구 및 사진 등록 -->
         <div style="margin-bottom: 40px; padding: 25px; background: #fff3cd; border-radius: 8px; border: 1px solid #ffe69c;">
             <h3 style="margin-top: 0; color: #664d03;">🎉 기사님 퇴근(마지막 완료) 팝업 자유 설정</h3>
             <form action="/upload_completion" method="POST" enctype="multipart/form-data">
@@ -168,12 +214,11 @@
             </form>
         </div>
 
-        <!-- 💡 등록된 공지사항 목록 -->
         <h2>📋 등록된 공지사항 목록</h2>
         {% for n in notices %}
         <div class="notice-card {% if not n.is_active %}inactive{% endif %}">
             <div style="flex: 1; padding-right: 20px;">
-                {% if n.is_active %}<span class="badge badge-active">🟢 현재 앱 팝업 노출 중</span>{% else %}<span class="badge badge-inactive">⚫ 노출 안함 (숨김)</span>{% endif %}
+                {% if n.is_active %}<span class="badge badge-active">🟢 노출 중</span>{% else %}<span class="badge badge-inactive">⚫ 숨김</span>{% endif %}
                 <span class="badge" style="background: #17a2b8;">대상: {% if n.target_drivers %}{{ n.target_drivers }}{% else %}전체 기사님{% endif %}</span>
                 <div style="font-size: 12px; color: #6c757d; margin-bottom: 5px; margin-top: 5px;">등록일: {{ n.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
                 <h3 style="margin: 0 0 10px 0; color: #333;">{{ n.title }}</h3>
@@ -188,6 +233,9 @@
             </div>
             <div style="display: flex; flex-direction: column; gap: 8px; min-width: 100px;">
                 <form action="/notice/toggle/{{ n.id }}" method="POST" style="margin:0;"><button type="submit" class="btn" style="width:100%; background:{% if n.is_active %}#ffc107{% else %}#198754{% endif %}; color:{% if n.is_active %}black{% else %}white{% endif %}; font-size:13px; padding:8px;">{% if n.is_active %}노출 끄기{% else %}다시 켜기{% endif %}</button></form>
+                <!-- 💡 [신규] 수정 버튼 추가 -->
+                <button type="button" onclick="editNotice('{{ n.id }}', `{{ n.title | replace('`', '\\`') }}`, `{{ n.content | replace('`', '\\`') }}`, `{{ n.target_drivers | replace('`', '\\`') if n.target_drivers else '' }}`)" class="btn" style="width:100%; background:#0dcaf0; color:black; font-size:13px; padding:8px;">수정</button>
+                
                 <form action="/notice/delete/{{ n.id }}" method="POST" style="margin:0;" onsubmit="return confirm('이 공지사항을 완전히 삭제하시겠습니까?');"><button type="submit" class="btn" style="width:100%; background:#dc3545; color:white; font-size:13px; padding:8px;">삭제</button></form>
             </div>
         </div>

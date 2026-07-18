@@ -26,42 +26,63 @@
         .badge { padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; color: white; display: inline-block; margin-bottom: 10px; }
         .badge-active { background-color: #28a745; }
         .badge-inactive { background-color: #6c757d; }
-        #pasteArea:hover { background-color: #cce5ff !important; border-color: #0d6efd !important; }
+        
+        /* 박스 클릭 및 호버 스타일 */
+        .paste-box { border: 2px dashed #082c84; padding: 40px 20px; text-align: center; border-radius: 8px; cursor: pointer; margin-bottom: 15px; outline: none; transition: 0.2s; }
+        .paste-box.notice { background-color: #e3f2fd; }
+        .paste-box.notice:focus, .paste-box.notice:hover { background-color: #b8daff; border-color: #0d6efd; }
+        .paste-box.comp { background-color: #fff3cd; border-color: #ffc107; }
+        .paste-box.comp:focus, .paste-box.comp:hover { background-color: #ffe69c; border-color: #ffca2c; }
     </style>
     
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const pasteArea = document.getElementById('pasteArea');
-            const previewArea = document.getElementById('previewArea');
-            const imageInput = document.getElementById('imageInput');
-            let dataTransfer = new DataTransfer();
+            let activeTarget = null;
+            let dtNotice = new DataTransfer();
+            let dtComp = new DataTransfer();
 
-            pasteArea.addEventListener('click', function() {
-                this.focus();
-                this.style.backgroundColor = '#b8daff';
-                setTimeout(() => { this.style.backgroundColor = '#e3f2fd'; }, 200);
-            });
+            // 어떤 박스를 클릭했는지 감지
+            document.getElementById('pasteAreaNotice').addEventListener('click', function() { activeTarget = 'notice'; this.focus(); });
+            document.getElementById('pasteAreaComp').addEventListener('click', function() { activeTarget = 'comp'; this.focus(); });
 
             document.addEventListener('paste', function(e) {
+                if (!activeTarget) return; // 클릭한 박스가 없으면 무시
+                
                 let items = e.clipboardData.items;
                 let imagePasted = false;
+                
                 for (let i = 0; i < items.length; i++) {
                     if (items[i].type.indexOf('image') !== -1) {
-                        if (dataTransfer.items.length >= 5) { alert("사진은 최대 5장까지만 첨부할 수 있습니다."); break; }
                         let file = items[i].getAsFile();
                         let ext = file.type.split('/')[1] || 'png';
-                        let newFile = new File([file], "pasted_image_" + Date.now() + "_" + i + "." + ext, {type: file.type});
-                        dataTransfer.items.add(newFile);
-                        imagePasted = true;
+                        let newFile = new File([file], "pasted_" + Date.now() + "_" + i + "." + ext, {type: file.type});
+                        
+                        if (activeTarget === 'notice') {
+                            if (dtNotice.items.length >= 5) { alert("공지 사진은 최대 5장까지 가능합니다."); break; }
+                            dtNotice.items.add(newFile);
+                            imagePasted = 'notice';
+                        } else if (activeTarget === 'comp') {
+                            dtComp = new DataTransfer(); // 퇴근 팝업은 1장만 필요하므로 초기화 덮어쓰기
+                            dtComp.items.add(newFile);
+                            imagePasted = 'comp';
+                        }
                     }
                 }
-                if (imagePasted) { imageInput.files = dataTransfer.files; renderPreviews(); }
+                
+                if (imagePasted === 'notice') {
+                    document.getElementById('imageInputNotice').files = dtNotice.files;
+                    renderPreviews('previewAreaNotice', dtNotice, 'notice');
+                } else if (imagePasted === 'comp') {
+                    document.getElementById('imageInputComp').files = dtComp.files;
+                    renderPreviews('previewAreaComp', dtComp, 'comp');
+                }
             });
 
-            window.renderPreviews = function() {
+            window.renderPreviews = function(previewId, dataTransferObj, type) {
+                const previewArea = document.getElementById(previewId);
                 previewArea.innerHTML = '';
-                for (let i = 0; i < dataTransfer.files.length; i++) {
-                    let file = dataTransfer.files[i];
+                for (let i = 0; i < dataTransferObj.files.length; i++) {
+                    let file = dataTransferObj.files[i];
                     let reader = new FileReader();
                     reader.onload = function(e) {
                         let imgDiv = document.createElement('div');
@@ -70,16 +91,17 @@
                         img.src = e.target.result; img.style.width = '100%'; img.style.height = '100%'; img.style.objectFit = 'cover'; img.style.borderRadius = '6px'; img.style.border = '2px solid #ced4da';
                         let removeBtn = document.createElement('button');
                         removeBtn.innerHTML = 'X'; removeBtn.style.position = 'absolute'; removeBtn.style.top = '-8px'; removeBtn.style.right = '-8px'; removeBtn.style.background = '#dc3545'; removeBtn.style.color = 'white'; removeBtn.style.border = 'none'; removeBtn.style.borderRadius = '50%'; removeBtn.style.width = '24px'; removeBtn.style.height = '24px'; removeBtn.style.fontSize = '12px'; removeBtn.style.fontWeight = 'bold'; removeBtn.style.cursor = 'pointer';
-                        removeBtn.onclick = function(event) { event.preventDefault(); removeImage(i); };
+                        removeBtn.onclick = function(event) {
+                            event.preventDefault();
+                            let newDt = new DataTransfer();
+                            for (let j = 0; j < dataTransferObj.files.length; j++) { if (j !== i) newDt.items.add(dataTransferObj.files[j]); }
+                            if (type === 'notice') { dtNotice = newDt; document.getElementById('imageInputNotice').files = dtNotice.files; renderPreviews(previewId, dtNotice, type); }
+                            else { dtComp = newDt; document.getElementById('imageInputComp').files = dtComp.files; renderPreviews(previewId, dtComp, type); }
+                        };
                         imgDiv.appendChild(img); imgDiv.appendChild(removeBtn); previewArea.appendChild(imgDiv);
                     }
                     reader.readAsDataURL(file);
                 }
-            };
-            window.removeImage = function(index) {
-                let newDataTransfer = new DataTransfer();
-                for (let i = 0; i < dataTransfer.files.length; i++) { if (i !== index) newDataTransfer.items.add(dataTransfer.files[i]); }
-                dataTransfer = newDataTransfer; imageInput.files = dataTransfer.files; renderPreviews();
             };
         });
     </script>
@@ -97,47 +119,63 @@
             <a href="/admin_logout" style="color: #ff6b6b;">🚪 로그아웃</a>
         </div>
 
-        <!-- 공지사항 등록 -->
+        <!-- 💡 공지사항 등록 -->
         <h2>📢 기사님 앱(웹) 팝업 공지사항 등록</h2>
         <div style="background: #e3f2fd; padding: 15px; border-radius: 6px; margin-bottom: 20px; font-size: 14px; color: #082c84; font-weight: bold;">
-            💡 작성된 공지사항 중 [노출 중]인 항목만 기사님들이 로그인했을 때 팝업창으로 나타납니다.
+            💡 특정 기사님만 지정할 수 있습니다. (여러 명일 경우 쉼표(,)로 구분)
         </div>
         <form action="/notice/add" method="POST" enctype="multipart/form-data" style="margin-bottom: 40px;">
+            <label style="font-size: 14px; font-weight: bold; color: #333;">🎯 대상 기사님 지정</label>
+            <input type="text" name="target_drivers" placeholder="예: 홍길동, 김길동 (비워두면 모든 기사님에게 노출됩니다)">
+            
+            <label style="font-size: 14px; font-weight: bold; color: #333;">공지 제목 및 내용</label>
             <input type="text" name="title" placeholder="공지 제목을 입력하세요" required>
-            <textarea name="content" rows="6" placeholder="기사님들께 전달할 공지 내용을 입력하세요 (줄바꿈 가능)" required></textarea>
-            <input type="file" name="images" id="imageInput" multiple accept="image/*" style="display: none;">
+            <textarea name="content" rows="4" placeholder="기사님들께 전달할 공지 내용을 입력하세요" required></textarea>
+            
+            <input type="file" name="images" id="imageInputNotice" multiple accept="image/*" style="display: none;">
             <label style="font-size: 14px; font-weight: bold; color: #082c84; display: block; margin-bottom: 10px;">🖼️ 공지 첨부 사진 (복사/붙여넣기 전용 - 최대 5장)</label>
-            <div id="pasteArea" tabindex="0" style="border: 2px dashed #082c84; padding: 40px 20px; text-align: center; border-radius: 8px; background-color: #e3f2fd; cursor: pointer; margin-bottom: 15px; outline: none; transition: 0.2s;">
+            <div id="pasteAreaNotice" class="paste-box notice" tabindex="0">
                 <span style="font-size: 32px;">📋</span><br>
-                <strong style="color: #082c84; font-size: 18px; line-height: 1.5;">화면 캡처 후 이곳을 한 번 클릭하고,<br>Ctrl+V (붙여넣기)를 누르세요.</strong><br>
-                <span style="font-size: 13px; color: #6c757d; margin-top: 5px; display: inline-block;">보안 정책으로 파일 탐색기가 차단된 경우를 위한 전용 기능입니다.</span>
+                <strong style="color: #082c84; font-size: 18px;">[공지 사진] 화면 캡처 후 이곳을 한 번 클릭하고, Ctrl+V 를 누르세요.</strong>
             </div>
-            <div id="previewArea" style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px;"></div>
+            <div id="previewAreaNotice" style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px;"></div>
+            
             <button type="submit" class="btn btn-primary">공지사항 등록하기</button>
         </form>
 
-        <!-- 💡 [신규] 퇴근(완료) 팝업 이미지 등록 -->
+        <!-- 💡 퇴근(마지막 팝업) 문구 및 사진 등록 -->
         <div style="margin-bottom: 40px; padding: 25px; background: #fff3cd; border-radius: 8px; border: 1px solid #ffe69c;">
-            <h3 style="margin-top: 0; color: #664d03;">🎉 기사님 퇴근(마지막 배송 완료) 팝업 이미지 등록</h3>
-            <p style="font-size: 14px; color: #664d03; margin-bottom: 15px;">기사님이 제일 마지막 배송지에서 <strong>[완료]</strong> 버튼을 누를 때 칭찬/감사 문구와 함께 노출할 사진(결과물 등)을 등록합니다. (일반 파일 선택 방식)</p>
-            <form action="/upload_completion_img" method="POST" enctype="multipart/form-data" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                <input type="file" name="completion_image" accept="image/*" required style="flex: 1; min-width: 200px; padding: 10px; border: 1px solid #ffe69c; background: white; border-radius: 4px; margin: 0;">
-                <button type="submit" class="btn" style="background-color: #198754; color: white;">적용 및 저장</button>
+            <h3 style="margin-top: 0; color: #664d03;">🎉 기사님 퇴근(마지막 완료) 팝업 자유 설정</h3>
+            <form action="/upload_completion" method="POST" enctype="multipart/form-data">
+                <label style="font-size: 14px; font-weight: bold; color: #664d03;">📝 퇴근 안내 문구 수정</label>
+                <textarea name="completion_text" rows="3" placeholder="문구를 입력하세요..." required style="border-color:#ffc107;">{{ completion_message }}</textarea>
+                
+                <input type="file" name="completion_image" id="imageInputComp" accept="image/*" style="display: none;">
+                <label style="font-size: 14px; font-weight: bold; color: #664d03; display: block; margin-bottom: 10px;">🖼️ 퇴근 팝업 사진 (복사/붙여넣기 전용 - 1장만 등록됨)</label>
+                <div id="pasteAreaComp" class="paste-box comp" tabindex="0">
+                    <span style="font-size: 32px;">📋</span><br>
+                    <strong style="color: #664d03; font-size: 18px;">[퇴근 사진] 화면 캡처 후 이곳을 한 번 클릭하고, Ctrl+V 를 누르세요.</strong>
+                </div>
+                <div id="previewAreaComp" style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px;"></div>
+                
+                <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+                    <div style="border: 1px dashed #ffc107; padding: 10px; background: white; border-radius: 4px;">
+                        <span style="font-size: 12px; font-weight: bold; color: #664d03;">[현재 등록된 이미지 미리보기]</span><br>
+                        <img src="/static/uploads/completion.png?t={{ range(1, 10000) | random }}" onerror="this.style.display='none'" style="max-height: 80px; margin-top: 5px; border-radius: 4px;">
+                    </div>
+                    <button type="submit" class="btn" style="background-color: #198754; color: white;">문구 및 사진 동시 저장</button>
+                </div>
             </form>
-            <div style="margin-top: 15px; border-top: 1px dashed #ffc107; padding-top: 15px;">
-                <span style="font-size: 13px; font-weight: bold; color: #664d03;">[현재 등록된 이미지 미리보기]</span><br>
-                <!-- 브라우저 캐시 방지를 위해 난수 파라미터 추가 -->
-                <img src="/static/uploads/completion.png?t={{ range(1, 10000) | random }}" onerror="this.style.display='none'" style="max-height: 120px; margin-top: 10px; border-radius: 4px; border: 1px solid #ced4da;">
-            </div>
         </div>
 
-        <!-- 등록된 공지사항 목록 -->
+        <!-- 💡 등록된 공지사항 목록 -->
         <h2>📋 등록된 공지사항 목록</h2>
         {% for n in notices %}
         <div class="notice-card {% if not n.is_active %}inactive{% endif %}">
             <div style="flex: 1; padding-right: 20px;">
                 {% if n.is_active %}<span class="badge badge-active">🟢 현재 앱 팝업 노출 중</span>{% else %}<span class="badge badge-inactive">⚫ 노출 안함 (숨김)</span>{% endif %}
-                <div style="font-size: 12px; color: #6c757d; margin-bottom: 5px;">등록일: {{ n.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+                <span class="badge" style="background: #17a2b8;">대상: {% if n.target_drivers %}{{ n.target_drivers }}{% else %}전체 기사님{% endif %}</span>
+                <div style="font-size: 12px; color: #6c757d; margin-bottom: 5px; margin-top: 5px;">등록일: {{ n.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
                 <h3 style="margin: 0 0 10px 0; color: #333;">{{ n.title }}</h3>
                 <div style="color: #555; font-size: 14px; white-space: pre-wrap; margin-bottom: 15px;">{{ n.content }}</div>
                 {% if n.image_list %}

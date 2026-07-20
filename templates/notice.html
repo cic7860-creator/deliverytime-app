@@ -103,7 +103,6 @@
             };
         });
 
-        // 💡 수정 시 호출되는 자바스크립트 함수에 displaySeq 추가
         function editNotice(id, title, content, targetDrivers, displaySeq) {
             document.getElementById('notice_id').value = id;
             document.querySelector('input[name="title"]').value = title;
@@ -160,7 +159,8 @@
             - <strong>빈칸</strong>: 모든 기사님께 표출<br>
             - <strong>이름 직접 입력</strong>: <code>홍길동, 김길동</code> (해당 기사에게만 표출)<br>
             - <strong>포함 조건</strong>: <code>contain 김</code> (이름에 '김'이 들어가는 모든 기사님께 표출)<br>
-            - <strong>제외 조건</strong>: <code>not contain 홍길동, 김길동</code> (해당 기사님들만 제외하고 모두에게 표출)
+            - <strong>제외 조건</strong>: <code>not contain 홍길동, 김길동</code> (해당 기사님들만 제외)<br>
+            - <strong>센터 조건 (💡신규)</strong>: <code>center 밀양센터, 오산센터, 이천센터</code> (해당 센터 소속 기사님께 표출)
         </div>
 
         <div id="editModeAlert" style="display:none; background:#ffc107; padding:15px; font-weight:bold; border-radius:6px; margin-bottom:15px; color:#000;">
@@ -173,11 +173,10 @@
             
             <div style="display: flex; gap: 10px;">
                 <div style="flex: 2;">
-                    <label style="font-size: 14px; font-weight: bold; color: #333;">🎯 대상 기사 지정</label>
-                    <input type="text" name="target_drivers" placeholder="예: contain 김 / not contain 홍길동">
+                    <label style="font-size: 14px; font-weight: bold; color: #333;">🎯 대상 기사 지정 (위 규칙 참고)</label>
+                    <input type="text" name="target_drivers" placeholder="예: center 밀양센터 / contain 김">
                 </div>
                 <div style="flex: 1;">
-                    <!-- 💡 신규 추가된 순서 입력 폼 -->
                     <label style="font-size: 14px; font-weight: bold; color: #082c84;">🔢 노출 순서</label>
                     <input type="number" name="display_seq" value="1" placeholder="작은 숫자부터 팝업" required style="border: 2px solid #082c84;">
                 </div>
@@ -228,11 +227,13 @@
             <div style="flex: 1; padding-right: 20px;">
                 {% if n.is_active %}<span class="badge badge-active">🟢 노출 중</span>{% else %}<span class="badge badge-inactive">⚫ 숨김</span>{% endif %}
                 <span class="badge" style="background: #17a2b8;">대상: {% if n.target_drivers %}{{ n.target_drivers }}{% else %}전체 기사님{% endif %}</span>
-                <!-- 💡 목록에도 순서 뱃지 추가 -->
                 <span class="badge" style="background: #6f42c1;">팝업 순서: {{ n.display_seq }}번째</span>
                 <div style="font-size: 12px; color: #6c757d; margin-bottom: 5px; margin-top: 5px;">등록일: {{ n.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
                 <h3 style="margin: 0 0 10px 0; color: #333;">{{ n.title }}</h3>
-                <div style="color: #555; font-size: 14px; white-space: pre-wrap; margin-bottom: 15px;">{{ n.content }}</div>
+                
+                <!-- 💡 [수정] 줄바꿈 간격을 타이트하게(line-height: 1.25) 조정 -->
+                <div style="color: #555; font-size: 14px; white-space: pre-wrap; margin-bottom: 15px; line-height: 1.25;">{{ n.content }}</div>
+                
                 {% if n.image_list %}
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                     {% for img in n.image_list %}
@@ -243,10 +244,7 @@
             </div>
             <div style="display: flex; flex-direction: column; gap: 8px; min-width: 100px;">
                 <form action="/notice/toggle/{{ n.id }}" method="POST" style="margin:0;"><button type="submit" class="btn" style="width:100%; background:{% if n.is_active %}#ffc107{% else %}#198754{% endif %}; color:{% if n.is_active %}black{% else %}white{% endif %}; font-size:13px; padding:8px;">{% if n.is_active %}노출 끄기{% else %}다시 켜기{% endif %}</button></form>
-                
-                <!-- 💡 자바스크립트 함수에 n.display_seq 파라미터 추가 전송 -->
                 <button type="button" onclick="editNotice('{{ n.id }}', `{{ n.title | replace('`', '\\`') }}`, `{{ n.content | replace('`', '\\`') }}`, `{{ n.target_drivers | replace('`', '\\`') if n.target_drivers else '' }}`, {{ n.display_seq }})" class="btn" style="width:100%; background:#0dcaf0; color:black; font-size:13px; padding:8px;">수정</button>
-                
                 <form action="/notice/delete/{{ n.id }}" method="POST" style="margin:0;" onsubmit="return confirm('이 공지사항을 완전히 삭제하시겠습니까?');"><button type="submit" class="btn" style="width:100%; background:#dc3545; color:white; font-size:13px; padding:8px;">삭제</button></form>
             </div>
         </div>

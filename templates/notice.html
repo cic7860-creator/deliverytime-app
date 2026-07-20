@@ -18,7 +18,7 @@
         .top-nav a:hover { color: #0d6efd; }
         h2 { color: #082c84; border-bottom: 2px solid #dee2e6; padding-bottom: 10px; margin-top: 0; }
         
-        input[type="text"], input[type="number"], textarea { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; font-size: 15px; box-sizing: border-box; }
+        input[type="text"], input[type="number"], select, textarea { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; font-size: 15px; box-sizing: border-box; }
         .btn { padding: 12px 20px; font-size: 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
         .btn-primary { background-color: #082c84; color: white; width: 100%; }
         
@@ -103,11 +103,22 @@
             };
         });
 
-        function editNotice(id, title, content, targetDrivers, displaySeq) {
+        // 💡 [수정] DB 초기화 없이 저장된 값("센터명||기사조건")을 쪼개서 폼에 자동으로 분리해 넣습니다.
+        function editNotice(id, title, content, targetStr, displaySeq) {
+            let tCenter = "전체";
+            let tDrivers = targetStr;
+            
+            if (targetStr.includes("||")) {
+                let parts = targetStr.split("||");
+                tCenter = parts[0];
+                tDrivers = parts[1];
+            }
+
             document.getElementById('notice_id').value = id;
             document.querySelector('input[name="title"]').value = title;
             document.querySelector('textarea[name="content"]').value = content;
-            document.querySelector('input[name="target_drivers"]').value = targetDrivers;
+            document.querySelector('select[name="target_center"]').value = tCenter;
+            document.querySelector('input[name="target_drivers"]').value = tDrivers;
             document.querySelector('input[name="display_seq"]').value = displaySeq;
             
             document.getElementById('editModeAlert').style.display = "block";
@@ -127,6 +138,7 @@
             document.getElementById('notice_id').value = "";
             document.querySelector('input[name="title"]').value = "";
             document.querySelector('textarea[name="content"]').value = "";
+            document.querySelector('select[name="target_center"]').value = "전체";
             document.querySelector('input[name="target_drivers"]').value = "";
             document.querySelector('input[name="display_seq"]').value = "1";
             
@@ -155,12 +167,10 @@
         <h2>📢 기사님 앱(웹) 팝업 공지사항 등록 / 수정</h2>
         
         <div style="background: #e3f2fd; padding: 15px; border-radius: 6px; margin-bottom: 20px; font-size: 14px; color: #082c84; font-weight: bold; line-height: 1.6;">
-            💡 <strong>[대상 기사 지정 규칙]</strong><br>
-            - <strong>빈칸</strong>: 모든 기사님께 표출<br>
-            - <strong>이름 직접 입력</strong>: <code>홍길동, 김길동</code> (해당 기사에게만 표출)<br>
-            - <strong>포함 조건</strong>: <code>contain 김</code> (이름에 '김'이 들어가는 모든 기사님께 표출)<br>
-            - <strong>제외 조건</strong>: <code>not contain 홍길동, 김길동</code> (해당 기사님들만 제외)<br>
-            - <strong>센터 조건 (💡신규)</strong>: <code>center 밀양센터, 오산센터, 이천센터</code> (해당 센터 소속 기사님께 표출)
+            💡 <strong>[공지 조건 설정 가이드]</strong><br>
+            - <strong>대상 센터</strong>: 특정 센터를 고르면 해당 센터의 모든 기사님께 표출됩니다.<br>
+            - <strong>세부 기사 지정</strong>: <code>contain 김</code> (이름에 '김' 포함 기사) / <code>not contain 홍길동</code> (홍길동 제외)<br>
+            <span style="color: #dc3545;">※ 센터를 고르고 세부 기사도 지정하면, 두 조건을 모두 만족하는 기사님께만 공지가 노출됩니다!</span>
         </div>
 
         <div id="editModeAlert" style="display:none; background:#ffc107; padding:15px; font-weight:bold; border-radius:6px; margin-bottom:15px; color:#000;">
@@ -171,14 +181,26 @@
         <form action="/notice/add" method="POST" enctype="multipart/form-data" style="margin-bottom: 40px;">
             <input type="hidden" name="notice_id" id="notice_id">
             
-            <div style="display: flex; gap: 10px;">
-                <div style="flex: 2;">
-                    <label style="font-size: 14px; font-weight: bold; color: #333;">🎯 대상 기사 지정 (위 규칙 참고)</label>
-                    <input type="text" name="target_drivers" placeholder="예: center 밀양센터 / contain 김">
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <!-- 💡 [신규] 드롭다운 방식의 센터 선택 -->
+                <div style="flex: 1; min-width: 200px;">
+                    <label style="font-size: 14px; font-weight: bold; color: #333;">🏢 대상 센터 선택</label>
+                    <select name="target_center" required style="border-color: #082c84;">
+                        <option value="전체">모든 센터 (전체)</option>
+                        {% for center in centers %}
+                            <option value="{{ center.name }}">{{ center.name }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
-                <div style="flex: 1;">
+                
+                <div style="flex: 2; min-width: 250px;">
+                    <label style="font-size: 14px; font-weight: bold; color: #333;">🎯 세부 기사 조건 (필요시 작성)</label>
+                    <input type="text" name="target_drivers" placeholder="예: contain 김 / 비워두면 모두에게 표출">
+                </div>
+                
+                <div style="flex: 1; min-width: 150px;">
                     <label style="font-size: 14px; font-weight: bold; color: #082c84;">🔢 노출 순서</label>
-                    <input type="number" name="display_seq" value="1" placeholder="작은 숫자부터 팝업" required style="border: 2px solid #082c84;">
+                    <input type="number" name="display_seq" value="1" placeholder="작은 숫자부터" required style="border: 2px solid #082c84;">
                 </div>
             </div>
 
@@ -223,15 +245,21 @@
 
         <h2>📋 등록된 공지사항 목록</h2>
         {% for n in notices %}
+        
+        <!-- 💡 저장된 "센터||조건" 문자열을 안전하게 두 개로 쪼개어 화면에 뱃지로 띄워줍니다. -->
+        {% set t_parts = n.target_drivers.split('||') if n.target_drivers and '||' in n.target_drivers else ['전체', n.target_drivers] %}
+        
         <div class="notice-card {% if not n.is_active %}inactive{% endif %}">
             <div style="flex: 1; padding-right: 20px;">
                 {% if n.is_active %}<span class="badge badge-active">🟢 노출 중</span>{% else %}<span class="badge badge-inactive">⚫ 숨김</span>{% endif %}
-                <span class="badge" style="background: #17a2b8;">대상: {% if n.target_drivers %}{{ n.target_drivers }}{% else %}전체 기사님{% endif %}</span>
+                
+                <span class="badge" style="background: #17a2b8;">🏢 센터: {{ t_parts[0] }}</span>
+                <span class="badge" style="background: #0dcaf0; color: black;">🎯 기사조건: {% if t_parts[1] %}{{ t_parts[1] }}{% else %}모두 표출{% endif %}</span>
                 <span class="badge" style="background: #6f42c1;">팝업 순서: {{ n.display_seq }}번째</span>
+                
                 <div style="font-size: 12px; color: #6c757d; margin-bottom: 5px; margin-top: 5px;">등록일: {{ n.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
                 <h3 style="margin: 0 0 10px 0; color: #333;">{{ n.title }}</h3>
                 
-                <!-- 💡 [수정] 줄바꿈 간격을 타이트하게(line-height: 1.25) 조정 -->
                 <div style="color: #555; font-size: 14px; white-space: pre-wrap; margin-bottom: 15px; line-height: 1.25;">{{ n.content }}</div>
                 
                 {% if n.image_list %}
@@ -244,7 +272,9 @@
             </div>
             <div style="display: flex; flex-direction: column; gap: 8px; min-width: 100px;">
                 <form action="/notice/toggle/{{ n.id }}" method="POST" style="margin:0;"><button type="submit" class="btn" style="width:100%; background:{% if n.is_active %}#ffc107{% else %}#198754{% endif %}; color:{% if n.is_active %}black{% else %}white{% endif %}; font-size:13px; padding:8px;">{% if n.is_active %}노출 끄기{% else %}다시 켜기{% endif %}</button></form>
+                
                 <button type="button" onclick="editNotice('{{ n.id }}', `{{ n.title | replace('`', '\\`') }}`, `{{ n.content | replace('`', '\\`') }}`, `{{ n.target_drivers | replace('`', '\\`') if n.target_drivers else '' }}`, {{ n.display_seq }})" class="btn" style="width:100%; background:#0dcaf0; color:black; font-size:13px; padding:8px;">수정</button>
+                
                 <form action="/notice/delete/{{ n.id }}" method="POST" style="margin:0;" onsubmit="return confirm('이 공지사항을 완전히 삭제하시겠습니까?');"><button type="submit" class="btn" style="width:100%; background:#dc3545; color:white; font-size:13px; padding:8px;">삭제</button></form>
             </div>
         </div>

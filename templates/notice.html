@@ -103,7 +103,6 @@
             };
         });
 
-        // 💡 [수정] DB 초기화 없이 저장된 값("센터명||기사조건")을 쪼개서 폼에 자동으로 분리해 넣습니다.
         function editNotice(id, title, content, targetStr, displaySeq) {
             let tCenter = "전체";
             let tDrivers = targetStr;
@@ -149,6 +148,21 @@
             submitBtn.style.color = "#fff";
             document.getElementById('previewAreaNotice').innerHTML = '';
         }
+
+        // 💡 [신규] 센터별 공지사항 필터링 함수
+        function filterNoticeList() {
+            let selectedCenter = document.getElementById('noticeCenterFilter').value;
+            let noticeCards = document.querySelectorAll('.notice-card');
+            
+            noticeCards.forEach(function(card) {
+                let cardCenter = card.getAttribute('data-center');
+                if (selectedCenter === "" || cardCenter === selectedCenter) {
+                    card.style.display = "flex";
+                } else {
+                    card.style.display = "none";
+                }
+            });
+        }
     </script>
 </head>
 <body>
@@ -182,7 +196,6 @@
             <input type="hidden" name="notice_id" id="notice_id">
             
             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                <!-- 💡 [신규] 드롭다운 방식의 센터 선택 -->
                 <div style="flex: 1; min-width: 200px;">
                     <label style="font-size: 14px; font-weight: bold; color: #333;">🏢 대상 센터 선택</label>
                     <select name="target_center" required style="border-color: #082c84;">
@@ -243,13 +256,24 @@
             </form>
         </div>
 
-        <h2>📋 등록된 공지사항 목록</h2>
+        <!-- 💡 [신규] 목록 타이틀 및 검색 필터 영역 -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #dee2e6; padding-bottom: 10px; margin-bottom: 15px;">
+            <h2 style="margin: 0; border: none; padding: 0;">📋 등록된 공지사항 목록</h2>
+            <select id="noticeCenterFilter" onchange="filterNoticeList()" style="width: auto; margin-bottom: 0; padding: 8px 12px; border: 2px solid #082c84; font-weight: bold; border-radius: 6px; cursor: pointer;">
+                <option value="">🏢 전체 센터 공지 보기</option>
+                <option value="전체">모든 센터 (전체 공통)</option>
+                {% for center in centers %}
+                    <option value="{{ center.name }}">{{ center.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
         {% for n in notices %}
         
-        <!-- 💡 저장된 "센터||조건" 문자열을 안전하게 두 개로 쪼개어 화면에 뱃지로 띄워줍니다. -->
         {% set t_parts = n.target_drivers.split('||') if n.target_drivers and '||' in n.target_drivers else ['전체', n.target_drivers] %}
         
-        <div class="notice-card {% if not n.is_active %}inactive{% endif %}">
+        <!-- 💡 [신규] data-center 속성을 추가하여 자바스크립트가 쉽게 필터링할 수 있도록 설정 -->
+        <div class="notice-card {% if not n.is_active %}inactive{% endif %}" data-center="{{ t_parts[0] }}">
             <div style="flex: 1; padding-right: 20px;">
                 {% if n.is_active %}<span class="badge badge-active">🟢 노출 중</span>{% else %}<span class="badge badge-inactive">⚫ 숨김</span>{% endif %}
                 

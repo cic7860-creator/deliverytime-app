@@ -318,32 +318,40 @@ def driver():
 
     if name:
         dispatches = Dispatch.query.filter_by(driver_name=name).order_by(Dispatch.delivery_seq).all()
-        # 해당 기사님의 소속 센터 확인 (첫 번째 배차 기준)
         driver_center = dispatches[0].center_name if dispatches else ""
         
         all_active_notices = Notice.query.filter_by(is_active=True).order_by(Notice.display_seq.asc(), Notice.created_at.desc()).all()
         for n in all_active_notices:
             target_str = n.target_drivers.strip() if n.target_drivers else ""
             
-            if not target_str:
+            # 💡 [신규] '센터명||기사조건' 분리 로직 (과거 데이터 호환 완벽 지원)
+            if "||" in target_str:
+                t_center, t_drivers = target_str.split("||", 1)
+            else:
+                t_center = "전체"
+                t_drivers = target_str
+                
+            # 1. 1차 검증: 센터가 지정되어 있는데 현재 기사님의 센터와 다르면 패스
+            if t_center != "전체" and t_center != driver_center:
+                continue
+                
+            # 2. 2차 검증: 기사님 이름(contain, not contain 등) 조건 검사
+            if not t_drivers:
                 active_notices.append(n) 
-            elif target_str.lower().startswith("contain "):
-                keywords = [k.strip() for k in target_str[8:].split(',') if k.strip()]
+            elif t_drivers.lower().startswith("contain "):
+                keywords = [k.strip() for k in t_drivers[8:].split(',') if k.strip()]
                 if any(k in name for k in keywords):
                     active_notices.append(n)
-            elif target_str.lower().startswith("not contain "):
-                keywords = [k.strip() for k in target_str[12:].split(',') if k.strip()]
+            elif t_drivers.lower().startswith("not contain "):
+                keywords = [k.strip() for k in t_drivers[12:].split(',') if k.strip()]
                 if not any(k in name for k in keywords):
                     active_notices.append(n)
-            elif target_str.lower().startswith("center "): # 💡 [신규] 센터 조건 필터링
-                keywords = [k.strip() for k in target_str[7:].split(',') if k.strip()]
-                if any(k in driver_center for k in keywords):
-                    active_notices.append(n)
             else:
-                target_list = [d.strip() for d in target_str.split(',') if d.strip()]
+                target_list = [d.strip() for d in t_drivers.split(',') if d.strip()]
                 if name in target_list:
                     active_notices.append(n)
                     
+        # ... (이하 지도 연동 URL 등 기존 route_chunks 로직은 원래대로 유지!) ...
         if not dispatches:
             return f"<script>alert('{name} 기사님의 배차 내역이 존재하지 않습니다.'); window.location.href='/driver';</script>"
         display_date = datetime.now().date()
@@ -662,11 +670,12 @@ def download_sms_excel():
 @app.route('/notice')
 def notice_page():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
-    # 💡 [수정] 목록에서도 순서대로 정렬해서 보여주기
     notices = Notice.query.order_by(Notice.display_seq.asc(), Notice.created_at.desc()).all()
+    centers = Center.query.all() # 💡 [추가됨] 드롭다운용 센터 목록 불러오기
+    
     comp_msg_setting = SystemSettings.query.filter_by(key='completion_msg').first()
-    completion_message = comp_msg_setting.value if comp_msg_setting else "금일 배송도 고생 많으셨습니다!\n제때에서 발송된 카카오톡 배송승인 부탁드리겠습니다."
-    return render_template('notice.html', notices=notices, completion_message=completion_message)
+    completion_message = comp_msg_setting.value if comp_msg_setting else "금일 배송도 고생 많으셨습니다!\n제때에서 발송된 카카오톡 배송승인 \n부탁드리겠습니다."
+    return render_template('notice.html', notices=notices, centers=centers, completion_message=completion_message)
 
 # 💡 [업데이트] 공지사항 이미지 업로드 (최대 5장) 처리 라우트
 @app.route('/notice/add', methods=['POST'])
@@ -676,8 +685,13 @@ def add_notice():
     notice_id = request.form.get('notice_id') 
     title = request.form.get('title').strip()
     content = request.form.get('content').strip()
-    target_drivers = request.form.get('target_drivers', '').strip()
-    display_seq = request.form.get('display_seq', type=int) or 1 # 💡 [신규] 노출 순서값 가져오기 (기본값 1)
+    
+    # 💡 [신규] 센터명과 기사 조건을 '||' 기호로 묶어서 하나의 컬럼에 저장 (DB초기화 방지)
+    target_center = request.form.get('target_center', '전체')
+    raw_target_drivers = request.form.get('target_drivers', '').strip()
+    combined_target = f"{target_center}||{raw_target_drivers}"
+    
+    display_seq = request.form.get('display_seq', type=int) or 1
     
     uploaded_images = []
     files = request.files.getlist('images')
@@ -696,14 +710,13 @@ def add_notice():
         if n:
             n.title = title
             n.content = content
-            n.target_drivers = target_drivers
-            n.display_seq = display_seq # 💡 업데이트 반영
+            n.target_drivers = combined_target # 💡 묶은 데이터 저장
+            n.display_seq = display_seq
             if images_str_val:
                 n.images_str = images_str_val
     else:
         if title and content:
-            # 💡 [수정] 저장할 때 display_seq 포함
-            db.session.add(Notice(title=title, content=content, images_str=images_str_val, target_drivers=target_drivers, display_seq=display_seq, is_active=True))
+            db.session.add(Notice(title=title, content=content, images_str=images_str_val, target_drivers=combined_target, display_seq=display_seq, is_active=True))
             
     db.session.commit()
     return redirect(url_for('notice_page'))

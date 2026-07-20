@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=1300">
+    <meta name="viewport" content="width=1350">
     <title>배차 데이터 관리</title>
     <style>
         @font-face {
@@ -11,7 +11,7 @@
             font-weight: normal; font-style: normal;
         }
         body { font-family: 'Binggrae-Two', sans-serif; padding: 20px; background-color: #f8f9fa; color: #333; margin: 0; }
-        .container { max-width: 1300px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .container { max-width: 1350px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         h2 { margin-top: 0; color: #082c84; }
         .top-nav { background-color: #212529; padding: 15px 20px; border-radius: 6px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
         .top-nav div { display: flex; gap: 20px; flex-wrap: wrap; }
@@ -25,8 +25,8 @@
         .btn-danger { background-color: #dc3545; color: white; padding: 8px 15px; font-size: 14px; }
         .section-title { margin-top: 40px; border-bottom: 2px solid #dee2e6; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
         .table-responsive { overflow-x: auto; margin-top: 15px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05); }
-        table { width: 100%; border-collapse: collapse; min-width: 1200px; background-color: white; }
-        th, td { padding: 12px 10px; text-align: left; border-bottom: 1px solid #dee2e6; font-size: 14px; vertical-align: middle; }
+        table { width: 100%; border-collapse: collapse; min-width: 1250px; background-color: white; }
+        th, td { padding: 12px 8px; text-align: left; border-bottom: 1px solid #dee2e6; font-size: 13px; vertical-align: middle; }
         th { background-color: #f8f9fa; font-weight: bold; color: #495057; white-space: nowrap; border-top: 2px solid #dee2e6; border-bottom: 2px solid #dee2e6; }
         tr:hover { background-color: #f1f3f5; }
         .btn-update { padding: 5px 10px; background-color: #198754; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
@@ -141,13 +141,15 @@
                 <thead>
                     <tr>
                         <th class="text-center">센터명</th>
-                        <th class="text-center">기사명 / 차량</th>
+                        <th class="text-center">기사/차량</th>
                         <th>매장명</th>
                         <th class="text-center">순서</th>
-                        <th style="width: 200px;">주소 (오류시 수정)</th>
-                        <th class="text-center">시간수정</th>
+                        <th style="width: 180px;">주소 (오류시 수정)</th>
+                        <th class="text-center">시간</th>
+                        <!-- 💡 신규: 연락처 수정 헤더 -->
+                        <th class="text-center" style="width: 100px;">연락처 수정<br><span style="font-size:11px; color:#666;">(기사/매장)</span></th>
                         <th class="text-center">기사변경</th>
-                        <th class="text-center" style="color: #d63384;">문자 양식 수정</th>
+                        <th class="text-center" style="color: #d63384;">양식수정</th>
                         <th class="text-center">관리</th>
                     </tr>
                 </thead>
@@ -156,21 +158,20 @@
                     <tr>
                         <td class="text-center no-wrap" style="font-weight: bold; color: #6c757d;">{{ d.center_name }}</td>
                         <td class="text-center no-wrap" style="color: #082c84;">
-                            <strong style="font-size: 15px;">{{ d.driver_name }}</strong><br>
-                            <span style="font-size: 12px; color: #6c757d;">{{ d.vehicle_num }}</span>
+                            <strong style="font-size: 14px;">{{ d.driver_name }}</strong><br>
+                            <span style="font-size: 11px; color: #6c757d;">{{ d.vehicle_num }}</span>
                         </td>
                         <td style="font-weight: bold; color: #333;">{{ d.store_name }}</td>
                         <td class="text-center" style="font-weight: bold;">{{ d.delivery_seq }}</td>
                         
-                        <!-- 💡 주소 수정 영역: 카카오맵 좌표가 없으면 경고 표시 -->
                         <td>
                             {% if not d.store_x or not d.store_y %}
-                                <div style="color: #dc3545; font-size: 12px; font-weight: bold; margin-bottom: 4px;">⚠️ 주소 수정 요망 (지도 인식 실패)</div>
+                                <div style="color: #dc3545; font-size: 11px; font-weight: bold; margin-bottom: 4px;">⚠️ 주소 수정 요망 (지도 인식 실패)</div>
                             {% endif %}
                             <form action="/admin/update_address/{{ d.id }}" method="POST" style="display: flex; flex-direction: column; gap: 4px; margin: 0;">
                                 <div style="display: flex; gap: 4px;">
                                     <input type="text" name="new_address" value="{{ d.store_address }}" 
-                                           style="width: 100%; padding: 5px; border: {% if not d.store_x or not d.store_y %}2px solid #dc3545{% else %}1px solid #ced4da{% endif %}; border-radius: 4px; font-family: 'Binggrae-Two'; font-size: 12px;">
+                                           style="width: 100%; padding: 5px; border: {% if not d.store_x or not d.store_y %}2px solid #dc3545{% else %}1px solid #ced4da{% endif %}; border-radius: 4px; font-family: 'Binggrae-Two'; font-size: 11px;">
                                     <button type="submit" style="background:#6c757d; color:white; border:none; padding:5px 8px; border-radius:4px; cursor:pointer; font-weight:bold; font-size: 11px;">적용</button>
                                 </div>
                             </form>
@@ -178,26 +179,36 @@
 
                         <td class="no-wrap text-center">
                             <form action="/admin/update_buffer/{{ d.id }}" method="POST" style="display: flex; justify-content: center; align-items: center; gap: 4px; margin: 0;">
-                                <input type="number" name="buffer_time" value="{{ d.buffer_time }}" style="width: 45px; padding: 5px; text-align: center; border: 1px solid #ced4da; border-radius: 4px; font-weight: bold;">
-                                <button type="submit" class="btn-update">적용</button>
+                                <input type="number" name="buffer_time" value="{{ d.buffer_time }}" style="width: 40px; padding: 4px; text-align: center; border: 1px solid #ced4da; border-radius: 4px; font-weight: bold; font-size:11px;">
+                                <button type="submit" class="btn-update" style="font-size:11px; padding:4px 6px;">적용</button>
+                            </form>
+                        </td>
+
+                        <!-- 💡 신규: 연락처 수정 영역 -->
+                        <td class="no-wrap text-center">
+                            <form action="/admin/update_phones/{{ d.id }}" method="POST" style="display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 4px; margin: 0;">
+                                <input type="text" name="driver_phone" value="{{ d.driver_phone or '' }}" placeholder="기사번호" style="width: 80px; padding: 4px; text-align: center; border: 1px solid #ced4da; border-radius: 4px; font-size:11px;">
+                                <input type="text" name="store_phone" value="{{ d.store_phone or '' }}" placeholder="매장번호" style="width: 80px; padding: 4px; text-align: center; border: 1px solid #ced4da; border-radius: 4px; font-size:11px;">
+                                <button type="submit" class="btn-update" style="background-color: #6f42c1; font-size:11px; padding:4px 6px; width: 80px;">수정</button>
+                            </form>
+                        </td>
+
+                        <td class="no-wrap text-center">
+                            <form action="/admin/update_driver/{{ d.id }}" method="POST" style="display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 4px; margin: 0;">
+                                <input type="text" name="new_driver_name" value="{{ d.driver_name }}" style="width: 60px; padding: 4px; text-align: center; border: 1px solid #ced4da; border-radius: 4px; font-size:11px;" required>
+                                <input type="text" name="new_vehicle_num" value="{{ d.vehicle_num }}" style="width: 60px; padding: 4px; text-align: center; border: 1px solid #ced4da; border-radius: 4px; font-size:11px;" required>
+                                <button type="submit" class="btn-update" style="background-color: #0d6efd; font-size:11px; padding:4px 6px; width: 60px;">변경</button>
                             </form>
                         </td>
                         <td class="no-wrap text-center">
-                            <form action="/admin/update_driver/{{ d.id }}" method="POST" style="display: flex; justify-content: center; align-items: center; gap: 4px; margin: 0;">
-                                <input type="text" name="new_driver_name" value="{{ d.driver_name }}" style="width: 55px; padding: 5px; text-align: center; border: 1px solid #ced4da; border-radius: 4px;" required>
-                                <input type="text" name="new_vehicle_num" value="{{ d.vehicle_num }}" style="width: 80px; padding: 5px; text-align: center; border: 1px solid #ced4da; border-radius: 4px;" required>
-                                <button type="submit" class="btn-update" style="background-color: #0d6efd;">변경</button>
-                            </form>
-                        </td>
-                        <td class="no-wrap text-center">
-                            <form action="/admin/update_template/{{ d.id }}" method="POST" style="display: flex; justify-content: center; align-items: center; gap: 4px; margin: 0;">
-                                <input type="text" name="template_name" value="{{ d.template_name or '' }}" placeholder="기본" style="width: 70px; padding: 5px; text-align: center; border: 1px solid #d63384; border-radius: 4px; font-family: 'Binggrae-Two'; color: #d63384; font-weight: bold;">
-                                <button type="submit" class="btn-update" style="background-color: #d63384;">수정</button>
+                            <form action="/admin/update_template/{{ d.id }}" method="POST" style="display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 4px; margin: 0;">
+                                <input type="text" name="template_name" value="{{ d.template_name or '' }}" placeholder="기본" style="width: 60px; padding: 4px; text-align: center; border: 1px solid #d63384; border-radius: 4px; font-family: 'Binggrae-Two'; color: #d63384; font-weight: bold; font-size:11px;">
+                                <button type="submit" class="btn-update" style="background-color: #d63384; font-size:11px; padding:4px 6px; width: 60px;">수정</button>
                             </form>
                         </td>
                         <td class="text-center no-wrap">
                             <form action="/admin/delete/{{ d.id }}" method="POST" onsubmit="return confirm('해당 매장을 삭제하시겠습니까?');" style="margin:0;">
-                                <button type="submit" style="background:#dc3545; color:white; border:none; padding:5px 12px; border-radius:4px; cursor:pointer; font-weight:bold;">삭제</button>
+                                <button type="submit" style="background:#dc3545; color:white; border:none; padding:5px 12px; border-radius:4px; cursor:pointer; font-weight:bold; font-size: 11px;">삭제</button>
                             </form>
                         </td>
                     </tr>

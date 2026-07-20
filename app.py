@@ -318,8 +318,9 @@ def driver():
 
     if name:
         dispatches = Dispatch.query.filter_by(driver_name=name).order_by(Dispatch.delivery_seq).all()
+        # 해당 기사님의 소속 센터 확인 (첫 번째 배차 기준)
+        driver_center = dispatches[0].center_name if dispatches else ""
         
-        # 💡 [수정] 순서(display_seq)를 오름차순(1,2,3..)으로 먼저 정렬한 뒤 최신순 정렬
         all_active_notices = Notice.query.filter_by(is_active=True).order_by(Notice.display_seq.asc(), Notice.created_at.desc()).all()
         for n in all_active_notices:
             target_str = n.target_drivers.strip() if n.target_drivers else ""
@@ -333,6 +334,10 @@ def driver():
             elif target_str.lower().startswith("not contain "):
                 keywords = [k.strip() for k in target_str[12:].split(',') if k.strip()]
                 if not any(k in name for k in keywords):
+                    active_notices.append(n)
+            elif target_str.lower().startswith("center "): # 💡 [신규] 센터 조건 필터링
+                keywords = [k.strip() for k in target_str[7:].split(',') if k.strip()]
+                if any(k in driver_center for k in keywords):
                     active_notices.append(n)
             else:
                 target_list = [d.strip() for d in target_str.split(',') if d.strip()]
@@ -369,6 +374,16 @@ def driver():
             })
             
     return render_template('driver.html', dispatches=dispatches, driver_name=name, route_chunks=route_chunks, date_str=date_str, active_notices=active_notices, completion_message=completion_message)
+
+@app.route('/admin/update_phones/<int:dispatch_id>', methods=['POST'])
+def update_phones(dispatch_id):
+    if not session.get('is_admin'): return redirect(url_for('admin_login'))
+    dispatch = Dispatch.query.get(dispatch_id)
+    if dispatch:
+        dispatch.driver_phone = request.form.get('driver_phone', '').strip()
+        dispatch.store_phone = request.form.get('store_phone', '').strip()
+        db.session.commit()
+    return redirect(url_for('admin'))
 
 @app.route('/depart_center', methods=['POST'])
 def depart_center():

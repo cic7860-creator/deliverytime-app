@@ -10,86 +10,96 @@
             src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Binggrae-Two.woff') format('woff');
             font-weight: normal; font-style: normal;
         }
-        body { font-family: 'Binggrae-Two', sans-serif; padding: 20px; background-color: #f8f9fa; color: #333; margin: 0; }
-        .container { max-width: 1300px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        h2 { margin-top: 0; color: #082c84; border-bottom: 2px solid #dee2e6; padding-bottom: 10px; }
+        body { font-family: 'Binggrae-Two', sans-serif; padding: 20px; background-color: #f0f2f5; margin: 0; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        
         .top-nav { background-color: #212529; padding: 15px 20px; border-radius: 6px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
         .top-nav div { display: flex; gap: 20px; flex-wrap: wrap; }
         .top-nav a { color: white; text-decoration: none; font-size: 16px; font-weight: bold; transition: color 0.2s; }
         .top-nav a:hover { color: #0d6efd; }
+
+        .header-card { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; border-left: 6px solid #ffe812; flex-wrap: wrap; gap: 15px; }
+        .header-title h1 { margin: 0; color: #082c84; font-size: 26px; }
+        .header-title p { margin: 5px 0 0 0; color: #6c757d; font-size: 15px; }
         
-        .section-title { margin-top: 40px; border-bottom: 2px solid #dee2e6; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
-        .table-responsive { overflow-x: auto; margin-top: 15px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05); }
-        table { width: 100%; border-collapse: collapse; background-color: white; table-layout: fixed; }
-        th, td { padding: 12px 10px; text-align: left; border-bottom: 1px solid #dee2e6; font-size: 14px; vertical-align: middle; word-wrap: break-word; }
+        .btn-download { background-color: #082c84; color: white; border: none; padding: 15px 25px; font-size: 18px; font-weight: bold; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); transition: 0.2s; cursor: pointer; font-family: 'Binggrae-Two'; }
+        .btn-download:hover { background-color: #001a57; transform: translateY(-2px); }
+
+        .table-responsive { background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow-x: auto; padding: 20px; margin-bottom: 25px; }
+        
+        /* 💡 엑셀 대기 목록 테이블을 깔끔하게 고정 폭으로 수정 */
+        table { width: 100%; border-collapse: collapse; min-width: 900px; table-layout: fixed; }
+        th, td { padding: 12px 15px; border-bottom: 1px solid #dee2e6; vertical-align: middle; word-wrap: break-word; }
         th { background-color: #f8f9fa; font-weight: bold; color: #495057; border-top: 2px solid #dee2e6; border-bottom: 2px solid #dee2e6; text-align: center; }
-        tr:hover { background-color: #f1f3f5; }
         
-        .btn { padding: 10px 20px; font-size: 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-family: 'Binggrae-Two'; }
-        .btn-primary { background-color: #082c84; color: white; }
-        .btn-success { background-color: #198754; color: white; }
+        .badge { display: inline-block; padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; color: white; }
+        .badge-ready { background-color: #198754; }
+        
+        .template-section { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #dee2e6; margin-bottom: 25px; }
+        .template-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 800px) { .template-grid { grid-template-columns: 1fr; } }
+        
+        .form-control { width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; font-size: 14px; box-sizing: border-box; }
+        .btn-sm { padding: 6px 12px; font-size: 13px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-green { background-color: #28a745; color: white; }
         .btn-danger { background-color: #dc3545; color: white; }
+        .btn-edit { background-color: #ffc107; color: #212529; }
         
-        .msg-preview { background-color: #f8f9fa; border: 1px solid #ced4da; padding: 8px; border-radius: 4px; font-size: 13px; max-height: 80px; overflow-y: auto; white-space: pre-wrap; line-height: 1.4; }
+        .filter-select { padding: 12px; font-size: 16px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; font-weight: bold; color: #082c84; }
     </style>
     <script>
-        // 양식 수정 버튼 클릭 시 폼에 데이터를 채워주는 함수
-        function editTemplate(id, name, content) {
+        function filterTable() {
+            let centerFilter = document.getElementById("smsCenterFilter").value;
+            let table = document.getElementById("smsTable");
+            let tr = table.getElementsByTagName("tr");
+            
+            for (let i = 1; i < tr.length; i++) {
+                let tds = tr[i].getElementsByTagName("td");
+                let rowCenter = tds[0] ? tds[0].innerText.split('\n')[0].trim() : ""; 
+                if (centerFilter === "" || rowCenter === centerFilter) { 
+                    tr[i].style.display = ""; 
+                } else { 
+                    tr[i].style.display = "none"; 
+                }
+            }
+        }
+
+        function downloadSmsExcel() {
+            let center = document.getElementById("smsCenterFilter").value;
+            window.location.href = "/download_sms_excel?center_name=" + encodeURIComponent(center);
+        }
+
+        function editTemplate(id, name, subject, sender, content) {
             document.getElementById('template_id').value = id;
             document.getElementById('template_name').value = name;
+            document.getElementById('template_subject').value = subject;
+            document.getElementById('template_sender').value = sender;
             document.getElementById('template_content').value = content;
-            
-            const submitBtn = document.getElementById('submitBtnTemplate');
-            submitBtn.innerText = "양식 수정 완료";
-            submitBtn.style.backgroundColor = "#ffc107";
-            submitBtn.style.color = "black";
-            
+            document.getElementById('form_title').innerText = "✏️ 선택한 양식 수정 중...";
+            document.getElementById('submit_btn').innerText = "수정 완료하기";
+            document.getElementById('submit_btn').style.backgroundColor = "#ffc107";
+            document.getElementById('submit_btn').style.color = "#000";
+            document.getElementById('cancel_btn').style.display = "block";
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // 입력 폼 초기화 함수
-        function resetTemplateForm() {
+        function resetForm() {
             document.getElementById('template_id').value = "";
             document.getElementById('template_name').value = "";
+            document.getElementById('template_subject').value = "";
+            document.getElementById('template_sender').value = "";
             document.getElementById('template_content').value = "";
-            
-            const submitBtn = document.getElementById('submitBtnTemplate');
-            submitBtn.innerText = "새 문자 양식 등록하기";
-            submitBtn.style.backgroundColor = "#082c84";
-            submitBtn.style.color = "white";
-        }
-
-        // 전체 선택 체크박스 로직
-        document.addEventListener('DOMContentLoaded', function() {
-            const checkAll = document.getElementById('checkAll');
-            if(checkAll) {
-                checkAll.addEventListener('change', function() {
-                    let checkboxes = document.querySelectorAll('.dispatch-chk');
-                    for (let chk of checkboxes) { chk.checked = this.checked; }
-                });
-            }
-        });
-
-        // 선택한 매장 문자 발송 제출 로직
-        function submitSmsForm() {
-            let selected = [];
-            document.querySelectorAll('.dispatch-chk:checked').forEach(function(chk) {
-                selected.push(chk.value);
-            });
-            if (selected.length === 0) {
-                alert('문자를 발송할 매장을 선택해주세요.');
-                return;
-            }
-            if (confirm(selected.length + '건의 문자를 발송하시겠습니까?')) {
-                document.getElementById('selectedIds').value = selected.join(',');
-                document.getElementById('smsForm').submit();
-            }
+            document.getElementById('form_title').innerText = "✨ 새 양식 추가";
+            document.getElementById('submit_btn').innerText = "새 양식 저장하기";
+            document.getElementById('submit_btn').style.backgroundColor = "#28a745";
+            document.getElementById('submit_btn').style.color = "#fff";
+            document.getElementById('cancel_btn').style.display = "none";
         }
     </script>
 </head>
 <body>
     <div class="container">
-        <!-- 네비게이션 -->
+        <!-- 네비게이션: 문자 발송 강조 -->
         <div class="top-nav">
             <div>
                 <a href="/admin">🖥️ 데이터 입력 (홈)</a>
@@ -101,107 +111,115 @@
             <a href="/admin_logout" style="color: #ff6b6b;">🚪 로그아웃</a>
         </div>
 
-        <!-- 💡 섹션 1: 문자 템플릿(양식) 관리 -->
-        <div class="section-title" style="margin-top: 0;">
-            <h3 style="margin: 0; color: #082c84;">📝 도착안내 문자 양식(템플릿) 관리</h3>
-        </div>
-        <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 40px; border: 1px solid #dee2e6;">
-            <form action="/sms/add_template" method="POST" style="margin-bottom: 20px;">
-                <!-- 숨김 필드: ID가 있으면 수정, 없으면 신규 등록 -->
-                <input type="hidden" name="template_id" id="template_id">
-                
-                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                    <input type="text" name="name" id="template_name" placeholder="양식 이름 (예: 기본양식, 밀양센터양식)" required style="flex: 1; padding: 10px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; font-size: 14px;">
+        <div class="template-section">
+            <h3 style="margin-top: 0; color: #082c84; border-bottom: 2px solid #dee2e6; padding-bottom: 10px;">📝 문자 양식(템플릿) 관리</h3>
+            <div class="template-grid">
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #ced4da;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h4 id="form_title" style="margin: 0; color: #082c84;">✨ 새 양식 추가</h4>
+                        <button id="cancel_btn" onclick="resetForm()" class="btn-sm btn-danger" style="display: none;">취소 (새로 작성)</button>
+                    </div>
+                    <form action="/sms/add_template" method="POST">
+                        <input type="hidden" name="template_id" id="template_id">
+                        
+                        <label style="font-size: 13px; font-weight: bold;">양식 구분명 (엑셀에 적을 이름)</label>
+                        <input type="text" name="template_name" id="template_name" class="form-control" placeholder="예) A 양식" required style="margin-bottom: 10px;">
+                        
+                        <label style="font-size: 13px; font-weight: bold; color: #082c84;">문자 발송 제목</label>
+                        <input type="text" name="template_subject" id="template_subject" class="form-control" placeholder="예) [(주)제때] {매장명} 도착 안내" required style="margin-bottom: 10px;">
+                        
+                        <label style="font-size: 13px; font-weight: bold; color: #198754;">발신번호 (고객에게 보이는 번호)</label>
+                        <input type="text" name="template_sender" id="template_sender" class="form-control" placeholder="예) 1668-3136" required style="margin-bottom: 10px;">
+                        
+                        <label style="font-size: 13px; font-weight: bold;">문자 본문 내용</label>
+                        <textarea name="template_content" id="template_content" class="form-control" rows="6" placeholder="내용을 입력하세요..." required style="margin-bottom: 10px;"></textarea>
+                        
+                        <button type="submit" id="submit_btn" class="btn-sm btn-green" style="width: 100%; padding: 10px; font-size: 15px;">새 양식 저장하기</button>
+                    </form>
                 </div>
-                <textarea name="content" id="template_content" rows="3" placeholder="발송할 문자 내용을 입력하세요. (기사님 이름, 매장명 등 필요한 안내 문구)" required style="width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; font-size: 14px; box-sizing: border-box; margin-bottom: 10px;"></textarea>
                 
-                <div style="display: flex; gap: 10px;">
-                    <button type="submit" id="submitBtnTemplate" class="btn btn-primary" style="flex: 1;">새 문자 양식 등록하기</button>
-                    <button type="button" onclick="resetTemplateForm()" class="btn" style="background-color: #6c757d; color: white;">작성 취소 (초기화)</button>
+                <div style="max-height: 440px; overflow-y: auto; border: 1px solid #ced4da; padding: 10px; border-radius: 4px; background: #fff;">
+                    <h4 style="margin: 0 0 10px 0;">등록된 양식 리스트</h4>
+                    {% for t in templates %}
+                    <div style="background: white; padding: 10px; border-radius: 4px; border: 1px solid #dee2e6; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #ccc; padding-bottom: 5px; margin-bottom: 5px;">
+                            <strong style="color: #082c84; font-size: 16px;">📂 {{ t.name }}</strong>
+                            <div style="display: flex; gap: 5px;">
+                                <button onclick="editTemplate('{{ t.id }}', '{{ t.name }}', '{{ t.subject }}', '{{ t.sender_phone if t.sender_phone else '' }}', `{{ t.content }}`)" class="btn-sm btn-edit">수정</button>
+                                <form action="/sms/delete_template/{{ t.id }}" method="POST" style="margin:0;" onsubmit="return confirm('이 양식을 삭제하시겠습니까?');">
+                                    <button type="submit" class="btn-sm btn-danger">삭제</button>
+                                </form>
+                            </div>
+                        </div>
+                        <div style="font-size: 13px; font-weight: bold; color: #333; margin-bottom: 3px;">제목: {{ t.subject }}</div>
+                        <div style="font-size: 13px; font-weight: bold; color: #198754; margin-bottom: 5px;">발신: {{ t.sender_phone if t.sender_phone else '번호없음' }}</div>
+                        <div style="font-size: 12px; color: #555; white-space: pre-wrap;">{{ t.content }}</div>
+                    </div>
+                    {% else %}
+                    <p style="font-size: 13px; color: #6c757d; text-align: center;">등록된 양식이 없습니다.</p>
+                    {% endfor %}
                 </div>
-            </form>
-
-            <div class="table-responsive" style="margin-top: 0;">
-                <table style="min-width: 100%;">
-                    <thead>
-                        <tr>
-                            <th style="width: 20%;">양식 이름</th>
-                            <th style="width: 65%;">문자 내용</th>
-                            <th style="width: 15%;">관리</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for t in templates %}
-                        <tr>
-                            <td style="font-weight: bold; color: #082c84; text-align: center;">{{ t.name }}</td>
-                            <td style="white-space: pre-wrap; font-size: 13px;">{{ t.content }}</td>
-                            <td style="text-align: center;">
-                                <div style="display: flex; gap: 5px; justify-content: center;">
-                                    <button type="button" onclick="editTemplate('{{ t.id }}', `{{ t.name | replace('`', '\\`') }}`, `{{ t.content | replace('`', '\\`') }}`)" class="btn" style="background:#0dcaf0; color:black; font-size:12px; padding:6px 12px;">수정</button>
-                                    <form action="/sms/delete_template/{{ t.id }}" method="POST" onsubmit="return confirm('이 양식을 삭제하시겠습니까?');" style="margin: 0;">
-                                        <button type="submit" class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;">삭제</button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr><td colspan="3" style="text-align: center; padding: 20px; color: #6c757d;">등록된 양식이 없습니다.</td></tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
             </div>
         </div>
 
-        <!-- 💡 섹션 2: 문자 발송 대기열 (요청하신 고정 폭 깔끔한 디자인 반영) -->
-        <div class="section-title">
-            <h3 style="margin: 0; color: #082c84;">✉️ 센터 배송 도착안내 문자 발송 대기열</h3>
-            <form action="/sms/send" method="POST" id="smsForm" style="margin: 0;">
-                <input type="hidden" name="selected_ids" id="selectedIds">
-                <button type="button" class="btn btn-success" onclick="submitSmsForm()" style="font-size: 15px; padding: 10px 20px;">🚀 선택한 매장 문자 발송하기</button>
-            </form>
+        <div class="header-card">
+            <div class="header-title">
+                <h1>✉️ 알림톡 / 문자 발송 관리</h1>
+                <p>다중 연락처('/')가 있는 경우 여러 줄로 자동 분할되어 엑셀이 생성됩니다.</p>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <select id="smsCenterFilter" class="filter-select" onchange="filterTable()">
+                    <option value="">🏢 전체 센터 보기</option>
+                    {% for center in unique_centers %}
+                    <option value="{{ center }}">{{ center }}</option>
+                    {% endfor %}
+                </select>
+                <button onclick="downloadSmsExcel()" class="btn-download">📥 선택 센터 양식 다운로드</button>
+            </div>
         </div>
 
         <div class="table-responsive">
-            <table style="min-width: 1000px;">
+            <h3 style="margin-top: 0; color: #333;">📦 발송 대기 목록 (센터 출발 완료건)</h3>
+            {% if dispatches %}
+            <table id="smsTable">
                 <thead>
                     <tr>
-                        <th style="width: 5%;"><input type="checkbox" id="checkAll" style="width:18px; height:18px; cursor:pointer;"></th>
-                        <th style="width: 10%;">센터명</th>
-                        <th style="width: 12%;">기사명 / 순서</th>
-                        <th style="width: 20%;">매장명</th>
-                        <th style="width: 15%;">연락처 (수신)</th>
-                        <th style="width: 30%;">문자 내용 미리보기 (양식)</th>
-                        <th style="width: 8%;">상태</th>
+                        <!-- 💡 각 열의 비율을 명확하게 고정하여 테이블을 깔끔하게 유지합니다. -->
+                        <th style="width: 15%;">센터명 / 기사명</th>
+                        <th style="width: 25%;">매장명 (연락처)</th>
+                        <th style="width: 15%;">도착예정시간(ETA)</th>
+                        <th style="width: 35%;">적용된 템플릿(양식명)</th>
+                        <th style="width: 10%;">상태</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for item in pending_dispatches %}
+                    {% for d in dispatches %}
                     <tr>
-                        <td style="text-align: center;">
-                            <input type="checkbox" class="dispatch-chk" value="{{ item.dispatch.id }}" style="width:16px; height:16px; cursor:pointer;">
+                        <td style="text-align: center; font-weight: bold; color: #082c84;">
+                            {{ d.center_name }} <br>
+                            <span style="color: #333; font-size: 13px;">🚚 {{ d.driver_name }}</span>
                         </td>
-                        <td style="text-align: center; color: #6c757d; font-weight: bold;">{{ item.dispatch.center_name }}</td>
-                        <td style="text-align: center;">
-                            <strong style="color: #082c84;">{{ item.dispatch.driver_name }}</strong><br>
-                            <span style="font-size: 12px;">({{ item.dispatch.delivery_seq }}번째)</span>
+                        <td style="text-align: center; font-weight: bold;">
+                            {{ d.store_name }}<br>
+                            <span style="font-size: 13px; color: #6c757d; font-weight: normal;">📞 {{ d.store_phone if d.store_phone else '번호없음' }}</span>
+                            {% if '/' in (d.store_phone|string) %}
+                            <br><span style="font-size: 11px; color: #dc3545; font-weight: bold;">(다운로드 시 분할됨)</span>
+                            {% endif %}
                         </td>
-                        <td style="font-weight: bold;">{{ item.dispatch.store_name }}</td>
-                        <td style="text-align: center; font-family: monospace; font-size: 15px;">{{ item.dispatch.store_phone }}</td>
-                        <td>
-                            <div style="font-size: 12px; color: #d63384; font-weight: bold; margin-bottom: 4px;">[{{ item.template.name if item.template else '기본양식' }}]</div>
-                            <div class="msg-preview">{{ item.preview_text }}</div>
+                        <td style="text-align: center; color: #dc3545; font-weight: bold;">
+                            {% if d.estimated_arrival %}{{ d.estimated_arrival.strftime('%H시 %M분') }}{% else %}계산중{% endif %}
                         </td>
-                        <td style="text-align: center;">
-                            <span style="background-color: #ffc107; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">대기중</span>
+                        <td style="text-align: center; font-size: 14px; font-weight: bold; color: #198754;">
+                            {{ d.template_name if d.template_name else '기본양식' }}
                         </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="7" style="text-align: center; padding: 40px; color: #6c757d; font-size: 16px;">현재 문자 발송 대기 중인 매장이 없습니다.</td>
+                        <td style="text-align: center;"><span class="badge badge-ready">생성 완료</span></td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
+            {% else %}
+            <p style="text-align: center; padding: 40px; color: #6c757d; font-size: 16px;">현재 센터를 출발한 기사님이 없어 문자 발송 대상이 없습니다.</p>
+            {% endif %}
         </div>
     </div>
 </body>

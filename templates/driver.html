@@ -156,7 +156,6 @@
                 {% endif %}
             </div>
 
-            <!-- 💡 [신규] 배송 완료된 목록 -->
             <div class="item-list" style="margin-bottom: 15px;">
                 {% for item in dispatches %}
                     {% if item.is_departed %}
@@ -174,18 +173,16 @@
                 {% endfor %}
             </div>
 
-            <!-- 💡 [신규] AI 최적 경로 정렬 버튼 영역 -->
             {% if uncompleted_items|length > 1 %}
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; background: white; padding: 10px; border-radius: 6px; border-left: 5px solid #17a2b8; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                 <span style="font-size: 13px; font-weight: bold; color: #111;">남은 배송지: {{ uncompleted_items|length }}곳</span>
                 <form action="/optimize_route" method="POST" style="margin: 0;" onsubmit="return confirm('센터(또는 현재 위치)에서 가장 가까운 순서대로 경로를 자동 재배치하시겠습니까?');">
                     <input type="hidden" name="driver_name" value="{{ driver_name }}">
-                    <button type="submit" style="background-color: #17a2b8; color: white; border: none; padding: 8px 12px; font-size: 13px; font-weight: bold; border-radius: 4px; cursor: pointer; font-family: 'Binggrae-Two';">🪄 최적 경로 자동 설정</button>
+                    <button type="submit" style="background-color: #17a2b8; color: white; border: none; padding: 8px 12px; font-size: 13px; font-weight: bold; border-radius: 4px; cursor: pointer; font-family: 'Binggrae-Two';">🪄 AI 최적 경로 자동 배치</button>
                 </form>
             </div>
             {% endif %}
 
-            <!-- 💡 미완료 목록 (드래그 변경 가능) -->
             <div id="sortable-list" class="item-list">
                 {% for item in dispatches %}
                     {% if not item.is_departed %}

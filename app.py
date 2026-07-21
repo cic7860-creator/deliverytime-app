@@ -17,22 +17,30 @@ from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 from werkzeug.utils import secure_filename  # 💡 파일명 안전 처리를 위해 추가
 from models import db, Dispatch, Center, SmsTemplate, Notice, SystemSettings
 
-# 💡 [신규] 출발지 고정을 위한 각 센터별 대략적인 기준 좌표 (필요시 정확한 좌표로 수정하세요)
-CENTER_COORDS = {
-    "오산센터": ("37.1498", "127.0772"),
-    "밀양센터": ("35.4723831962026", "128.746071396565"),
-    "이천센터": ("37.2722", "127.4350"),
-    "전체": ("37.5665", "126.9780") # 기본값
-}
-
-# 💡 [신규] 두 좌표 간의 거리를 계산하는 하버사인(Haversine) 알고리즘
+# 💡 [신규] 두 좌표 간의 거리를 계산하는 하버사인 알고리즘
 def haversine(lat1, lon1, lat2, lon2):
-    R = 6371.0 # 지구의 반지름 (km)
+    R = 6371.0
     dlat = math.radians(float(lat2) - float(lat1))
     dlon = math.radians(float(lon2) - float(lon1))
     a = math.sin(dlat / 2)**2 + math.cos(math.radians(float(lat1))) * math.cos(math.radians(float(lat2))) * math.sin(dlon / 2)**2
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
+    
+# 💡 [신규] 카카오 주소 -> 좌표 변환 함수 (기존에 쓰시던 함수가 있다면 그것을 쓰셔도 됩니다)
+def get_kakao_coords(address):
+    KAKAO_API_KEY = "f70047282a8b7f30cd02fd2cfc00f029" 
+    url = "https://dapi.kakao.com/v2/local/search/address.json"
+    headers = {"Authorization": f"KakaoAK {KAKAO_API_KEY}"}
+    params = {"query": address}
+    try:
+        res = requests.get(url, headers=headers, params=params)
+        if res.status_code == 200:
+            documents = res.json().get('documents')
+            if documents:
+                return documents[0]['x'], documents[0]['y'] # (경도, 위도) 반환
+    except Exception as e:
+        print(f"카카오 API 변환 에러: {e}")
+    return None, None
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -239,12 +247,23 @@ def admin():
 
 @app.route('/admin/add_center', methods=['POST'])
 def add_center():
+    if not session.get('is_admin'): return redirect(url_for('admin_login'))
     name = request.form.get('center_name').strip()
     address = request.form.get('center_address').strip()
+    
+    # 카카오 API를 통해 주소를 좌표로 변환
+    c_x, c_y = get_kakao_coords(address)
+        
     if name and address:
-        if not Center.query.filter_by(name=name).first():
-            db.session.add(Center(name=name, address=address))
-            db.session.commit()
+        existing = Center.query.filter_by(name=name).first()
+        if existing:
+            existing.address = address
+            existing.center_x = c_x
+            existing.center_y = c_y
+        else:
+            new_center = Center(name=name, address=address, center_x=c_x, center_y=c_y)
+            db.session.add(new_center)
+        db.session.commit()
     return redirect(url_for('admin'))
 
 @app.route('/admin/delete_center/<int:center_id>', methods=['POST'])
@@ -376,15 +395,19 @@ def driver():
         valid_dispatches = [d for d in dispatches if d.store_x and d.store_y and not d.is_departed]
         chunk_size = 5
         
-        # 💡 [신규] 센터 좌표 가져오기 (없으면 기본값)
-        cy, cx = CENTER_COORDS.get(driver_center, ("37.5665", "126.9780"))
+        # 💡 관리자 DB에 등록된 센터 좌표 조회
+        target_center_obj = Center.query.filter_by(name=driver_center).first()
+        if target_center_obj and target_center_obj.center_y and target_center_obj.center_x:
+            cy, cx = target_center_obj.center_y, target_center_obj.center_x
+        else:
+            cy, cx = "37.5665", "126.9780" # 등록 안되어있을 경우 기본값(서울)
         
         for i in range(0, len(valid_dispatches), chunk_size):
             chunk = valid_dispatches[i:i+chunk_size]
             dest_d = chunk[-1]
             ep_y, ep_x = float(dest_d.store_y), float(dest_d.store_x)
             
-            # 💡 [수정됨] 출발지(sp)를 내 현재 위치가 아닌 무조건 '센터 좌표'로 고정
+            # 💡 출발지(sp)를 DB 센터 좌표로 완벽하게 고정
             kakaomap_app_url = f"kakaomap://route?sp={cy},{cx}&ep={ep_y},{ep_x}&by=CAR"
             
             for idx, wp in enumerate(chunk[:-1]):
@@ -807,7 +830,7 @@ def upload_completion():
     return redirect(url_for('notice_page'))
 
 # ==========================================
-# 💡 [신규] 미배송 코스 AI 최적 거리 순 자동 정렬
+# 💡 [수정] AI 최적 경로 정렬 (DB 센터 좌표 기준 탐색)
 # ==========================================
 @app.route('/optimize_route', methods=['POST'])
 def optimize_route():
@@ -819,7 +842,6 @@ def optimize_route():
     if not dispatches:
         return redirect(url_for('driver', driver_name=driver_name))
 
-    # 이미 완료된 매장과 남은 매장 분리
     completed = [d for d in dispatches if d.is_departed]
     uncompleted = [d for d in dispatches if not d.is_departed and d.store_x and d.store_y]
     uncompleted_no_coords = [d for d in dispatches if not d.is_departed and (not d.store_x or not d.store_y)]
@@ -827,34 +849,36 @@ def optimize_route():
     if not uncompleted:
         return redirect(url_for('driver', driver_name=driver_name))
 
-    # 시작 기준점 설정: 완료된 곳이 없다면 센터에서, 있다면 마지막 배송지에서 출발
     driver_center = dispatches[0].center_name
-    current_lat, current_lng = CENTER_COORDS.get(driver_center, ("37.5665", "126.9780"))
     
+    # 💡 DB에 저장된 센터 좌표 가져오기
+    target_center_obj = Center.query.filter_by(name=driver_center).first()
+    if target_center_obj and target_center_obj.center_y and target_center_obj.center_x:
+        current_lat, current_lng = float(target_center_obj.center_y), float(target_center_obj.center_x)
+    else:
+        current_lat, current_lng = 37.5665, 126.9780
+    
+    # 만약 이미 완료된 배송지가 있다면 마지막 완료지점을 기준으로 시작
     if completed:
         last_completed = completed[-1]
         if last_completed.store_y and last_completed.store_x:
-            current_lat = last_completed.store_y
-            current_lng = last_completed.store_x
+            current_lat = float(last_completed.store_y)
+            current_lng = float(last_completed.store_x)
 
-    # AI 근접 최적화 탐색 (Nearest Neighbor TSP 알고리즘)
     optimized_list = []
-    current_node = (float(current_lat), float(current_lng))
+    current_node = (current_lat, current_lng)
     candidates = uncompleted.copy()
     
     while candidates:
-        # 현재 위치에서 가장 거리가 짧은(가까운) 매장을 탐색
         closest = min(candidates, key=lambda d: haversine(current_node[0], current_node[1], float(d.store_y), float(d.store_x)))
         optimized_list.append(closest)
         candidates.remove(closest)
         current_node = (float(closest.store_y), float(closest.store_x))
 
-    # 정렬된 최적 순서대로 배송 번호(seq) 싹 갈아엎기
     start_seq = len(completed) + 1
     for idx, d in enumerate(optimized_list):
         d.delivery_seq = start_seq + idx
         
-    # 좌표 오류가 있는 매장은 맨 뒤로 뺌
     for idx, d in enumerate(uncompleted_no_coords):
         d.delivery_seq = start_seq + len(optimized_list) + idx
 

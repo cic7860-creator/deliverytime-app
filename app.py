@@ -1,3 +1,4 @@
+from flask import Flask, request, render_template, redirect, url_for, session, jsonify, send_file
 from flask import Flask, render_template, request, redirect, url_for, send_file, session
 from models import db, Dispatch, Center, SmsTemplate, Notice
 import pandas as pd
@@ -9,10 +10,29 @@ import requests
 import urllib3
 import json
 import concurrent.futures
+import urllib.parse
+import math  # 💡 [신규] 최적 경로 거리 계산을 위한 수학 모듈
 from openpyxl.comments import Comment
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 from werkzeug.utils import secure_filename  # 💡 파일명 안전 처리를 위해 추가
 from models import db, Dispatch, Center, SmsTemplate, Notice, SystemSettings
+
+# 💡 [신규] 출발지 고정을 위한 각 센터별 대략적인 기준 좌표 (필요시 정확한 좌표로 수정하세요)
+CENTER_COORDS = {
+    "오산센터": ("37.1498", "127.0772"),
+    "밀양센터": ("35.4920", "128.7443"),
+    "이천센터": ("37.2722", "127.4350"),
+    "전체": ("37.5665", "126.9780") # 기본값
+}
+
+# 💡 [신규] 두 좌표 간의 거리를 계산하는 하버사인(Haversine) 알고리즘
+def haversine(lat1, lon1, lat2, lon2):
+    R = 6371.0 # 지구의 반지름 (km)
+    dlat = math.radians(float(lat2) - float(lat1))
+    dlon = math.radians(float(lon2) - float(lon1))
+    a = math.sin(dlat / 2)**2 + math.cos(math.radians(float(lat1))) * math.cos(math.radians(float(lat2))) * math.sin(dlon / 2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -323,19 +343,15 @@ def driver():
         all_active_notices = Notice.query.filter_by(is_active=True).order_by(Notice.display_seq.asc(), Notice.created_at.desc()).all()
         for n in all_active_notices:
             target_str = n.target_drivers.strip() if n.target_drivers else ""
-            
-            # 💡 [신규] '센터명||기사조건' 분리 로직 (과거 데이터 호환 완벽 지원)
             if "||" in target_str:
                 t_center, t_drivers = target_str.split("||", 1)
             else:
                 t_center = "전체"
                 t_drivers = target_str
                 
-            # 1. 1차 검증: 센터가 지정되어 있는데 현재 기사님의 센터와 다르면 패스
             if t_center != "전체" and t_center != driver_center:
                 continue
                 
-            # 2. 2차 검증: 기사님 이름(contain, not contain 등) 조건 검사
             if not t_drivers:
                 active_notices.append(n) 
             elif t_drivers.lower().startswith("contain "):
@@ -351,7 +367,6 @@ def driver():
                 if name in target_list:
                     active_notices.append(n)
                     
-        # ... (이하 지도 연동 URL 등 기존 route_chunks 로직은 원래대로 유지!) ...
         if not dispatches:
             return f"<script>alert('{name} 기사님의 배차 내역이 존재하지 않습니다.'); window.location.href='/driver';</script>"
         display_date = datetime.now().date()
@@ -360,14 +375,22 @@ def driver():
         date_str = display_date.strftime('%y%m%d') + f"({weekdays[display_date.weekday()]})"
         valid_dispatches = [d for d in dispatches if d.store_x and d.store_y and not d.is_departed]
         chunk_size = 5
+        
+        # 💡 [신규] 센터 좌표 가져오기 (없으면 기본값)
+        cy, cx = CENTER_COORDS.get(driver_center, ("37.5665", "126.9780"))
+        
         for i in range(0, len(valid_dispatches), chunk_size):
             chunk = valid_dispatches[i:i+chunk_size]
             dest_d = chunk[-1]
             ep_y, ep_x = float(dest_d.store_y), float(dest_d.store_x)
-            kakaomap_app_url = f"kakaomap://route?ep={ep_y},{ep_x}&by=CAR"
+            
+            # 💡 [수정됨] 출발지(sp)를 내 현재 위치가 아닌 무조건 '센터 좌표'로 고정
+            kakaomap_app_url = f"kakaomap://route?sp={cy},{cx}&ep={ep_y},{ep_x}&by=CAR"
+            
             for idx, wp in enumerate(chunk[:-1]):
                 vp_key = 'vp' if idx == 0 else f"vp{idx+1}"
                 kakaomap_app_url += f"&{vp_key}={float(wp.store_y)},{float(wp.store_x)}"
+            
             center_addr = dispatches[0].center_address if dispatches[0].center_address else dispatches[0].store_address
             origin_encoded = urllib.parse.quote(center_addr)
             dest_encoded = urllib.parse.quote(dest_d.store_address)
@@ -376,6 +399,7 @@ def driver():
             if waypoint_addrs:
                 wp_encoded = urllib.parse.quote("|".join(waypoint_addrs))
                 google_map_url += f"&waypoints={wp_encoded}"
+                
             route_chunks.append({
                 'title': f"📱 코스 ({chunk[0].delivery_seq}~{chunk[-1].delivery_seq}번)",
                 'url': kakaomap_app_url, 'pc_url': google_map_url 
@@ -781,6 +805,61 @@ def upload_completion():
         file.save(save_path)
         
     return redirect(url_for('notice_page'))
+
+# ==========================================
+# 💡 [신규] 미배송 코스 AI 최적 거리 순 자동 정렬
+# ==========================================
+@app.route('/optimize_route', methods=['POST'])
+def optimize_route():
+    driver_name = request.form.get('driver_name')
+    if not driver_name:
+        return redirect(url_for('driver'))
+
+    dispatches = Dispatch.query.filter_by(driver_name=driver_name).order_by(Dispatch.delivery_seq).all()
+    if not dispatches:
+        return redirect(url_for('driver', driver_name=driver_name))
+
+    # 이미 완료된 매장과 남은 매장 분리
+    completed = [d for d in dispatches if d.is_departed]
+    uncompleted = [d for d in dispatches if not d.is_departed and d.store_x and d.store_y]
+    uncompleted_no_coords = [d for d in dispatches if not d.is_departed and (not d.store_x or not d.store_y)]
+
+    if not uncompleted:
+        return redirect(url_for('driver', driver_name=driver_name))
+
+    # 시작 기준점 설정: 완료된 곳이 없다면 센터에서, 있다면 마지막 배송지에서 출발
+    driver_center = dispatches[0].center_name
+    current_lat, current_lng = CENTER_COORDS.get(driver_center, ("37.5665", "126.9780"))
+    
+    if completed:
+        last_completed = completed[-1]
+        if last_completed.store_y and last_completed.store_x:
+            current_lat = last_completed.store_y
+            current_lng = last_completed.store_x
+
+    # AI 근접 최적화 탐색 (Nearest Neighbor TSP 알고리즘)
+    optimized_list = []
+    current_node = (float(current_lat), float(current_lng))
+    candidates = uncompleted.copy()
+    
+    while candidates:
+        # 현재 위치에서 가장 거리가 짧은(가까운) 매장을 탐색
+        closest = min(candidates, key=lambda d: haversine(current_node[0], current_node[1], float(d.store_y), float(d.store_x)))
+        optimized_list.append(closest)
+        candidates.remove(closest)
+        current_node = (float(closest.store_y), float(closest.store_x))
+
+    # 정렬된 최적 순서대로 배송 번호(seq) 싹 갈아엎기
+    start_seq = len(completed) + 1
+    for idx, d in enumerate(optimized_list):
+        d.delivery_seq = start_seq + idx
+        
+    # 좌표 오류가 있는 매장은 맨 뒤로 뺌
+    for idx, d in enumerate(uncompleted_no_coords):
+        d.delivery_seq = start_seq + len(optimized_list) + idx
+
+    db.session.commit()
+    return redirect(url_for('driver', driver_name=driver_name))
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

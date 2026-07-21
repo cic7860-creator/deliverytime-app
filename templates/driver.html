@@ -180,7 +180,7 @@
                 <span style="font-size: 13px; font-weight: bold; color: #111;">남은 배송지: {{ uncompleted_items|length }}곳</span>
                 <form action="/optimize_route" method="POST" style="margin: 0;" onsubmit="return confirm('센터(또는 현재 위치)에서 가장 가까운 순서대로 경로를 자동 재배치하시겠습니까?');">
                     <input type="hidden" name="driver_name" value="{{ driver_name }}">
-                    <button type="submit" style="background-color: #17a2b8; color: white; border: none; padding: 8px 12px; font-size: 13px; font-weight: bold; border-radius: 4px; cursor: pointer; font-family: 'Binggrae-Two';">🪄 AI 최적 경로 자동 정렬</button>
+                    <button type="submit" style="background-color: #17a2b8; color: white; border: none; padding: 8px 12px; font-size: 13px; font-weight: bold; border-radius: 4px; cursor: pointer; font-family: 'Binggrae-Two';">🪄 최적 경로 자동 설정</button>
                 </form>
             </div>
             {% endif %}

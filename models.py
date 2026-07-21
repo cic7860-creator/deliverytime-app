@@ -7,6 +7,8 @@ class Center(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False, unique=True)
     address = db.Column(db.String(255), nullable=False)
+    center_x = db.Column(db.String(50)) # 경도 (longitude)
+    center_y = db.Column(db.String(50)) # 위도 (latitude)
 
 class SmsTemplate(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -21,7 +23,7 @@ class Notice(db.Model):
     content = db.Column(db.Text, nullable=False)
     images_str = db.Column(db.Text)
     target_drivers = db.Column(db.String(500), default="") 
-    display_seq = db.Column(db.Integer, default=1) # 💡 [신규] 공지 노출 순서 저장
+    display_seq = db.Column(db.Integer, default=1)
     created_at = db.Column(db.DateTime, default=datetime.now)
     is_active = db.Column(db.Boolean, default=True)
 

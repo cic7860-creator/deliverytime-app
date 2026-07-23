@@ -5,12 +5,11 @@
     <meta name="viewport" content="width=1400">
     <title>배차 데이터 관리</title>
     <style>
-    @font-face {
-        font-family: 'Binggrae-Two';
-        src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Binggrae-Bold.woff') format('woff');
-        font-weight: 700;
-        font-display: swap;
-    }
+        @font-face {
+            font-family: 'Binggrae-Two';
+            src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Binggrae%E2%85%A1.woff') format('woff');
+            font-weight: normal; font-style: normal;
+        }
         body { font-family: 'Binggrae-Two', sans-serif; padding: 20px; background-color: #f8f9fa; color: #333; margin: 0; }
         .container { max-width: 1400px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         h2 { margin-top: 0; color: #082c84; }
@@ -19,6 +18,7 @@
         .top-nav a { color: white; text-decoration: none; font-size: 16px; font-weight: bold; transition: color 0.2s; }
         .top-nav a:hover { color: #0d6efd; }
         textarea { width: 100%; height: 120px; margin-top: 10px; padding: 10px; font-family: monospace; box-sizing: border-box; border: 1px solid #ced4da; border-radius: 4px; }
+        
         .btn { padding: 10px 20px; font-size: 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
         .btn-primary { background-color: #082c84; color: white; }
         .btn-save-all { background-color: #198754; color: white; padding: 12px 25px; font-size: 16px; border-radius: 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: 0.2s; }
@@ -26,20 +26,22 @@
         .btn-outline { background-color: white; color: #082c84; border: 1px solid #082c84; text-decoration: none; display: inline-block; padding: 8px 15px; font-size: 14px; border-radius: 4px; font-weight: bold; transition: 0.2s; }
         .btn-outline:hover { background-color: #e3f2fd; }
         .btn-danger { background-color: #dc3545; color: white; padding: 8px 15px; font-size: 14px; }
+        
         .section-title { margin-top: 40px; border-bottom: 2px solid #dee2e6; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
         .table-responsive { overflow-x: auto; margin-top: 15px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05); }
-        table { width: 100%; border-collapse: collapse; min-width: 1300px; background-color: white; }
-        th, td { padding: 12px 8px; text-align: left; border-bottom: 1px solid #dee2e6; font-size: 13px; vertical-align: middle; }
-        th { background-color: #f8f9fa; font-weight: bold; color: #495057; white-space: nowrap; border-top: 2px solid #dee2e6; border-bottom: 2px solid #dee2e6; }
+        
+        table { width: 100%; border-collapse: collapse; min-width: 1300px; background-color: white; table-layout: fixed; }
+        th, td { padding: 12px 8px; text-align: left; border-bottom: 1px solid #dee2e6; font-size: 13px; vertical-align: middle; word-wrap: break-word; }
+        th { background-color: #f8f9fa; font-weight: bold; color: #495057; text-align: center; border-top: 2px solid #dee2e6; border-bottom: 2px solid #dee2e6; }
         tr:hover { background-color: #f1f3f5; }
+        
         .text-center { text-align: center !important; }
-        .no-wrap { white-space: nowrap; }
+        
         .search-container { margin-top: 15px; display: flex; gap: 10px; align-items: center; }
         .search-container select, .search-container input { padding: 12px; font-size: 15px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; }
         .search-container input { flex: 1; }
         .info-box { background-color: #e3f2fd; color: #082c84; padding: 15px 20px; border-radius: 6px; margin-bottom: 15px; border-left: 5px solid #082c84; font-weight: bold; font-size: 15px; }
         
-        /* 테이블 안의 인풋 창 디자인 */
         .table-input { width: 100%; padding: 6px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; font-size: 12px; box-sizing: border-box; transition: 0.2s; }
         .table-input:focus { border-color: #0d6efd; outline: none; box-shadow: 0 0 0 0.2rem rgba(13,110,253,.25); }
     </style>
@@ -49,27 +51,35 @@
             let centerFilter = centerFilterId ? document.getElementById(centerFilterId).value : "";
             let table = document.getElementById(tableId);
             let tr = table.getElementsByTagName("tr");
+            
             for (let i = 1; i < tr.length; i++) {
                 let tds = tr[i].getElementsByTagName("td");
-                let rowText = ""; let rowCenter = tds[0] ? tds[0].innerText.trim() : ""; 
+                let rowText = ""; 
+                let rowCenter = tds[0] ? tds[0].innerText.trim() : ""; 
+                
                 for (let j = 0; j < tds.length; j++) { 
                     if (tds[j]) {
-                        // 인풋 박스 안의 값도 검색에 포함시킵니다.
+                        // 1. 일반 텍스트("주소 수정 요망" 등)를 검색어에 포함
+                        rowText += tds[j].innerText.toLowerCase() + " "; 
+                        
+                        // 2. 입력칸(input) 안의 값(주소, 연락처 등)을 검색어에 포함
                         let inputs = tds[j].getElementsByTagName('input');
-                        if(inputs.length > 0) {
-                            for(let k=0; k<inputs.length; k++) rowText += inputs[k].value.toLowerCase() + " ";
-                        } else {
-                            rowText += tds[j].innerText.toLowerCase() + " "; 
+                        for(let k=0; k<inputs.length; k++) {
+                            rowText += inputs[k].value.toLowerCase() + " ";
                         }
                     }
                 }
+                
                 let matchText = rowText.includes(textInput);
                 let matchCenter = (centerFilter === "" || rowCenter === centerFilter);
-                if (matchText && matchCenter) { tr[i].style.display = ""; } else { tr[i].style.display = "none"; }
+                if (matchText && matchCenter) { 
+                    tr[i].style.display = ""; 
+                } else { 
+                    tr[i].style.display = "none"; 
+                }
             }
         }
 
-        // 개별 매장 삭제 기능 (중첩 폼 방지를 위해 외부 폼 활용)
         function deleteDispatch(id) {
             if(confirm('해당 매장을 삭제하시겠습니까?')) {
                 let form = document.getElementById('deleteForm');
@@ -80,11 +90,9 @@
     </script>
 </head>
 <body>
-    <!-- 삭제 처리를 위한 숨겨진 폼 -->
     <form id="deleteForm" method="POST" style="display:none;"></form>
 
     <div class="container">
-        <!-- 네비게이션 -->
         <div class="top-nav">
             <div>
                 <a href="/admin" style="color: #ffe812;">🖥️ 데이터 입력 (홈)</a>
@@ -106,10 +114,16 @@
                 <button type="submit" class="btn btn-primary">신규 센터 등록</button>
             </form>
             <table style="min-width: 100%;">
-                <thead><tr><th style="width: 20%;">센터명</th><th style="width: 65%;">출발지 주소</th><th style="width: 15%; text-align: center;">관리</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th style="width: 20%;">센터명</th>
+                        <th style="width: 65%;">출발지 주소</th>
+                        <th style="width: 15%;">관리</th>
+                    </tr>
+                </thead>
                 <tbody>
                     {% for c in centers %}
-                    <tr><td style="font-weight: bold; color: #082c84;">{{ c.name }}</td><td>{{ c.address }}</td>
+                    <tr><td style="font-weight: bold; color: #082c84; text-align: center;">{{ c.name }}</td><td>{{ c.address }}</td>
                         <td class="text-center">
                             <form action="/admin/delete_center/{{ c.id }}" method="POST" onsubmit="return confirm('이 센터를 정말 삭제하시겠습니까?');" style="margin: 0;">
                                 <button type="submit" class="btn btn-danger" style="padding: 5px 10px;">삭제</button>
@@ -162,39 +176,37 @@
                     <option value="">🏢 전체 센터</option>
                     {% for c in centers %} <option value="{{ c.name }}">{{ c.name }}</option> {% endfor %}
                 </select>
-                <input type="text" id="adminSearchInput" onkeyup="filterTable('dispatchTable', 'adminSearchInput', 'adminCenterFilter')" placeholder="🔍 매장명, 기사명, 연락처 검색...">
+                <!-- 💡 [검색 안내 문구 추가] -->
+                <input type="text" id="adminSearchInput" onkeyup="filterTable('dispatchTable', 'adminSearchInput', 'adminCenterFilter')" placeholder="🔍 매장명, 기사명, 주소(수정 요망), 연락처 검색...">
             </div>
             
-            <!-- 💡 [일괄 저장 버튼] 폼 제출 버튼 -->
             <button type="submit" form="bulkUpdateForm" class="btn btn-save-all">💾 화면의 변경사항 모두 일괄 저장</button>
         </div>
 
         <div class="table-responsive">
-            <!-- 💡 전체 테이블을 감싸는 하나의 Form -->
             <form id="bulkUpdateForm" action="/admin/bulk_update" method="POST">
                 <input type="hidden" name="dispatch_ids" value="{{ dispatches | map(attribute='id') | join(',') }}">
                 
                 <table id="dispatchTable">
                     <thead>
                         <tr>
-                            <th class="text-center" style="width: 80px;">센터명</th>
-                            <th class="text-center" style="width: 100px;">기사명 / 차량</th>
-                            <th>매장명</th>
-                            <th class="text-center" style="width: 50px;">순서</th>
-                            <th style="width: 250px;">주소 (오류 시 직접 수정)</th>
-                            <th class="text-center" style="width: 60px;">시간</th>
-                            <th class="text-center" style="width: 110px;">연락처(기사/매장)</th>
-                            <th class="text-center" style="color: #d63384; width: 90px;">양식지정</th>
-                            <th class="text-center" style="width: 70px;">관리</th>
+                            <th style="width: 7%;">센터명</th>
+                            <th style="width: 12%;">기사명 / 차량</th>
+                            <th style="width: 14%;">매장명</th>
+                            <th style="width: 5%;">순서</th>
+                            <th style="width: 25%;">주소 (오류 시 직접 수정)</th>
+                            <th style="width: 6%;">시간</th>
+                            <th style="width: 14%;">연락처(기사/매장)</th>
+                            <th style="color: #d63384; width: 9%;">양식지정</th>
+                            <th style="width: 8%;">관리</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for d in dispatches %}
                         <tr>
-                            <td class="text-center no-wrap" style="font-weight: bold; color: #6c757d;">{{ d.center_name }}</td>
+                            <td class="text-center" style="font-weight: bold; color: #6c757d;">{{ d.center_name }}</td>
                             
-                            <!-- 기사/차량 입력칸 (통합) -->
-                            <td class="text-center no-wrap">
+                            <td class="text-center">
                                 <input type="text" name="driver_name_{{ d.id }}" value="{{ d.driver_name }}" class="table-input" style="font-weight:bold; color:#082c84; margin-bottom:4px; text-align:center;" title="기사명">
                                 <input type="text" name="vehicle_num_{{ d.id }}" value="{{ d.vehicle_num }}" class="table-input" style="text-align:center;" title="차량번호">
                             </td>
@@ -202,7 +214,6 @@
                             <td style="font-weight: bold; color: #333;">{{ d.store_name }}</td>
                             <td class="text-center" style="font-weight: bold;">{{ d.delivery_seq }}</td>
                             
-                            <!-- 주소 입력칸 -->
                             <td>
                                 {% if not d.store_x or not d.store_y %}
                                     <div style="color: #dc3545; font-size: 11px; font-weight: bold; margin-bottom: 4px;">⚠️ 주소 수정 요망 (지도 인식 실패)</div>
@@ -210,26 +221,22 @@
                                 <input type="text" name="address_{{ d.id }}" value="{{ d.store_address }}" class="table-input" style="border: {% if not d.store_x or not d.store_y %}2px solid #dc3545{% else %}1px solid #ced4da{% endif %};">
                             </td>
 
-                            <!-- 시간 입력칸 -->
-                            <td class="no-wrap text-center">
+                            <td class="text-center">
                                 <input type="number" name="buffer_{{ d.id }}" value="{{ d.buffer_time }}" class="table-input" style="text-align: center; font-weight: bold;">
                             </td>
 
-                            <!-- 연락처 입력칸 -->
-                            <td class="no-wrap text-center">
+                            <td class="text-center">
                                 <div style="display: flex; flex-direction: column; gap: 4px;">
                                     <input type="text" name="driver_phone_{{ d.id }}" value="{{ d.driver_phone or '' }}" placeholder="기사번호" class="table-input" style="text-align: center;" title="기사 연락처">
                                     <input type="text" name="store_phone_{{ d.id }}" value="{{ d.store_phone or '' }}" placeholder="매장번호" class="table-input" style="text-align: center;" title="매장 연락처">
                                 </div>
                             </td>
 
-                            <!-- 문자 양식 입력칸 -->
-                            <td class="no-wrap text-center">
+                            <td class="text-center">
                                 <input type="text" name="template_{{ d.id }}" value="{{ d.template_name or '' }}" placeholder="기본" class="table-input" style="text-align: center; color: #d63384; font-weight: bold; border-color: #d63384;">
                             </td>
                             
-                            <!-- 삭제 버튼 (자바스크립트 활용) -->
-                            <td class="text-center no-wrap">
+                            <td class="text-center">
                                 <button type="button" onclick="deleteDispatch({{ d.id }})" class="btn btn-danger" style="padding: 6px 12px; font-size: 12px; font-family:'Binggrae-Two';">삭제</button>
                             </td>
                         </tr>

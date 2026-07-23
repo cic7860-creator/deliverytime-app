@@ -885,5 +885,34 @@ def optimize_route():
     db.session.commit()
     return redirect(url_for('driver', driver_name=driver_name))
 
+@app.route('/admin/bulk_update', methods=['POST'])
+def bulk_update():
+    if not session.get('is_admin'): return redirect(url_for('admin_login'))
+    
+    # 폼에 숨겨진 전체 dispatch ID 목록을 가져옵니다.
+    dispatch_ids_str = request.form.get('dispatch_ids', '')
+    if dispatch_ids_str:
+        dispatch_ids = dispatch_ids_str.split(',')
+        for did in dispatch_ids:
+            if not did.strip(): continue
+            d = Dispatch.query.get(did)
+            if d:
+                # 💡 각 열의 데이터를 가져와 덮어씁니다.
+                d.store_address = request.form.get(f'address_{did}', d.store_address).strip()
+                
+                buffer_val = request.form.get(f'buffer_{did}')
+                if buffer_val and buffer_val.isdigit():
+                    d.buffer_time = int(buffer_val)
+                    
+                d.driver_phone = request.form.get(f'driver_phone_{did}', d.driver_phone or '').strip()
+                d.store_phone = request.form.get(f'store_phone_{did}', d.store_phone or '').strip()
+                d.driver_name = request.form.get(f'driver_name_{did}', d.driver_name).strip()
+                d.vehicle_num = request.form.get(f'vehicle_num_{did}', d.vehicle_num).strip()
+                d.template_name = request.form.get(f'template_{did}', d.template_name or '').strip()
+                
+        db.session.commit()
+        
+    return redirect(url_for('admin'))
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

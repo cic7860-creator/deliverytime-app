@@ -658,61 +658,64 @@ def delete_template(template_id):
 
 @app.route('/download_sms_excel')
 def download_sms_excel():
-    if not session.get('is_admin'): 
-        return redirect(url_for('admin_login'))
+    if not session.get('is_admin'): return redirect(url_for('admin_login'))
+    center_filter = request.args.get('center_name', '')
     
-    center_name = request.args.get('center_name', '')
-    # 프론트엔드(HTML)에서 체크박스 값 받아오기
-    filter_past = request.args.get('filter_past', 'true') == 'true'
-    now = datetime.now()
-
-    dispatches = Dispatch.query.filter(Dispatch.center_depart_time.isnot(None)).order_by(Dispatch.delivery_seq).all()
+    query = Dispatch.query.filter(Dispatch.center_depart_time != None)
+    if center_filter: query = query.filter_by(center_name=center_filter)
+    departed_dispatches = query.order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
+    
+    templates_dict = {t.name: t for t in SmsTemplate.query.all()}
     
     data_list = []
-    for d in dispatches:
-        if center_name and d.center_name != center_name:
-            continue
-            
-        # 💡 [핵심] 체크박스가 켜져있을 때(True), 배송 완료됐거나 시간이 지난 매장 제외
-        if filter_past:
-            if d.is_departed:
-                continue
-            # 시간 타입 에러 방지를 위해 isinstance 안전장치 추가
-            if d.estimated_arrival and isinstance(d.estimated_arrival, datetime) and d.estimated_arrival < now:
-                continue
-        
-        phones = []
-        if d.store_phone:
-            phones = [p.strip() for p in str(d.store_phone).split('/') if p.strip()]
+    for d in departed_dispatches:
+        eta_str = d.estimated_arrival.strftime('%H시 %M분') if d.estimated_arrival else "계산중"
+        t_obj = templates_dict.get(d.template_name)
+        if t_obj:
+            raw_subject = t_obj.subject
+            raw_content = t_obj.content
+            sender_num = t_obj.sender_phone if t_obj.sender_phone else '1668-3136'
         else:
-            phones = ['']
-            
-        eta_str = d.estimated_arrival.strftime('%H:%M') if isinstance(d.estimated_arrival, datetime) else '계산중'
-        template_str = d.template_name if d.template_name else '기본양식'
+            raw_subject = "[(주)제때] {매장명} 배송예정시간 안내"
+            raw_content = "안녕하세요 {매장명} 점주님!\n도착예정시간: {도착예정시간}\n기사명: {기사명}\n연락처: {기사전화번호}"
+            sender_num = "1668-3136"
+
+        sms_subject = raw_subject.replace('{매장명}', d.store_name)\
+                                 .replace('{도착예정시간}', eta_str)\
+                                 .replace('{기사명}', d.driver_name)\
+                                 .replace('{차량번호}', d.vehicle_num)
+        
+        sms_content = raw_content.replace('{매장명}', d.store_name)\
+                                 .replace('{도착예정시간}', eta_str)\
+                                 .replace('{기사명}', d.driver_name)\
+                                 .replace('{차량번호}', d.vehicle_num)\
+                                 .replace('{기사전화번호}', d.driver_phone if d.driver_phone else "번호없음")
+        
+        store_phone_raw = d.store_phone if d.store_phone else "번호없음"
+        phones = [p.strip() for p in store_phone_raw.replace(' / ', '/').split('/') if p.strip()]
         
         for phone in phones:
             data_list.append({
-                '센터명': d.center_name,
-                '기사명': d.driver_name,
-                '차량번호': d.vehicle_num,
-                '매장명': d.store_name,
-                '도착예상시간': eta_str,
-                '수신번호(연락처)': phone,
-                '적용양식(템플릿)': template_str
+                '수신인': d.store_name, '연락처': phone,
+                '제목': sms_subject, '내용': sms_content, '발신번호': sender_num
             })
-    
-    if not data_list:
-        data_list.append({'안내': '해당 조건에 발송할 대상이 없습니다.'})
-
-    df = pd.DataFrame(data_list)
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='SMS_발송대기열')
         
+    df = pd.DataFrame(data_list)
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='문자발송양식')
+        worksheet = writer.sheets['문자발송양식']
+        apply_excel_styles(worksheet, df, is_sms=True)
+        worksheet.column_dimensions['A'].width = 25
+        worksheet.column_dimensions['B'].width = 20
+        worksheet.column_dimensions['C'].width = 35
+        worksheet.column_dimensions['D'].width = 50
+        worksheet.column_dimensions['E'].width = 15
+                
     output.seek(0)
-    filename = "알림톡_발송대기열.xlsx"
-    encoded_filename = urllib.parse.quote(filename)
-    return send_file(output, download_name=filename, as_attachment=True, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    today_str = datetime.now().strftime('%Y%m%d')
+    filename = f"{center_filter}_{today_str}_알림톡발송양식.xlsx" if center_filter else f"{today_str}_알림톡발송양식.xlsx"
+    return send_file(output, download_name=filename, as_attachment=True)
 
 @app.route('/notice')
 def notice_page():

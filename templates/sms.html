@@ -7,7 +7,7 @@
     <style>
         @font-face {
             font-family: 'Binggrae-Two';
-            src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Binggrae%E2%85%A1.woff') format('woff');
+            src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Binggrae-Two.woff') format('woff');
             font-weight: normal; font-style: normal;
         }
         body { font-family: 'Binggrae-Two', sans-serif; padding: 20px; background-color: #f0f2f5; margin: 0; }
@@ -27,6 +27,7 @@
 
         .table-responsive { background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow-x: auto; padding: 20px; margin-bottom: 25px; }
         
+        /* 💡 엑셀 대기 목록 테이블을 깔끔하게 고정 폭으로 수정 */
         table { width: 100%; border-collapse: collapse; min-width: 900px; table-layout: fixed; }
         th, td { padding: 12px 15px; border-bottom: 1px solid #dee2e6; vertical-align: middle; word-wrap: break-word; }
         th { background-color: #f8f9fa; font-weight: bold; color: #495057; border-top: 2px solid #dee2e6; border-bottom: 2px solid #dee2e6; text-align: center; }
@@ -50,7 +51,6 @@
         function filterTable() {
             let centerFilter = document.getElementById("smsCenterFilter").value;
             let table = document.getElementById("smsTable");
-            if (!table) return;
             let tr = table.getElementsByTagName("tr");
             
             for (let i = 1; i < tr.length; i++) {
@@ -64,16 +64,9 @@
             }
         }
 
-        // 💡 [안전한 수정] 에러 방지 처리 추가
         function downloadSmsExcel() {
-            let centerElement = document.getElementById("smsCenterFilter");
-            let center = centerElement ? centerElement.value : "";
-            
-            let checkboxElement = document.getElementById("filterPastArrivals");
-            // 체크박스가 존재하면 그 값을, 존재하지 않으면 기본적으로 true 설정
-            let filterPast = checkboxElement ? checkboxElement.checked : true;
-            
-            window.location.href = "/download_sms_excel?center_name=" + encodeURIComponent(center) + "&filter_past=" + filterPast;
+            let center = document.getElementById("smsCenterFilter").value;
+            window.location.href = "/download_sms_excel?center_name=" + encodeURIComponent(center);
         }
 
         function editTemplate(id, name, subject, sender, content) {
@@ -174,13 +167,7 @@
                 <h1>✉️ 알림톡 / 문자 발송 관리</h1>
                 <p>다중 연락처('/')가 있는 경우 여러 줄로 자동 분할되어 엑셀이 생성됩니다.</p>
             </div>
-            <!-- 💡 [디자인 보존 및 기능 추가] 다운로드 그룹 안에 ON/OFF 토글을 우측 정렬로 깔끔하게 삽입 -->
-            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: flex-end;">
-                <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: bold; color: #198754; background: #e8f5e9; padding: 13px 15px; border-radius: 6px; cursor: pointer; border: 1px solid #c8e6c9;">
-                    <input type="checkbox" id="filterPastArrivals" checked style="width: 18px; height: 18px; cursor: pointer; accent-color: #198754;">
-                    현시점 이후 매장만 (완료 제외)
-                </label>
-
+            <div style="display: flex; gap: 10px; align-items: center;">
                 <select id="smsCenterFilter" class="filter-select" onchange="filterTable()">
                     <option value="">🏢 전체 센터 보기</option>
                     {% for center in unique_centers %}

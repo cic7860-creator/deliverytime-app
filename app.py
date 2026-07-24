@@ -897,9 +897,21 @@ def bulk_update():
             if not did.strip(): continue
             d = Dispatch.query.get(did)
             if d:
-                # 💡 각 열의 데이터를 가져와 덮어씁니다.
-                d.store_address = request.form.get(f'address_{did}', d.store_address).strip()
+                new_address = request.form.get(f'address_{did}', d.store_address).strip()
                 
+                # 💡 [핵심 수정] 주소가 기존과 달라졌거나, 기존에 좌표(x, y)가 없던 경우 카카오 API로 좌표 재탐색!
+                if new_address != d.store_address or not d.store_x or not d.store_y:
+                    d.store_address = new_address
+                    c_x, c_y = get_kakao_coords(new_address)
+                    if c_x and c_y:
+                        d.store_x = c_x
+                        d.store_y = c_y
+                    else:
+                        # 변환 실패 시 None 처리하여 관리자에게 다시 경고가 뜨도록 유지
+                        d.store_x = None
+                        d.store_y = None
+                
+                # 나머지 데이터 업데이트
                 buffer_val = request.form.get(f'buffer_{did}')
                 if buffer_val and buffer_val.isdigit():
                     d.buffer_time = int(buffer_val)

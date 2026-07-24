@@ -10,12 +10,12 @@ import requests
 import urllib3
 import json
 import concurrent.futures
-import urllib.parse
 import math  # 💡 [신규] 최적 경로 거리 계산을 위한 수학 모듈
 from openpyxl.comments import Comment
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 from werkzeug.utils import secure_filename  # 💡 파일명 안전 처리를 위해 추가
 from models import db, Dispatch, Center, SmsTemplate, Notice, SystemSettings
+from io import BytesIO
 
 # 💡 [신규] 두 좌표 간의 거리를 계산하는 하버사인 알고리즘
 def haversine(lat1, lon1, lat2, lon2):
@@ -655,73 +655,70 @@ def delete_template(template_id):
 
 @app.route('/download_sms_excel')
 def download_sms_excel():
-    if not session.get('is_admin'): return redirect(url_for('admin_login'))
-    center_filter = request.args.get('center_name', '')
-
+    if not session.get('is_admin'): 
+        return redirect(url_for('admin_login'))
+    
+    center_name = request.args.get('center_name', '')
+    
+    # 💡 HTML(프론트엔드)에서 넘겨준 토글(ON/OFF) 값 판단
     filter_past = request.args.get('filter_past', 'true') == 'true'
     now = datetime.now()
-    
-    query = Dispatch.query.filter(Dispatch.center_depart_time != None)
-    if center_filter: query = query.filter_by(center_name=center_filter)
-    departed_dispatches = query.order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
-    
-    templates_dict = {t.name: t for t in SmsTemplate.query.all()}
 
-    data = []
+    # 센터를 '출발' 처리한 기사님의 배차 내역만 대기열로 가져옵니다.
+    dispatches = Dispatch.query.filter(Dispatch.center_depart_time.isnot(None)).order_by(Dispatch.delivery_seq).all()
+    
+    data_list = []
     for d in dispatches:
-        # [신규 추가] 체크박스가 ON이고, 예상 도착시간이 현재 시간보다 과거(작다)라면 엑셀에서 제외
-        if filter_past and d.estimated_arrival and d.estimated_arrival < now:
+        # 1. 드롭다운에서 선택한 특정 센터 필터링
+        if center_name and d.center_name != center_name:
             continue
             
-    data_list = []
-    for d in departed_dispatches:
-        eta_str = d.estimated_arrival.strftime('%H시 %M분') if d.estimated_arrival else "계산중"
-        t_obj = templates_dict.get(d.template_name)
-        if t_obj:
-            raw_subject = t_obj.subject
-            raw_content = t_obj.content
-            sender_num = t_obj.sender_phone if t_obj.sender_phone else '1668-3136'
+        # 2. 💡 [핵심 필터링] 토글이 ON일 때, 배송완료 건과 도착예정시간이 지난 매장 제외!
+        if filter_past:
+            if d.is_departed:
+                continue
+            if d.estimated_arrival and d.estimated_arrival < now:
+                continue
+        
+        # 3. 빗금('/')이 포함된 다중 연락처 분할
+        phones = []
+        if d.store_phone:
+            phones = [p.strip() for p in str(d.store_phone).split('/') if p.strip()]
         else:
-            raw_subject = "[(주)제때] {매장명} 배송예정시간 안내"
-            raw_content = "안녕하세요 {매장명} 점주님!\n도착예정시간: {도착예정시간}\n기사명: {기사명}\n연락처: {기사전화번호}"
-            sender_num = "1668-3136"
-
-        sms_subject = raw_subject.replace('{매장명}', d.store_name)\
-                                 .replace('{도착예정시간}', eta_str)\
-                                 .replace('{기사명}', d.driver_name)\
-                                 .replace('{차량번호}', d.vehicle_num)
+            phones = ['']
+            
+        eta_str = d.estimated_arrival.strftime('%H:%M') if d.estimated_arrival else '계산중'
+        template_str = d.template_name if d.template_name else '기본양식'
         
-        sms_content = raw_content.replace('{매장명}', d.store_name)\
-                                 .replace('{도착예정시간}', eta_str)\
-                                 .replace('{기사명}', d.driver_name)\
-                                 .replace('{차량번호}', d.vehicle_num)\
-                                 .replace('{기사전화번호}', d.driver_phone if d.driver_phone else "번호없음")
-        
-        store_phone_raw = d.store_phone if d.store_phone else "번호없음"
-        phones = [p.strip() for p in store_phone_raw.replace(' / ', '/').split('/') if p.strip()]
-        
+        # 연락처 개수만큼 행을 분할해서 저장
         for phone in phones:
             data_list.append({
-                '수신인': d.store_name, '연락처': phone,
-                '제목': sms_subject, '내용': sms_content, '발신번호': sender_num
+                '센터명': d.center_name,
+                '기사명': d.driver_name,
+                '차량번호': d.vehicle_num,
+                '매장명': d.store_name,
+                '도착예상시간': eta_str,
+                '수신번호(연락처)': phone,
+                '적용양식(템플릿)': template_str
             })
-        
+    
+    # 💡 만약 필터링 후 발송할 대상이 0건일 경우 에러 방지
+    if not data_list:
+        data_list.append({'안내': '해당 조건에 발송할 대상이 없습니다.'})
+
+    # pandas를 이용해 엑셀 파일로 변환
     df = pd.DataFrame(data_list)
-    output = io.BytesIO()
+    output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='문자발송양식')
-        worksheet = writer.sheets['문자발송양식']
-        apply_excel_styles(worksheet, df, is_sms=True)
-        worksheet.column_dimensions['A'].width = 25
-        worksheet.column_dimensions['B'].width = 20
-        worksheet.column_dimensions['C'].width = 35
-        worksheet.column_dimensions['D'].width = 50
-        worksheet.column_dimensions['E'].width = 15
-                
+        df.to_excel(writer, index=False, sheet_name='SMS_발송대기열')
+        
     output.seek(0)
+    
+    # 파일명 한글 깨짐 방지 인코딩
     today_str = datetime.now().strftime('%Y%m%d')
     filename = f"{center_filter}_{today_str}_알림톡발송양식.xlsx" if center_filter else f"{today_str}_알림톡발송양식.xlsx"
-    return send_file(output, download_name=filename, as_attachment=True)
+    
+    return send_file(output, download_name=filename, as_attachment=True, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 @app.route('/notice')
 def notice_page():

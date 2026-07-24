@@ -2,208 +2,165 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=1300"> <!-- 💡수정: 데스크탑 뷰 강제 -->
-    <title>통합 물류 현황판</title>
+    <meta name="viewport" content="width=1400">
+    <title>실시간 배송 대시보드 - JETTE</title>
     <style>
-    @font-face {
-        font-family: 'Binggrae-Two';
-        src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Binggrae-Bold.woff') format('woff');
-        font-weight: 700;
-        font-display: swap;
-    }
-        body { font-family: 'Binggrae-Two', sans-serif; padding: 20px; background-color: #e9ecef; margin: 0; }
+        @font-face {
+            font-family: 'Binggrae-Two';
+            src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Binggrae%E2%85%A1.woff') format('woff');
+            font-weight: normal; font-style: normal;
+        }
+        body { font-family: 'Binggrae-Two', sans-serif; padding: 20px; background-color: #f0f2f5; margin: 0; }
+        .container { max-width: 1400px; margin: 0 auto; }
         
-        .top-nav { background-color: #212529; padding: 15px 20px; border-radius: 6px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
-        .top-nav div { display: flex; gap: 20px; }
+        .top-nav { background-color: #212529; padding: 15px 20px; border-radius: 6px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .top-nav div { display: flex; gap: 20px; flex-wrap: wrap; }
         .top-nav a { color: white; text-decoration: none; font-size: 16px; font-weight: bold; transition: color 0.2s; }
         .top-nav a:hover { color: #0d6efd; }
+        
+        .header-card { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; border-left: 6px solid #198754; flex-wrap: wrap; gap: 15px; }
+        .header-title h1 { margin: 0; color: #082c84; font-size: 26px; }
+        
+        /* 💡 통합 검색창 스타일 */
+        .search-box { width: 450px; max-width: 100%; padding: 12px; font-size: 15px; border: 2px solid #ced4da; border-radius: 6px; font-family: 'Binggrae-Two'; transition: border-color 0.2s; }
+        .search-box:focus { outline: none; border-color: #198754; }
 
-        .header-card { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; border-left: 6px solid #082c84; flex-wrap: wrap; gap: 15px; }
-        .header-title h1 { margin: 0; color: #2c3e50; font-size: 26px; }
-        .header-title p { margin: 5px 0 0 0; color: #6c757d; font-size: 15px; }
+        .driver-card { background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); padding: 20px; margin-bottom: 20px; border: 1px solid #dee2e6; }
+        .driver-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e9ecef; padding-bottom: 12px; margin-bottom: 15px; }
+        .driver-info { font-size: 18px; font-weight: bold; color: #082c84; }
+        .driver-meta { font-size: 14px; color: #6c757d; font-weight: bold; }
         
-        .summary-dashboard { display: flex; gap: 15px; margin-bottom: 25px; flex-wrap: wrap; }
-        .summary-box { flex: 1; min-width: 150px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: center; border-left: 5px solid #082c84; }
-        .summary-box.completed { border-left-color: #28a745; }
-        .summary-box.pending { border-left-color: #dc3545; }
-        .summary-title { font-size: 14px; color: #6c757d; font-weight: bold; margin-bottom: 5px; }
-        .summary-value { font-size: 28px; font-weight: bold; color: #343a40; }
-
-        .search-box { display: flex; gap: 10px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 25px; align-items: center; }
-        .search-box input { flex: 1; padding: 12px; font-size: 15px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; }
+        /* 💡 타임라인 영역 구조 */
+        .timeline-container { display: flex; overflow-x: auto; gap: 15px; padding-bottom: 10px; }
+        .timeline-step { min-width: 170px; max-width: 220px; flex-shrink: 0; background: white; border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); display: flex; flex-direction: column; }
+        .timeline-step.completed { background: #f8fff9; border-color: #198754; }
         
-        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
-        .stat-card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-top: 5px solid #082c84; position: relative; }
-        
-        .depart-badge { position: absolute; top: 20px; right: 20px; padding: 5px 10px; border-radius: 20px; font-size: 13px; font-weight: bold; border: 1px solid #ced4da; }
-        .depart-badge.active { background-color: #e3f2fd; color: #082c84; border-color: #90caf9; }
-        .depart-badge.wait { background-color: #f8f9fa; color: #6c757d; }
-
-        .driver-name { font-size: 22px; font-weight: bold; margin-bottom: 5px; color: #343a40; }
-        .vehicle-num { font-size: 14px; color: #6c757d; margin-bottom: 15px; font-weight: bold; }
-        .stat-row { display: flex; justify-content: space-between; font-size: 16px; margin-bottom: 8px; color: #495057; }
-        .highlight { font-weight: bold; color: #dc3545; }
-        
-        .progress-container { width: 100%; background-color: #e9ecef; border-radius: 5px; margin-top: 15px; overflow: hidden; }
-        .progress-bar { height: 20px; background-color: #28a745; text-align: center; line-height: 20px; color: white; font-size: 12px; font-weight: bold; transition: width 0.5s ease-in-out; }
-        .details-btn { width: 100%; background-color: #f1f3f5; color: #495057; border: 1px solid #dee2e6; padding: 10px; margin-top: 15px; font-weight: bold; border-radius: 4px; cursor: pointer; font-family: 'Binggrae-Two'; }
-        
-        .details-content { display: none; margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 10px; }
-        .detail-item { font-size: 13px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #f1f1f1; display: flex; flex-direction: column; gap: 4px; }
-        .badge { display: inline-block; padding: 3px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; color: white; }
-        .badge.done { background-color: #198754; }
-        .badge.wait { background-color: #dc3545; }
-
-        .filter-select { padding: 12px; font-size: 16px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; font-weight: bold; color: #082c84; }
-        .btn-download { background-color: #198754; color: white; border: none; padding: 12px 20px; font-size: 15px; font-weight: bold; border-radius: 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); transition: 0.2s; cursor: pointer; font-family: 'Binggrae-Two'; text-decoration: none; display: inline-block; }
-        .btn-download:hover { background-color: #146c43; transform: translateY(-2px); }
+        /* 스크롤바 꾸미기 */
+        .timeline-container::-webkit-scrollbar { height: 8px; }
+        .timeline-container::-webkit-scrollbar-track { background: #f1f3f5; border-radius: 4px; }
+        .timeline-container::-webkit-scrollbar-thumb { background: #ced4da; border-radius: 4px; }
+        .timeline-container::-webkit-scrollbar-thumb:hover { background: #adb5bd; }
     </style>
     <script>
+        // 💡 대시보드 내 모든 텍스트(센터, 차량, 매장, 코드 등) 통합 검색
         function filterDashboard() {
-            let textInput = document.getElementById('searchInput').value.toLowerCase();
-            let centerFilter = document.getElementById('dashboardCenterFilter').value;
-            let cards = document.getElementsByClassName('stat-card');
+            let input = document.getElementById("dashSearch").value.toLowerCase();
+            let cards = document.querySelectorAll(".driver-card");
             
-            for (let i = 0; i < cards.length; i++) {
-                let name = cards[i].getAttribute('data-name').toLowerCase();
-                let vehicle = cards[i].getAttribute('data-vehicle').toLowerCase();
-                let center = cards[i].getAttribute('data-center');
-                
-                let matchText = name.includes(textInput) || vehicle.includes(textInput);
-                let matchCenter = (centerFilter === "" || center === centerFilter);
-                
-                if (matchText && matchCenter) { 
-                    cards[i].style.display = ""; 
-                } else { 
-                    cards[i].style.display = "none"; 
+            cards.forEach(function(card) {
+                // 카드 내부의 모든 텍스트를 소문자로 가져와 검색어와 비교
+                if (card.innerText.toLowerCase().includes(input)) {
+                    card.style.display = "block";
+                } else {
+                    card.style.display = "none";
                 }
-            }
-        }
-        function toggleDetails(id) {
-            let element = document.getElementById(id);
-            let btn = document.getElementById('btn-' + id);
-            if (element.style.display === "none" || element.style.display === "") {
-                element.style.display = "block"; btn.innerHTML = "상세정보 닫기 ▴";
-            } else {
-                element.style.display = "none"; btn.innerHTML = "매장별 상세정보 보기 ▾";
-            }
-        }
-        function downloadExcelFiltered() {
-            let center = document.getElementById('dashboardCenterFilter').value;
-            window.location.href = "/download_excel?center_name=" + encodeURIComponent(center);
+            });
         }
     </script>
 </head>
 <body>
-    <!-- 💡 네비게이션: 대시보드 강조 -->
-    <div class="top-nav">
-        <div>
-            <a href="/admin">🖥️ 데이터 입력 (홈)</a>
-            <a href="/driver" target="_blank">📱 기사님 페이지</a>
-            <a href="/dashboard" style="color: #ffe812;">📊 실시간 대시보드</a>
-            <a href="/sms">✉️ 도착안내 문자 발송</a>
-            <a href="/notice">📢 공지사항 관리</a>
+    <div class="container">
+        <!-- 네비게이션 -->
+        <div class="top-nav">
+            <div>
+                <a href="/admin">🖥️ 데이터 입력 (홈)</a>
+                <a href="/driver" target="_blank">📱 기사님 페이지</a>
+                <a href="/dashboard" style="color: #ffe812;">📊 실시간 대시보드</a>
+                <a href="/sms">✉️ 도착안내 문자 발송</a>
+                <a href="/notice">📢 공지사항 관리</a>
+            </div>
+            <a href="/admin_logout" style="color: #ff6b6b;">🚪 로그아웃</a>
         </div>
-        <a href="/admin_logout" style="color: #ff6b6b;">🚪 로그아웃</a>
-    </div>
 
-    <div class="header-card">
-        <div class="header-title">
-            <h1>🏢 실시간 배송 현황판</h1>
-            <p>전체 운행 차량 및 기사님별 배송 진척률을 확인하고 엑셀로 다운로드합니다.</p>
+        <div class="header-card">
+            <div class="header-title">
+                <h1>📊 실시간 배송 진행 현황</h1>
+            </div>
+            <div>
+                <!-- 💡 통합 검색창 -->
+                <input type="text" id="dashSearch" class="search-box" onkeyup="filterDashboard()" placeholder="🔍 기사명, 차량번호, 매장명, 센터명, 매장코드 통합 검색">
+            </div>
         </div>
-        <div style="display: flex; gap: 10px; align-items: center;">
-            <select id="dashboardCenterFilter" class="filter-select" onchange="filterDashboard()">
-                <option value="">🏢 전체 센터 보기</option>
-                {% for center in unique_centers %}
-                <option value="{{ center }}">{{ center }}</option>
-                {% endfor %}
-            </select>
-            <button onclick="downloadExcelFiltered()" class="btn-download">📥 선택 센터 배송시간 다운로드</button>
-        </div>
-    </div>
 
-    <div class="summary-dashboard">
-        <div class="summary-box">
-            <div class="summary-title">전체 운행 차량</div>
-            <div class="summary-value" style="color: #082c84;">{{ vehicle_stats.total }} 대</div>
-        </div>
-        <div class="summary-box completed">
-            <div class="summary-title">모든 배송 완료 (퇴근)</div>
-            <div class="summary-value" style="color: #28a745;">{{ vehicle_stats.completed }} 대</div>
-        </div>
-        <div class="summary-box pending">
-            <div class="summary-title">운행 중 (미배송 있음)</div>
-            <div class="summary-value" style="color: #dc3545;">{{ vehicle_stats.pending }} 대</div>
-        </div>
-    </div>
-
-    <div class="search-box">
-        <input type="text" id="searchInput" onkeyup="filterDashboard()" placeholder="🔍 기사 이름이나 차량번호를 입력하세요...">
-    </div>
-
-    <div class="dashboard-grid">
-        {% for name, data in stats.items() %}
-        <div class="stat-card" data-name="{{ name }}" data-vehicle="{{ data.vehicle }}" data-center="{{ data.details[0].center_name if data.details else '' }}">
-            
-            {% if data.details and data.details[0].center_depart_time %}
-                <div class="depart-badge active">🏢 {{ data.details[0].center_depart_time.strftime('%H:%M') }} 출발</div>
-            {% else %}
-                <div class="depart-badge wait">🏢 미출발</div>
-            {% endif %}
-
-            <div class="driver-name">🚚 {{ name }} 기사님</div>
-            <div class="vehicle-num">차량번호: {{ data.vehicle }}</div>
-            
-            <div class="stat-row" style="margin-bottom: 15px; border-bottom: 1px dashed #ced4da; padding-bottom: 10px;">
-                <span>소속 센터:</span><span style="font-weight: bold; color: #082c84;">{{ data.details[0].center_name if data.details else '-' }}</span>
+        <!-- 기사별로 데이터를 묶어서 출력 -->
+        {% for driver_name, driver_dispatches in dispatches|groupby('driver_name') %}
+        <div class="driver-card">
+            <div class="driver-header">
+                <div class="driver-info">
+                    🚚 {{ driver_name }} <span style="font-size: 14px; color: #495057;">({{ driver_dispatches[0].vehicle_num }})</span>
+                </div>
+                <div class="driver-meta">
+                    🏢 {{ driver_dispatches[0].center_name }}
+                    <span style="margin-left: 15px; color: #198754;">
+                        진행률: {{ (driver_dispatches|selectattr('is_departed', 'equalto', true)|list|length) }} / {{ driver_dispatches|length }}
+                    </span>
+                </div>
             </div>
 
-            <div class="stat-row">
-                <span>전체 배차:</span><span>{{ data.total }} 곳</span>
-            </div>
-            <div class="stat-row">
-                <span>배송 완료:</span><span style="color: #28a745; font-weight: bold;">{{ data.completed }} 곳</span>
-            </div>
-            <div class="stat-row">
-                <span>남은 매장:</span><span class="highlight">{{ data.remaining }} 곳</span>
-            </div>
-            
-            <div class="progress-container">
-                <div class="progress-bar" style="width: {{ data.progress }}%;">{{ data.progress }}%</div>
-            </div>
-
-            <button id="btn-detail-{{ loop.index }}" class="details-btn" onclick="toggleDetails('detail-{{ loop.index }}')">매장별 상세정보 보기 ▾</button>
-            
-            <div id="detail-{{ loop.index }}" class="details-content">
-                {% for d in data.details %}
-                <div class="detail-item">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <strong style="font-size: 14px;">
-                            {{ d.delivery_seq }}. {{ d.store_name }} <span style="color: #6c757d; font-size: 12px; font-weight: normal;">({{ d.store_code }})</span>
-                            {% if not d.store_x or not d.store_y %}
-                                <span style="color: #dc3545; font-size: 11px; margin-left: 4px;">⚠️ 주소오류</span>
-                            {% endif %}
-                        </strong>
-                        {% if d.is_departed %}
-                            <span class="badge done">완료됨</span>
+            <!-- 타임라인 가로 스크롤 영역 -->
+            <div class="timeline-container">
+                <!-- 0번(센터 출발지) 카드 -->
+                <div class="timeline-step {% if driver_dispatches[0].center_depart_time %}completed{% endif %}">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="font-size: 12px; color: #082c84; font-weight: bold;">센터 출발지</span>
+                        {% if driver_dispatches[0].center_depart_time %}
+                            <span style="background-color: #198754; color: white; padding: 3px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; white-space: nowrap;">출발완료</span>
                         {% else %}
-                            <span class="badge wait">대기중</span>
+                            <span style="background-color: #ffc107; color: black; padding: 3px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; white-space: nowrap;">상차중</span>
                         {% endif %}
                     </div>
-                    {% if d.is_departed and d.departure_time %}
-                        <div style="color: #198754;">실제 완료 시간: {{ d.departure_time.strftime('%H:%M') }}</div>
-                    {% elif d.estimated_arrival %}
-                        <div style="color: #dc3545;">도착 예상 시간: {{ d.estimated_arrival.strftime('%H:%M') }}</div>
-                    {% else %}
-                        <div style="color: #6c757d;">(출발 전)</div>
-                    {% endif %}
+                    
+                    <div style="font-size: 14px; font-weight: bold; color: #111; margin-bottom: 8px; line-height: 1.3; word-wrap: break-word; flex: 1;">
+                        {{ driver_dispatches[0].center_name }}
+                    </div>
+                    
+                    <div style="font-size: 13px; color: #082c84; font-weight: bold; display: flex; align-items: center; gap: 4px;">
+                        🚀 
+                        {% if driver_dispatches[0].center_depart_time %}
+                            {{ driver_dispatches[0].center_depart_time.strftime('%H:%M') }} (출발)
+                        {% else %}
+                            출발 전
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 💡 1번~끝 매장 카드 (3줄 구조 적용) -->
+                {% for item in driver_dispatches|sort(attribute='delivery_seq') %}
+                <div class="timeline-step {% if item.is_departed %}completed{% endif %}">
+                    
+                    <!-- 1행: 매장코드 + 상태배지 (절대 안 깨짐) -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 5px;">
+                        <span style="font-size: 12px; color: #6c757d; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            {{ item.store_code or '코드없음' }}
+                        </span>
+                        {% if item.is_departed %}
+                            <span style="background-color: #198754; color: white; padding: 3px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; white-space: nowrap; flex-shrink: 0;">완료됨</span>
+                        {% else %}
+                            <span style="background-color: #ffc107; color: black; padding: 3px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; white-space: nowrap; flex-shrink: 0;">대기중</span>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- 2행: 매장명 (글자가 아무리 길어도 밑으로 깔끔하게 내려감) -->
+                    <div style="font-size: 14px; font-weight: bold; color: #111; margin-bottom: 8px; line-height: 1.3; word-wrap: break-word; flex: 1;">
+                        {{ item.delivery_seq }}. {{ item.store_name }}
+                    </div>
+                    
+                    <!-- 3행: 도착예상시간 -->
+                    <div style="font-size: 13px; color: #dc3545; font-weight: bold; display: flex; align-items: center; gap: 4px;">
+                        🕒 
+                        {% if item.is_departed %}
+                            {{ item.departure_time.strftime('%H:%M') if item.departure_time else '' }} (도착)
+                        {% else %}
+                            {{ item.estimated_arrival.strftime('%H:%M') if item.estimated_arrival else '계산중' }} (예상)
+                        {% endif %}
+                    </div>
+                    
                 </div>
                 {% endfor %}
             </div>
         </div>
         {% else %}
-            <p style="text-align: center; grid-column: 1 / -1; font-size: 16px; color: #666; padding: 40px 0;">현재 등록된 배차 데이터가 없습니다.</p>
+        <p style="text-align: center; color: #6c757d; font-size: 18px; padding: 50px;">현재 진행 중인 배차 내역이 없습니다.</p>
         {% endfor %}
     </div>
 </body>

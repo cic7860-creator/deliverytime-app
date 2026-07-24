@@ -657,13 +657,22 @@ def delete_template(template_id):
 def download_sms_excel():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
     center_filter = request.args.get('center_name', '')
+
+    filter_past = request.args.get('filter_past', 'true') == 'true'
+    now = datetime.now()
     
     query = Dispatch.query.filter(Dispatch.center_depart_time != None)
     if center_filter: query = query.filter_by(center_name=center_filter)
     departed_dispatches = query.order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
     
     templates_dict = {t.name: t for t in SmsTemplate.query.all()}
-    
+
+    data = []
+    for d in dispatches:
+        # [신규 추가] 체크박스가 ON이고, 예상 도착시간이 현재 시간보다 과거(작다)라면 엑셀에서 제외
+        if filter_past and d.estimated_arrival and d.estimated_arrival < now:
+            continue
+            
     data_list = []
     for d in departed_dispatches:
         eta_str = d.estimated_arrival.strftime('%H시 %M분') if d.estimated_arrival else "계산중"

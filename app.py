@@ -357,6 +357,11 @@ def driver():
 
     if name:
         dispatches = Dispatch.query.filter_by(driver_name=name).order_by(Dispatch.delivery_seq).all()
+        
+        # 💡 [핵심 수정] 배차 내역이 없으면 스마트폰에 저장된 이름(로컬스토리지)을 지워버려서 무한루프를 차단합니다!
+        if not dispatches:
+            return f"<script>alert('{name} 기사님의 배차 내역이 존재하지 않습니다.\\n이름을 다시 확인해주세요.'); localStorage.removeItem('jette_driver_name'); window.location.href='/driver';</script>"
+            
         driver_center = dispatches[0].center_name if dispatches else ""
         
         all_active_notices = Notice.query.filter_by(is_active=True).order_by(Notice.display_seq.asc(), Notice.created_at.desc()).all()
@@ -386,8 +391,6 @@ def driver():
                 if name in target_list:
                     active_notices.append(n)
                     
-        if not dispatches:
-            return f"<script>alert('{name} 기사님의 배차 내역이 존재하지 않습니다.'); window.location.href='/driver';</script>"
         display_date = datetime.now().date()
         if dispatches and dispatches[0].delivery_date: display_date = dispatches[0].delivery_date
         weekdays = ['월', '화', '수', '목', '금', '토', '일']
@@ -395,7 +398,7 @@ def driver():
         valid_dispatches = [d for d in dispatches if d.store_x and d.store_y and not d.is_departed]
         chunk_size = 5
         
-        # 💡 관리자 DB에 등록된 센터 좌표 조회
+        # 관리자 DB에 등록된 센터 좌표 조회
         target_center_obj = Center.query.filter_by(name=driver_center).first()
         if target_center_obj and target_center_obj.center_y and target_center_obj.center_x:
             cy, cx = target_center_obj.center_y, target_center_obj.center_x
@@ -407,7 +410,7 @@ def driver():
             dest_d = chunk[-1]
             ep_y, ep_x = float(dest_d.store_y), float(dest_d.store_x)
             
-            # 💡 출발지(sp)를 DB 센터 좌표로 완벽하게 고정
+            # 출발지(sp)를 DB 센터 좌표로 완벽하게 고정
             kakaomap_app_url = f"kakaomap://route?sp={cy},{cx}&ep={ep_y},{ep_x}&by=CAR"
             
             for idx, wp in enumerate(chunk[:-1]):

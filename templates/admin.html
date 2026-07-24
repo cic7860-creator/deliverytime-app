@@ -5,12 +5,11 @@
     <meta name="viewport" content="width=1400">
     <title>배차 데이터 관리</title>
     <style>
-    @font-face {
-        font-family: 'Binggrae-Two';
-        src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Binggrae-Bold.woff') format('woff');
-        font-weight: 700;
-        font-display: swap;
-    }
+        @font-face {
+            font-family: 'Binggrae-Two';
+            src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Binggrae%E2%85%A1.woff') format('woff');
+            font-weight: normal; font-style: normal;
+        }
         body { font-family: 'Binggrae-Two', sans-serif; padding: 20px; background-color: #f8f9fa; color: #333; margin: 0; }
         .container { max-width: 1400px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         h2 { margin-top: 0; color: #082c84; }
@@ -38,9 +37,13 @@
         
         .text-center { text-align: center !important; }
         
-        .search-container { margin-top: 15px; display: flex; gap: 10px; align-items: center; }
-        .search-container select, .search-container input { padding: 12px; font-size: 15px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; }
-        .search-container input { flex: 1; }
+        .search-container { margin-top: 15px; display: flex; gap: 10px; align-items: center; width: 100%; }
+        .search-container select { padding: 12px; font-size: 15px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; }
+        
+        /* 💡 검색창 사이즈를 아주 시원하게 넓혔습니다. */
+        .search-container input { width: 600px; max-width: 100%; padding: 12px; font-size: 15px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; transition: border-color 0.2s; }
+        .search-container input:focus { outline: none; border-color: #082c84; box-shadow: 0 0 5px rgba(8, 44, 132, 0.3); }
+        
         .info-box { background-color: #e3f2fd; color: #082c84; padding: 15px 20px; border-radius: 6px; margin-bottom: 15px; border-left: 5px solid #082c84; font-weight: bold; font-size: 15px; }
         
         .table-input { width: 100%; padding: 6px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; font-size: 12px; box-sizing: border-box; transition: 0.2s; }
@@ -60,10 +63,7 @@
                 
                 for (let j = 0; j < tds.length; j++) { 
                     if (tds[j]) {
-                        // 1. 일반 텍스트("주소 수정 요망" 등)를 검색어에 포함
                         rowText += tds[j].innerText.toLowerCase() + " "; 
-                        
-                        // 2. 입력칸(input) 안의 값(주소, 연락처 등)을 검색어에 포함
                         let inputs = tds[j].getElementsByTagName('input');
                         for(let k=0; k<inputs.length; k++) {
                             rowText += inputs[k].value.toLowerCase() + " ";
@@ -177,8 +177,8 @@
                     <option value="">🏢 전체 센터</option>
                     {% for c in centers %} <option value="{{ c.name }}">{{ c.name }}</option> {% endfor %}
                 </select>
-                <!-- 💡 [검색 안내 문구 추가] -->
-                <input type="text" id="adminSearchInput" onkeyup="filterTable('dispatchTable', 'adminSearchInput', 'adminCenterFilter')" placeholder="🔍 매장명, 기사명, 주소(수정 요망), 연락처 검색...">
+                <!-- 💡 넓어진 검색창 -->
+                <input type="text" id="adminSearchInput" onkeyup="filterTable('dispatchTable', 'adminSearchInput', 'adminCenterFilter')" placeholder="🔍 매장코드, 매장명, 기사명, 주소(오류 포함), 연락처 등 통합 검색...">
             </div>
             
             <button type="submit" form="bulkUpdateForm" class="btn btn-save-all">💾 화면의 변경사항 모두 일괄 저장</button>
@@ -193,7 +193,8 @@
                         <tr>
                             <th style="width: 7%;">센터명</th>
                             <th style="width: 12%;">기사명 / 차량</th>
-                            <th style="width: 14%;">매장명</th>
+                            <!-- 💡 헤더에 코드 명시 -->
+                            <th style="width: 14%;">매장코드 / 매장명</th>
                             <th style="width: 5%;">순서</th>
                             <th style="width: 25%;">주소 (오류 시 직접 수정)</th>
                             <th style="width: 6%;">시간</th>
@@ -212,7 +213,12 @@
                                 <input type="text" name="vehicle_num_{{ d.id }}" value="{{ d.vehicle_num }}" class="table-input" style="text-align:center;" title="차량번호">
                             </td>
                             
-                            <td style="font-weight: bold; color: #333;">{{ d.store_name }}</td>
+                            <!-- 💡 매장명 위에 매장코드를 함께 노출시켜 검색이 가능하게 만들었습니다. -->
+                            <td>
+                                <div style="font-size: 11px; color: #6c757d; font-weight: bold; margin-bottom: 2px;">{{ d.store_code or '코드없음' }}</div>
+                                <div style="font-weight: bold; color: #333;">{{ d.store_name }}</div>
+                            </td>
+                            
                             <td class="text-center" style="font-weight: bold;">{{ d.delivery_seq }}</td>
                             
                             <td>

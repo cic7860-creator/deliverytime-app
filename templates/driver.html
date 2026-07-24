@@ -6,12 +6,11 @@
     <title>JETTE 배송 기사 앱</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <style>
-    @font-face {
-        font-family: 'Binggrae-Two';
-        src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Binggrae-Bold.woff') format('woff');
-        font-weight: 700;
-        font-display: swap;
-    }
+        @font-face {
+            font-family: 'Binggrae-Two';
+            src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Binggrae%E2%85%A1.woff') format('woff');
+            font-weight: normal; font-style: normal;
+        }
         body { font-family: 'Binggrae-Two', sans-serif; margin: 0; box-sizing: border-box; background-color: #f0f2f5; }
         
         .login-wrapper { height: 100vh; background-color: #002d72; display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; }
@@ -75,20 +74,47 @@
     {% endif %}
     
     {% if not driver_name %}
-    <div class="login-wrapper">
+    <div class="login-wrapper" id="loginWrapper" style="display: none;">
         <div class="login-card">
             <div class="logo-container">
                 <span class="jette-logo"><span class="logo-blue">JET</span><span class="logo-gray">TE</span></span>
             </div>
-            <form action="/driver" method="GET">
+            <form action="/driver" method="GET" id="loginForm">
                 <div class="input-group">
                     <span class="input-icon">👤</span>
-                    <input type="text" name="driver_name" class="input-field" placeholder="기사명 입력" required>
+                    <input type="text" name="driver_name" id="driverNameInput" class="input-field" placeholder="기사명 입력" required>
                 </div>
                 <button type="submit" class="btn-login">로그인</button>
             </form>
         </div>
     </div>
+    
+    <!-- 💡 [신규] 자동 로그인 스크립트 -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const storedName = localStorage.getItem('jette_driver_name');
+            
+            // 로컬스토리지에 저장된 이름이 있으면 자동으로 페이지 이동 (로그인)
+            if (storedName) {
+                window.location.replace('/driver?driver_name=' + encodeURIComponent(storedName));
+            } else {
+                // 저장된 이름이 없으면 로그인 화면 보이기
+                document.getElementById('loginWrapper').style.display = 'flex';
+            }
+            
+            // 로그인 버튼 누를 때 로컬스토리지에 기사님 이름 저장
+            const loginForm = document.getElementById('loginForm');
+            if (loginForm) {
+                loginForm.addEventListener('submit', function() {
+                    const nameInput = document.getElementById('driverNameInput').value;
+                    if (nameInput.trim()) {
+                        localStorage.setItem('jette_driver_name', nameInput.trim());
+                    }
+                });
+            }
+        });
+    </script>
+    
     {% else %}
     
     <div id="notice-container"></div>
@@ -110,7 +136,8 @@
         <div class="header-container">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <h3 style="color: #333; margin: 0; font-size: 17px; letter-spacing: -0.5px;">🚚 {{ date_str }} {{ driver_name }} 기사님 배차내역</h3>
-                <a href="/driver" style="font-size: 12px; color: #666; text-decoration: none; font-weight: bold; padding: 5px; border: 1px solid #ccc; border-radius: 4px; background: white;">로그아웃</a>
+                <!-- 💡 [수정] 로그아웃 버튼 클릭 시 로컬스토리지 삭제 -->
+                <a href="#" onclick="localStorage.removeItem('jette_driver_name'); window.location.href='/driver'; return false;" style="font-size: 12px; color: #666; text-decoration: none; font-weight: bold; padding: 5px; border: 1px solid #ccc; border-radius: 4px; background: white;">로그아웃</a>
             </div>
             {% if route_chunks %}
             <div style="display: flex; gap: 5px; flex-wrap: wrap; width: 100%;">
@@ -179,7 +206,7 @@
                 <span style="font-size: 13px; font-weight: bold; color: #111;">남은 배송지: {{ uncompleted_items|length }}곳</span>
                 <form action="/optimize_route" method="POST" style="margin: 0;" onsubmit="return confirm('센터(또는 현재 위치)에서 가장 가까운 순서대로 경로를 자동 재배치하시겠습니까?');">
                     <input type="hidden" name="driver_name" value="{{ driver_name }}">
-                    <button type="submit" style="background-color: #17a2b8; color: white; border: none; padding: 8px 12px; font-size: 13px; font-weight: bold; border-radius: 4px; cursor: pointer; font-family: 'Binggrae-Two';">🪄 AI 최적 경로 자동 배치</button>
+                    <button type="submit" style="background-color: #17a2b8; color: white; border: none; padding: 8px 12px; font-size: 13px; font-weight: bold; border-radius: 4px; cursor: pointer; font-family: 'Binggrae-Two';">🪄 AI 최적 경로 자동 정렬</button>
                 </form>
             </div>
             {% endif %}

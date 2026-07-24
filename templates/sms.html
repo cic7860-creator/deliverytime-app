@@ -5,12 +5,11 @@
     <meta name="viewport" content="width=1300">
     <title>문자 발송 관리 - JETTE</title>
     <style>
-    @font-face {
-        font-family: 'Binggrae-Two';
-        src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Binggrae-Bold.woff') format('woff');
-        font-weight: 700;
-        font-display: swap;
-    }
+        @font-face {
+            font-family: 'Binggrae-Two';
+            src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Binggrae%E2%85%A1.woff') format('woff');
+            font-weight: normal; font-style: normal;
+        }
         body { font-family: 'Binggrae-Two', sans-serif; padding: 20px; background-color: #f0f2f5; margin: 0; }
         .container { max-width: 1200px; margin: 0 auto; }
         
@@ -23,12 +22,11 @@
         .header-title h1 { margin: 0; color: #082c84; font-size: 26px; }
         .header-title p { margin: 5px 0 0 0; color: #6c757d; font-size: 15px; }
         
-        .btn-download { background-color: #082c84; color: white; border: none; padding: 15px 25px; font-size: 18px; font-weight: bold; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); transition: 0.2s; cursor: pointer; font-family: 'Binggrae-Two'; }
+        .btn-download { background-color: #082c84; color: white; border: none; padding: 15px 25px; font-size: 16px; font-weight: bold; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); transition: 0.2s; cursor: pointer; font-family: 'Binggrae-Two'; }
         .btn-download:hover { background-color: #001a57; transform: translateY(-2px); }
 
         .table-responsive { background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow-x: auto; padding: 20px; margin-bottom: 25px; }
         
-        /* 💡 엑셀 대기 목록 테이블을 깔끔하게 고정 폭으로 수정 */
         table { width: 100%; border-collapse: collapse; min-width: 900px; table-layout: fixed; }
         th, td { padding: 12px 15px; border-bottom: 1px solid #dee2e6; vertical-align: middle; word-wrap: break-word; }
         th { background-color: #f8f9fa; font-weight: bold; color: #495057; border-top: 2px solid #dee2e6; border-bottom: 2px solid #dee2e6; text-align: center; }
@@ -46,12 +44,18 @@
         .btn-danger { background-color: #dc3545; color: white; }
         .btn-edit { background-color: #ffc107; color: #212529; }
         
-        .filter-select { padding: 12px; font-size: 16px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; font-weight: bold; color: #082c84; }
+        .filter-select { padding: 12px; font-size: 15px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; font-weight: bold; color: #082c84; }
+        
+        /* 💡 토글 체크박스 스타일 */
+        .toggle-label { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: bold; color: #198754; background: #e8f5e9; padding: 12px 15px; border-radius: 6px; cursor: pointer; border: 1px solid #c8e6c9; transition: 0.2s; }
+        .toggle-label:hover { background: #c8e6c9; }
+        .toggle-label input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: #198754; }
     </style>
     <script>
         function filterTable() {
             let centerFilter = document.getElementById("smsCenterFilter").value;
             let table = document.getElementById("smsTable");
+            if (!table) return;
             let tr = table.getElementsByTagName("tr");
             
             for (let i = 1; i < tr.length; i++) {
@@ -65,9 +69,11 @@
             }
         }
 
+        // 💡 [수정] 엑셀 다운로드 시 토글 상태(과거 시간 제외 여부)를 파라미터로 함께 넘깁니다.
         function downloadSmsExcel() {
             let center = document.getElementById("smsCenterFilter").value;
-            window.location.href = "/download_sms_excel?center_name=" + encodeURIComponent(center);
+            let filterPast = document.getElementById("filterPastArrivals").checked;
+            window.location.href = "/download_sms_excel?center_name=" + encodeURIComponent(center) + "&filter_past=" + filterPast;
         }
 
         function editTemplate(id, name, subject, sender, content) {
@@ -100,7 +106,7 @@
 </head>
 <body>
     <div class="container">
-        <!-- 네비게이션: 문자 발송 강조 -->
+        <!-- 네비게이션 -->
         <div class="top-nav">
             <div>
                 <a href="/admin">🖥️ 데이터 입력 (홈)</a>
@@ -168,7 +174,14 @@
                 <h1>✉️ 알림톡 / 문자 발송 관리</h1>
                 <p>다중 연락처('/')가 있는 경우 여러 줄로 자동 분할되어 엑셀이 생성됩니다.</p>
             </div>
-            <div style="display: flex; gap: 10px; align-items: center;">
+            
+            <!-- 💡 [신규] 체크박스와 필터, 다운로드 버튼 그룹 -->
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end;">
+                <label class="toggle-label">
+                    <input type="checkbox" id="filterPastArrivals" checked>
+                    현시점 이후 도착예정 매장만 추출 (완료 제외)
+                </label>
+                
                 <select id="smsCenterFilter" class="filter-select" onchange="filterTable()">
                     <option value="">🏢 전체 센터 보기</option>
                     {% for center in unique_centers %}
@@ -185,7 +198,6 @@
             <table id="smsTable">
                 <thead>
                     <tr>
-                        <!-- 💡 각 열의 비율을 명확하게 고정하여 테이블을 깔끔하게 유지합니다. -->
                         <th style="width: 15%;">센터명 / 기사명</th>
                         <th style="width: 25%;">매장명 (연락처)</th>
                         <th style="width: 15%;">도착예정시간(ETA)</th>

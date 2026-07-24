@@ -659,38 +659,34 @@ def download_sms_excel():
         return redirect(url_for('admin_login'))
     
     center_name = request.args.get('center_name', '')
-    
-    # 💡 HTML(프론트엔드)에서 넘겨준 토글(ON/OFF) 값 판단
+    # 프론트엔드(HTML)에서 체크박스 값 받아오기
     filter_past = request.args.get('filter_past', 'true') == 'true'
     now = datetime.now()
 
-    # 센터를 '출발' 처리한 기사님의 배차 내역만 대기열로 가져옵니다.
     dispatches = Dispatch.query.filter(Dispatch.center_depart_time.isnot(None)).order_by(Dispatch.delivery_seq).all()
     
     data_list = []
     for d in dispatches:
-        # 1. 드롭다운에서 선택한 특정 센터 필터링
         if center_name and d.center_name != center_name:
             continue
             
-        # 2. 💡 [핵심 필터링] 토글이 ON일 때, 배송완료 건과 도착예정시간이 지난 매장 제외!
+        # 💡 [핵심] 체크박스가 켜져있을 때(True), 배송 완료됐거나 시간이 지난 매장 제외
         if filter_past:
             if d.is_departed:
                 continue
-            if d.estimated_arrival and d.estimated_arrival < now:
+            # 시간 타입 에러 방지를 위해 isinstance 안전장치 추가
+            if d.estimated_arrival and isinstance(d.estimated_arrival, datetime) and d.estimated_arrival < now:
                 continue
         
-        # 3. 빗금('/')이 포함된 다중 연락처 분할
         phones = []
         if d.store_phone:
             phones = [p.strip() for p in str(d.store_phone).split('/') if p.strip()]
         else:
             phones = ['']
             
-        eta_str = d.estimated_arrival.strftime('%H:%M') if d.estimated_arrival else '계산중'
+        eta_str = d.estimated_arrival.strftime('%H:%M') if isinstance(d.estimated_arrival, datetime) else '계산중'
         template_str = d.template_name if d.template_name else '기본양식'
         
-        # 연락처 개수만큼 행을 분할해서 저장
         for phone in phones:
             data_list.append({
                 '센터명': d.center_name,
@@ -702,22 +698,17 @@ def download_sms_excel():
                 '적용양식(템플릿)': template_str
             })
     
-    # 💡 만약 필터링 후 발송할 대상이 0건일 경우 에러 방지
     if not data_list:
         data_list.append({'안내': '해당 조건에 발송할 대상이 없습니다.'})
 
-    # pandas를 이용해 엑셀 파일로 변환
     df = pd.DataFrame(data_list)
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='SMS_발송대기열')
         
     output.seek(0)
-    
-    # 파일명 한글 깨짐 방지 인코딩
-    today_str = datetime.now().strftime('%Y%m%d')
-    filename = f"{center_filter}_{today_str}_알림톡발송양식.xlsx" if center_filter else f"{today_str}_알림톡발송양식.xlsx"
-    
+    filename = "알림톡_발송대기열.xlsx"
+    encoded_filename = urllib.parse.quote(filename)
     return send_file(output, download_name=filename, as_attachment=True, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 @app.route('/notice')

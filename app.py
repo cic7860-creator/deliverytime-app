@@ -659,7 +659,12 @@ def delete_template(template_id):
 @app.route('/download_sms_excel')
 def download_sms_excel():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
+    
     center_filter = request.args.get('center_name', '')
+    
+    # 💡 [추가 1] 프론트엔드에서 넘겨준 토글(ON/OFF) 값 받기 및 현재 시간 구하기
+    filter_past = request.args.get('filter_past', 'true') == 'true'
+    now = datetime.now()
     
     query = Dispatch.query.filter(Dispatch.center_depart_time != None)
     if center_filter: query = query.filter_by(center_name=center_filter)
@@ -669,6 +674,13 @@ def download_sms_excel():
     
     data_list = []
     for d in departed_dispatches:
+        # 💡 [추가 2] 토글이 ON일 때, 배송완료되었거나 도착예정시간이 지난 매장 제외
+        if filter_past:
+            if d.is_departed:
+                continue
+            if d.estimated_arrival and isinstance(d.estimated_arrival, datetime) and d.estimated_arrival < now:
+                continue
+
         eta_str = d.estimated_arrival.strftime('%H시 %M분') if d.estimated_arrival else "계산중"
         t_obj = templates_dict.get(d.template_name)
         if t_obj:
@@ -699,13 +711,24 @@ def download_sms_excel():
                 '수신인': d.store_name, '연락처': phone,
                 '제목': sms_subject, '내용': sms_content, '발신번호': sender_num
             })
+            
+    # 💡 [추가 3] 필터링 후 추출할 대상이 0건일 경우 에러 방지용 빈 데이터 삽입
+    if not data_list:
+        data_list.append({
+            '수신인': '발송 대상 없음', '연락처': '',
+            '제목': '조건에 맞는 매장이 없습니다.', '내용': '', '발신번호': ''
+        })
         
     df = pd.DataFrame(data_list)
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='문자발송양식')
         worksheet = writer.sheets['문자발송양식']
-        apply_excel_styles(worksheet, df, is_sms=True)
+        
+        # 기존 스타일 적용 함수 그대로 유지
+        if 'apply_excel_styles' in globals():
+            apply_excel_styles(worksheet, df, is_sms=True)
+            
         worksheet.column_dimensions['A'].width = 25
         worksheet.column_dimensions['B'].width = 20
         worksheet.column_dimensions['C'].width = 35
@@ -715,6 +738,9 @@ def download_sms_excel():
     output.seek(0)
     today_str = datetime.now().strftime('%Y%m%d')
     filename = f"{center_filter}_{today_str}_알림톡발송양식.xlsx" if center_filter else f"{today_str}_알림톡발송양식.xlsx"
+    
+    # 💡 브라우저 환경에 따른 파일명 깨짐을 완벽히 방지
+    encoded_filename = urllib.parse.quote(filename)
     return send_file(output, download_name=filename, as_attachment=True)
 
 @app.route('/notice')

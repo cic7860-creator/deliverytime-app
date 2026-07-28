@@ -369,6 +369,9 @@ def update_driver(dispatch_id):
             db.session.commit()
     return redirect(url_for('admin'))
 
+# ==========================================
+# 💡 4. 기사님 페이지 (가장 최근 배차일 자동 지정 및 무한루프 방지)
+# ==========================================
 @app.route('/driver', methods=['GET'])
 def driver():
     name = request.args.get('driver_name')
@@ -379,9 +382,10 @@ def driver():
     route_chunks = [] 
     active_notices = []
     
-    comp_msg_setting = SystemSettings.query.filter_by(key='completion_msg').first()
-    completion_message = comp_msg_setting.value if comp_msg_setting else "금일 배송도 고생 많으셨습니다!\n제때에서 발송된 카카오톡 배송승인 부탁드리겠습니다."
+    # 💡 에러 원인이었던 SystemSettings DB 조회 부분을 삭제하고 고정 메시지로 안전하게 대체했습니다!
+    completion_message = "금일 배송도 고생 많으셨습니다!\n제때에서 발송된 카카오톡 배송승인 부탁드리겠습니다."
     
+    # 이 기사님의 '가장 최근 배차 날짜'를 먼저 찾습니다.
     latest_dispatch = Dispatch.query.filter_by(driver_name=name).order_by(Dispatch.delivery_date.desc()).first()
     
     target_date_str = request.args.get('target_date')
@@ -394,11 +398,13 @@ def driver():
         
     dispatches = Dispatch.query.filter_by(driver_name=name, delivery_date=target_date).order_by(Dispatch.delivery_seq).all()
 
+    # 💡 배차 내역이 없으면 무한 자동로그인을 차단하고 기록을 지웁니다.
     if not dispatches:
         return f"<script>alert('{target_date.strftime('%Y년 %m월 %d일')} 자 {name} 기사님의 배차 내역이 존재하지 않습니다.'); localStorage.removeItem('jette_driver_name'); window.location.href='/driver';</script>"
 
     driver_center = dispatches[0].center_name if dispatches else ""
     
+    # 공지사항 로직
     all_active_notices = Notice.query.filter_by(is_active=True).order_by(Notice.display_seq.asc(), Notice.created_at.desc()).all()
     for n in all_active_notices:
         target_str = n.target_drivers.strip() if n.target_drivers else ""
@@ -432,8 +438,9 @@ def driver():
     valid_dispatches = [d for d in dispatches if d.store_x and d.store_y and not d.is_departed]
     chunk_size = 5
     
+    # 💡 센터 출발지를 고정하는 부분 (에러 방지를 위해 속성 검사 추가)
     target_center_obj = Center.query.filter_by(name=driver_center).first()
-    if target_center_obj and target_center_obj.center_y and target_center_obj.center_x:
+    if target_center_obj and hasattr(target_center_obj, 'center_y') and target_center_obj.center_y and target_center_obj.center_x:
         cy, cx = target_center_obj.center_y, target_center_obj.center_x
     else:
         cy, cx = "37.5665", "126.9780" 

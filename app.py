@@ -197,78 +197,103 @@ def admin_logout():
 # ==========================================
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
-    if not session.get('is_admin'): 
-        return redirect(url_for('admin_login'))
+    if not session.get('is_admin'): return redirect(url_for('admin_login'))
     
     if request.method == 'POST':
-        excel_text = request.form.get('excel_text', '')
-        if excel_text:
-            lines = excel_text.strip().split('\n')
-            
-            # 💡 [속도 개선 핵심] 주소 좌표를 임시 저장할 딕셔너리(캐시)
+        excel_text = request.form.get('excel_text')
+        if not excel_text or excel_text.strip() == '': return "입력된 데이터가 없습니다.", 400
+        
+        try:
+            df = pd.read_csv(io.StringIO(excel_text), sep='\t')
+            df.columns = df.columns.str.replace(' ', '')
+            driver_seq_counter = {}
             address_cache = {}
             
-            for line in lines:
-                cols = line.split('\t')
-                if len(cols) >= 12:
-                    try:
-                        d_date = datetime.strptime(cols[1].strip(), '%Y-%m-%d').date()
-                    except:
-                        d_date = datetime.now().date()
-                        
-                    address = cols[6].strip()
-                    
-                    # 💡 카카오 API 호출 최소화 로직 (속도 수십 배 향상)
-                    if address in address_cache:
-                        # 1. 이번 업로드 엑셀 안에서 이미 변환한 적 있는 주소면 그대로 재사용
-                        c_x, c_y = address_cache[address]
-                    else:
-                        # 2. 이전에 동일한 주소로 배차된 적이 있는지 DB 검사
-                        existing = Dispatch.query.filter_by(store_address=address).filter(Dispatch.store_x != None).first()
-                        if existing:
-                            c_x, c_y = existing.store_x, existing.store_y
-                        else:
-                            # 3. 이번에 처음 등장한 '완전 신규 주소'일 때만 카카오 API 호출
-                            c_x, c_y = get_kakao_coords(address)
-                        
-                        # 찾은 좌표를 다음 반복을 위해 캐시에 저장
-                        address_cache[address] = (c_x, c_y)
-                    
-                    new_dispatch = Dispatch(
-                        center_name=cols[0].strip(),
-                        delivery_date=d_date,
-                        vehicle_num=cols[2].strip(),
-                        driver_name=cols[3].strip(),
-                        store_code=cols[4].strip(),
-                        store_name=cols[5].strip(),
-                        store_address=address,
-                        delivery_seq=int(cols[7].strip()) if cols[7].strip().isdigit() else 0,
-                        buffer_time=int(cols[8].strip()) if cols[8].strip().isdigit() else 10,
-                        driver_phone=cols[9].strip(),
-                        store_phone=cols[10].strip(),
-                        template_name=cols[11].strip(),
-                        store_x=c_x, store_y=c_y
-                    )
-                    db.session.add(new_dispatch)
+            if '매장주소' in df.columns:
+                unique_addresses = df['매장주소'].dropna().astype(str).str.strip().unique()
+                unique_addresses = [addr for addr in unique_addresses if addr]
+                
+                # 🚀 [업로드 속도 초고속 개선] 
+                # 1. DB에 이미 저장된 적이 있는 주소인지 한 번에 검색해서 가져옵니다 (API 호출 방지)
+                existing_dispatches = Dispatch.query.filter(
+                    Dispatch.store_address.in_(unique_addresses),
+                    Dispatch.store_x != None
+                ).all()
+                
+                # DB에서 찾은 좌표를 캐시(메모리)에 미리 다 넣어둡니다.
+                for ed in existing_dispatches:
+                    address_cache[ed.store_address] = (ed.store_x, ed.store_y)
+                
+                # 2. 캐시에 없는, 즉 DB에도 없는 "진짜 처음 등장한 신규 매장 주소"만 골라냅니다.
+                missing_addresses = [addr for addr in unique_addresses if addr not in address_cache]
+                
+                # 3. 신규 매장 주소에 대해서만 카카오 API 호출 (멀티스레딩)
+                if missing_addresses:
+                    def fetch_coord(addr): return addr, get_coords(addr)
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+                        results = executor.map(fetch_coord, missing_addresses)
+                        for addr, (sx, sy) in results: 
+                            address_cache[addr] = (sx, sy)
+
+            for index, row in df.iterrows():
+                raw_date = str(row.get('배송일자', '')).strip()
+                clean_date = raw_date.replace('년', '-').replace('월', '-').replace('일', '').replace(' ', '')
+                if len(clean_date.split('-')) == 2: clean_date = f"{datetime.now().year}-{clean_date}"
+                try: delivery_date = pd.to_datetime(clean_date).date()
+                except: delivery_date = datetime.now().date()
+                
+                driver_name = str(row.get('기사명', '')).strip()
+                if driver_name not in driver_seq_counter: driver_seq_counter[driver_name] = 1
+
+                if '배송순서' in df.columns and pd.notna(row['배송순서']):
+                    seq_value = int(row['배송순서'])
+                    driver_seq_counter[driver_name] = seq_value + 1
+                else:
+                    seq_value = driver_seq_counter[driver_name]
+                    driver_seq_counter[driver_name] += 1
+
+                center_name_val = str(row.get('센터명', '')).strip()
+                center_obj = Center.query.filter_by(name=center_name_val).first()
+                center_addr_val = center_obj.address if center_obj else ''
+
+                store_address_val = str(row.get('매장주소', '')).strip()
+                buffer_time_val = int(row['상하차시간(분)']) if '상하차시간(분)' in df.columns and pd.notna(row['상하차시간(분)']) else 10
+                
+                # 방금 전 채워둔 캐시(DB + API결과)에서 좌표를 0.1초만에 꺼내옵니다.
+                sx, sy = address_cache.get(store_address_val, (None, None))
+
+                dispatch_entry = Dispatch(
+                    delivery_date=delivery_date, center_name=center_name_val, center_address=center_addr_val, 
+                    vehicle_num=str(row.get('차량번호', '')).strip(), driver_name=driver_name, 
+                    store_code=str(row.get('매장코드', '')).strip(), store_name=str(row.get('매장명', '')).strip(),
+                    store_address=store_address_val, delivery_seq=seq_value, buffer_time=buffer_time_val, 
+                    store_x=sx, store_y=sy, driver_phone=str(row.get('기사전화번호', '')).strip(),
+                    store_phone=str(row.get('매장전화번호', '')).strip(), template_name=str(row.get('템플릿양식', '')).strip()
+                )
+                db.session.add(dispatch_entry)
+                
             db.session.commit()
             
-            # 엑셀 업로드 시 7일 지난 과거 데이터 자동 정리
+            # 💡 [추가 기능] 엑셀 업로드 시 7일 지난 과거 데이터 자동 정리
             clean_old_dispatches()
             
-        return redirect(url_for('admin'))
-        
-    # GET 요청 시: 날짜 선택
+            return redirect(url_for('admin'))
+        except Exception as e:
+            db.session.rollback()
+            return f"오류 발생: {str(e)} <br><br><a href='/admin'>돌아가기</a>"
+            
+    # 💡 [추가 기능] GET 요청 시 일자별 조회 기능
     target_date_str = request.args.get('target_date')
     if target_date_str:
         target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
     else:
         target_date = datetime.now().date()
         
+    # 지정한 날짜의 데이터만 필터링하여 출력
+    filtered_data = Dispatch.query.filter_by(delivery_date=target_date).order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
     centers = Center.query.all()
-    # 선택한 날짜의 데이터만 불러옵니다.
-    dispatches = Dispatch.query.filter_by(delivery_date=target_date).order_by(Dispatch.delivery_seq).all()
     
-    return render_template('admin.html', centers=centers, dispatches=dispatches, target_date=target_date)
+    return render_template('admin.html', dispatches=filtered_data, centers=centers, target_date=target_date)
 
 @app.route('/admin/add_center', methods=['POST'])
 def add_center():

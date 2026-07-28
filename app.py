@@ -17,6 +17,16 @@ from werkzeug.utils import secure_filename  # 💡 파일명 안전 처리를 �
 from models import db, Dispatch, Center, SmsTemplate, Notice, SystemSettings
 from io import BytesIO
 
+# 💡 7일이 지난 과거 배차 데이터를 자동으로 삭제하는 함수
+def clean_old_dispatches():
+    try:
+        seven_days_ago = datetime.now().date() - timedelta(days=7)
+        # 배송일자(delivery_date)가 7일 이전인 데이터 삭제
+        Dispatch.query.filter(Dispatch.delivery_date < seven_days_ago).delete()
+        db.session.commit()
+    except Exception as e:
+        print(f"오래된 데이터 삭제 오류: {e}")
+
 # 💡 [신규] 두 좌표 간의 거리를 계산하는 하버사인 알고리즘
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371.0
@@ -184,66 +194,57 @@ def admin_logout():
 
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
-    if not session.get('is_admin'): return redirect(url_for('admin_login'))
+    if not session.get('is_admin'): 
+        return redirect(url_for('admin_login'))
+    
     if request.method == 'POST':
-        excel_text = request.form.get('excel_text')
-        if not excel_text or excel_text.strip() == '': return "입력된 데이터가 없습니다.", 400
-        try:
-            df = pd.read_csv(io.StringIO(excel_text), sep='\t')
-            df.columns = df.columns.str.replace(' ', '')
-            driver_seq_counter = {}
-            address_cache = {}
-            if '매장주소' in df.columns:
-                unique_addresses = df['매장주소'].dropna().astype(str).str.strip().unique()
-                unique_addresses = [addr for addr in unique_addresses if addr]
-                def fetch_coord(addr): return addr, get_coords(addr)
-                with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-                    results = executor.map(fetch_coord, unique_addresses)
-                    for addr, (sx, sy) in results: address_cache[addr] = (sx, sy)
-
-            for index, row in df.iterrows():
-                raw_date = str(row.get('배송일자', '')).strip()
-                clean_date = raw_date.replace('년', '-').replace('월', '-').replace('일', '').replace(' ', '')
-                if len(clean_date.split('-')) == 2: clean_date = f"{datetime.now().year}-{clean_date}"
-                try: delivery_date = pd.to_datetime(clean_date).date()
-                except: delivery_date = datetime.now().date()
-                
-                driver_name = str(row.get('기사명', '')).strip()
-                if driver_name not in driver_seq_counter: driver_seq_counter[driver_name] = 1
-
-                if '배송순서' in df.columns and pd.notna(row['배송순서']):
-                    seq_value = int(row['배송순서'])
-                    driver_seq_counter[driver_name] = seq_value + 1
-                else:
-                    seq_value = driver_seq_counter[driver_name]
-                    driver_seq_counter[driver_name] += 1
-
-                center_name_val = str(row.get('센터명', '')).strip()
-                center_obj = Center.query.filter_by(name=center_name_val).first()
-                center_addr_val = center_obj.address if center_obj else ''
-
-                store_address_val = str(row.get('매장주소', '')).strip()
-                buffer_time_val = int(row['상하차시간(분)']) if '상하차시간(분)' in df.columns and pd.notna(row['상하차시간(분)']) else 10
-                sx, sy = address_cache.get(store_address_val, (None, None))
-
-                dispatch_entry = Dispatch(
-                    delivery_date=delivery_date, center_name=center_name_val, center_address=center_addr_val, 
-                    vehicle_num=str(row.get('차량번호', '')).strip(), driver_name=driver_name, 
-                    store_code=str(row.get('매장코드', '')).strip(), store_name=str(row.get('매장명', '')).strip(),
-                    store_address=store_address_val, delivery_seq=seq_value, buffer_time=buffer_time_val, 
-                    store_x=sx, store_y=sy, driver_phone=str(row.get('기사전화번호', '')).strip(),
-                    store_phone=str(row.get('매장전화번호', '')).strip(), template_name=str(row.get('템플릿양식', '')).strip()
-                )
-                db.session.add(dispatch_entry)
+        excel_text = request.form.get('excel_text', '')
+        if excel_text:
+            lines = excel_text.strip().split('\n')
+            for line in lines:
+                cols = line.split('\t')
+                if len(cols) >= 12:
+                    try:
+                        d_date = datetime.strptime(cols[1].strip(), '%Y-%m-%d').date()
+                    except:
+                        d_date = datetime.now().date()
+                        
+                    address = cols[6].strip()
+                    c_x, c_y = get_kakao_coords(address)
+                    
+                    new_dispatch = Dispatch(
+                        center_name=cols[0].strip(),
+                        delivery_date=d_date,
+                        vehicle_num=cols[2].strip(),
+                        driver_name=cols[3].strip(),
+                        store_code=cols[4].strip(),
+                        store_name=cols[5].strip(),
+                        store_address=address,
+                        delivery_seq=int(cols[7].strip()) if cols[7].strip().isdigit() else 0,
+                        buffer_time=int(cols[8].strip()) if cols[8].strip().isdigit() else 10,
+                        driver_phone=cols[9].strip(),
+                        store_phone=cols[10].strip(),
+                        template_name=cols[11].strip(),
+                        store_x=c_x, store_y=c_y
+                    )
+                    db.session.add(new_dispatch)
             db.session.commit()
-            return redirect(url_for('admin'))
-        except Exception as e:
-            db.session.rollback()
-            return f"오류 발생: {str(e)} <br><br><a href='/admin'>돌아가기</a>"
             
-    all_data = Dispatch.query.order_by(Dispatch.delivery_date, Dispatch.driver_name, Dispatch.delivery_seq).all()
+            # 💡 엑셀 업로드 시 7일 지난 과거 데이터 자동 정리
+            clean_old_dispatches()
+            
+        return redirect(url_for('admin'))
+        
+    target_date_str = request.args.get('target_date')
+    if target_date_str:
+        target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
+    else:
+        target_date = datetime.now().date()
+        
     centers = Center.query.all()
-    return render_template('admin.html', dispatches=all_data, centers=centers)
+    dispatches = Dispatch.query.filter_by(delivery_date=target_date).order_by(Dispatch.delivery_seq).all()
+    
+    return render_template('admin.html', centers=centers, dispatches=dispatches, target_date=target_date)
 
 @app.route('/admin/add_center', methods=['POST'])
 def add_center():
@@ -347,91 +348,98 @@ def update_driver(dispatch_id):
 @app.route('/driver', methods=['GET'])
 def driver():
     name = request.args.get('driver_name')
+    if not name:
+        return render_template('driver.html', driver_name=None)
+        
     dispatches = []
     route_chunks = [] 
-    date_str = ""
     active_notices = []
     
     comp_msg_setting = SystemSettings.query.filter_by(key='completion_msg').first()
     completion_message = comp_msg_setting.value if comp_msg_setting else "금일 배송도 고생 많으셨습니다!\n제때에서 발송된 카카오톡 배송승인 부탁드리겠습니다."
+    
+    latest_dispatch = Dispatch.query.filter_by(driver_name=name).order_by(Dispatch.delivery_date.desc()).first()
+    
+    target_date_str = request.args.get('target_date')
+    if target_date_str:
+        target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
+    elif latest_dispatch and latest_dispatch.delivery_date:
+        target_date = latest_dispatch.delivery_date
+    else:
+        target_date = datetime.now().date()
+        
+    dispatches = Dispatch.query.filter_by(driver_name=name, delivery_date=target_date).order_by(Dispatch.delivery_seq).all()
 
-    if name:
-        dispatches = Dispatch.query.filter_by(driver_name=name).order_by(Dispatch.delivery_seq).all()
-        
-        # 💡 [핵심 수정] 배차 내역이 없으면 스마트폰에 저장된 이름(로컬스토리지)을 지워버려서 무한루프를 차단합니다!
-        if not dispatches:
-            return f"<script>alert('{name} 기사님의 배차 내역이 존재하지 않습니다.\\n이름을 다시 확인해주세요.'); localStorage.removeItem('jette_driver_name'); window.location.href='/driver';</script>"
-            
-        driver_center = dispatches[0].center_name if dispatches else ""
-        
-        all_active_notices = Notice.query.filter_by(is_active=True).order_by(Notice.display_seq.asc(), Notice.created_at.desc()).all()
-        for n in all_active_notices:
-            target_str = n.target_drivers.strip() if n.target_drivers else ""
-            if "||" in target_str:
-                t_center, t_drivers = target_str.split("||", 1)
-            else:
-                t_center = "전체"
-                t_drivers = target_str
-                
-            if t_center != "전체" and t_center != driver_center:
-                continue
-                
-            if not t_drivers:
-                active_notices.append(n) 
-            elif t_drivers.lower().startswith("contain "):
-                keywords = [k.strip() for k in t_drivers[8:].split(',') if k.strip()]
-                if any(k in name for k in keywords):
-                    active_notices.append(n)
-            elif t_drivers.lower().startswith("not contain "):
-                keywords = [k.strip() for k in t_drivers[12:].split(',') if k.strip()]
-                if not any(k in name for k in keywords):
-                    active_notices.append(n)
-            else:
-                target_list = [d.strip() for d in t_drivers.split(',') if d.strip()]
-                if name in target_list:
-                    active_notices.append(n)
-                    
-        display_date = datetime.now().date()
-        if dispatches and dispatches[0].delivery_date: display_date = dispatches[0].delivery_date
-        weekdays = ['월', '화', '수', '목', '금', '토', '일']
-        date_str = display_date.strftime('%y%m%d') + f"({weekdays[display_date.weekday()]})"
-        valid_dispatches = [d for d in dispatches if d.store_x and d.store_y and not d.is_departed]
-        chunk_size = 5
-        
-        # 관리자 DB에 등록된 센터 좌표 조회
-        target_center_obj = Center.query.filter_by(name=driver_center).first()
-        if target_center_obj and target_center_obj.center_y and target_center_obj.center_x:
-            cy, cx = target_center_obj.center_y, target_center_obj.center_x
+    if not dispatches:
+        return f"<script>alert('{target_date.strftime('%Y년 %m월 %d일')} 자 {name} 기사님의 배차 내역이 존재하지 않습니다.'); localStorage.removeItem('jette_driver_name'); window.location.href='/driver';</script>"
+
+    driver_center = dispatches[0].center_name if dispatches else ""
+    
+    all_active_notices = Notice.query.filter_by(is_active=True).order_by(Notice.display_seq.asc(), Notice.created_at.desc()).all()
+    for n in all_active_notices:
+        target_str = n.target_drivers.strip() if n.target_drivers else ""
+        if "||" in target_str:
+            t_center, t_drivers = target_str.split("||", 1)
         else:
-            cy, cx = "37.5665", "126.9780" # 등록 안되어있을 경우 기본값(서울)
-        
-        for i in range(0, len(valid_dispatches), chunk_size):
-            chunk = valid_dispatches[i:i+chunk_size]
-            dest_d = chunk[-1]
-            ep_y, ep_x = float(dest_d.store_y), float(dest_d.store_x)
+            t_center = "전체"
+            t_drivers = target_str
             
-            # 출발지(sp)를 DB 센터 좌표로 완벽하게 고정
-            kakaomap_app_url = f"kakaomap://route?sp={cy},{cx}&ep={ep_y},{ep_x}&by=CAR"
+        if t_center != "전체" and t_center != driver_center:
+            continue
             
-            for idx, wp in enumerate(chunk[:-1]):
-                vp_key = 'vp' if idx == 0 else f"vp{idx+1}"
-                kakaomap_app_url += f"&{vp_key}={float(wp.store_y)},{float(wp.store_x)}"
-            
-            center_addr = dispatches[0].center_address if dispatches[0].center_address else dispatches[0].store_address
-            origin_encoded = urllib.parse.quote(center_addr)
-            dest_encoded = urllib.parse.quote(dest_d.store_address)
-            google_map_url = f"https://www.google.com/maps/dir/?api=1&origin={origin_encoded}&destination={dest_encoded}"
-            waypoint_addrs = [v.store_address for v in chunk[:-1]]
-            if waypoint_addrs:
-                wp_encoded = urllib.parse.quote("|".join(waypoint_addrs))
-                google_map_url += f"&waypoints={wp_encoded}"
+        if not t_drivers:
+            active_notices.append(n) 
+        elif t_drivers.lower().startswith("contain "):
+            keywords = [k.strip() for k in t_drivers[8:].split(',') if k.strip()]
+            if any(k in name for k in keywords):
+                active_notices.append(n)
+        elif t_drivers.lower().startswith("not contain "):
+            keywords = [k.strip() for k in t_drivers[12:].split(',') if k.strip()]
+            if not any(k in name for k in keywords):
+                active_notices.append(n)
+        else:
+            target_list = [d.strip() for d in t_drivers.split(',') if d.strip()]
+            if name in target_list:
+                active_notices.append(n)
                 
-            route_chunks.append({
-                'title': f"📱 코스 ({chunk[0].delivery_seq}~{chunk[-1].delivery_seq}번)",
-                'url': kakaomap_app_url, 'pc_url': google_map_url 
-            })
+    weekdays = ['월', '화', '수', '목', '금', '토', '일']
+    date_str = target_date.strftime('%y%m%d') + f"({weekdays[target_date.weekday()]})"
+    
+    valid_dispatches = [d for d in dispatches if d.store_x and d.store_y and not d.is_departed]
+    chunk_size = 5
+    
+    target_center_obj = Center.query.filter_by(name=driver_center).first()
+    if target_center_obj and target_center_obj.center_y and target_center_obj.center_x:
+        cy, cx = target_center_obj.center_y, target_center_obj.center_x
+    else:
+        cy, cx = "37.5665", "126.9780" 
+    
+    for i in range(0, len(valid_dispatches), chunk_size):
+        chunk = valid_dispatches[i:i+chunk_size]
+        dest_d = chunk[-1]
+        ep_y, ep_x = float(dest_d.store_y), float(dest_d.store_x)
+        
+        kakaomap_app_url = f"kakaomap://route?sp={cy},{cx}&ep={ep_y},{ep_x}&by=CAR"
+        
+        for idx, wp in enumerate(chunk[:-1]):
+            vp_key = 'vp' if idx == 0 else f"vp{idx+1}"
+            kakaomap_app_url += f"&{vp_key}={float(wp.store_y)},{float(wp.store_x)}"
+        
+        center_addr = dispatches[0].center_address if dispatches[0].center_address else dispatches[0].store_address
+        origin_encoded = urllib.parse.quote(center_addr)
+        dest_encoded = urllib.parse.quote(dest_d.store_address)
+        google_map_url = f"https://www.google.com/maps/dir/?api=1&origin={origin_encoded}&destination={dest_encoded}"
+        waypoint_addrs = [v.store_address for v in chunk[:-1]]
+        if waypoint_addrs:
+            wp_encoded = urllib.parse.quote("|".join(waypoint_addrs))
+            google_map_url += f"&waypoints={wp_encoded}"
             
-    return render_template('driver.html', dispatches=dispatches, driver_name=name, route_chunks=route_chunks, date_str=date_str, active_notices=active_notices, completion_message=completion_message)
+        route_chunks.append({
+            'title': f"📱 코스 ({chunk[0].delivery_seq}~{chunk[-1].delivery_seq}번)",
+            'url': kakaomap_app_url, 'pc_url': google_map_url 
+        })
+        
+    return render_template('driver.html', dispatches=dispatches, driver_name=name, route_chunks=route_chunks, date_str=date_str, active_notices=active_notices, completion_message=completion_message, target_date=target_date)
 
 @app.route('/admin/update_phones/<int:dispatch_id>', methods=['POST'])
 def update_phones(dispatch_id):
@@ -517,25 +525,42 @@ def update_order():
 
 @app.route('/dashboard')
 def dashboard():
-    if not session.get('is_admin'): return redirect(url_for('admin_login'))
-    unique_centers = [c.name for c in Center.query.all()]
-    all_dispatches = Dispatch.query.order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
+    if not session.get('is_admin'): 
+        return redirect(url_for('admin_login'))
+    
+    target_date_str = request.args.get('target_date')
+    if target_date_str:
+        target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
+    else:
+        target_date = datetime.now().date()
+        
+    dispatches = Dispatch.query.filter_by(delivery_date=target_date).order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
+    
     stats = {}
-    for d in all_dispatches:
-        name = d.driver_name
-        if name not in stats: stats[name] = {'total': 0, 'completed': 0, 'remaining': 0, 'vehicle': d.vehicle_num, 'details': []}
-        stats[name]['total'] += 1
-        if d.is_departed: stats[name]['completed'] += 1
-        else: stats[name]['remaining'] += 1
-        stats[name]['details'].append(d)
+    vehicle_stats = {'total': 0, 'completed': 0, 'pending': 0}
+    unique_centers = set()
+    
+    for d in dispatches:
+        unique_centers.add(d.center_name)
+        if d.driver_name not in stats:
+            stats[d.driver_name] = {'total': 0, 'completed': 0, 'remaining': 0, 'details': [], 'vehicle': d.vehicle_num}
+            vehicle_stats['total'] += 1
+            
+        stats[d.driver_name]['total'] += 1
+        stats[d.driver_name]['details'].append(d)
+        if d.is_departed:
+            stats[d.driver_name]['completed'] += 1
+        else:
+            stats[d.driver_name]['remaining'] += 1
+
     for name, data in stats.items():
         data['progress'] = int((data['completed'] / data['total']) * 100) if data['total'] > 0 else 0
-    vehicle_stats = {
-        'total': len(stats),
-        'completed': sum(1 for data in stats.values() if data['remaining'] == 0),
-        'pending': len(stats) - sum(1 for data in stats.values() if data['remaining'] == 0)
-    }
-    return render_template('dashboard.html', stats=stats, vehicle_stats=vehicle_stats, unique_centers=unique_centers)
+        if data['remaining'] == 0:
+            vehicle_stats['completed'] += 1
+        else:
+            vehicle_stats['pending'] += 1
+
+    return render_template('dashboard.html', dispatches=dispatches, stats=stats, vehicle_stats=vehicle_stats, unique_centers=sorted(list(unique_centers)), target_date=target_date)
 
 @app.route('/download_excel')
 def download_excel():
@@ -612,11 +637,20 @@ def download_template():
 
 @app.route('/sms')
 def sms_page():
-    if not session.get('is_admin'): return redirect(url_for('admin_login'))
+    if not session.get('is_admin'): 
+        return redirect(url_for('admin_login'))
+    
+    target_date_str = request.args.get('target_date')
+    if target_date_str:
+        target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
+    else:
+        target_date = datetime.now().date()
+        
     templates = SmsTemplate.query.all()
-    unique_centers = [c.name for c in Center.query.all()]
-    departed_dispatches = Dispatch.query.filter(Dispatch.center_depart_time != None).order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
-    return render_template('sms.html', dispatches=departed_dispatches, templates=templates, unique_centers=unique_centers)
+    dispatches = Dispatch.query.filter(Dispatch.center_depart_time != None, Dispatch.delivery_date == target_date).order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
+    
+    unique_centers = sorted(list(set(d.center_name for d in dispatches)))
+    return render_template('sms.html', templates=templates, dispatches=dispatches, unique_centers=unique_centers, target_date=target_date)
 
 @app.route('/sms/add_template', methods=['POST'])
 def add_template():
@@ -658,31 +692,37 @@ def delete_template(template_id):
 
 @app.route('/download_sms_excel')
 def download_sms_excel():
-    if not session.get('is_admin'): return redirect(url_for('admin_login'))
+    if not session.get('is_admin'): 
+        return redirect(url_for('admin_login'))
     
     center_filter = request.args.get('center_name', '')
-    
-    # 💡 [추가 1] 프론트엔드에서 넘겨준 토글(ON/OFF) 값 받기 및 현재 시간 구하기
     filter_past = request.args.get('filter_past', 'true') == 'true'
+    target_date_str = request.args.get('target_date')
     now = datetime.now()
     
-    query = Dispatch.query.filter(Dispatch.center_depart_time != None)
-    if center_filter: query = query.filter_by(center_name=center_filter)
+    if target_date_str:
+        target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
+    else:
+        target_date = now.date()
+
+    query = Dispatch.query.filter(Dispatch.center_depart_time != None, Dispatch.delivery_date == target_date)
+    if center_filter: 
+        query = query.filter_by(center_name=center_filter)
     departed_dispatches = query.order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
     
     templates_dict = {t.name: t for t in SmsTemplate.query.all()}
     
     data_list = []
     for d in departed_dispatches:
-        # 💡 [추가 2] 토글이 ON일 때, 배송완료되었거나 도착예정시간이 지난 매장 제외
         if filter_past:
             if d.is_departed:
                 continue
             if d.estimated_arrival and isinstance(d.estimated_arrival, datetime) and d.estimated_arrival < now:
                 continue
 
-        eta_str = d.estimated_arrival.strftime('%H시 %M분') if d.estimated_arrival else "계산중"
+        eta_str = d.estimated_arrival.strftime('%H시 %M분') if isinstance(d.estimated_arrival, datetime) else "계산중"
         t_obj = templates_dict.get(d.template_name)
+        
         if t_obj:
             raw_subject = t_obj.subject
             raw_content = t_obj.content
@@ -712,7 +752,6 @@ def download_sms_excel():
                 '제목': sms_subject, '내용': sms_content, '발신번호': sender_num
             })
             
-    # 💡 [추가 3] 필터링 후 추출할 대상이 0건일 경우 에러 방지용 빈 데이터 삽입
     if not data_list:
         data_list.append({
             '수신인': '발송 대상 없음', '연락처': '',
@@ -725,7 +764,6 @@ def download_sms_excel():
         df.to_excel(writer, index=False, sheet_name='문자발송양식')
         worksheet = writer.sheets['문자발송양식']
         
-        # 기존 스타일 적용 함수 그대로 유지
         if 'apply_excel_styles' in globals():
             apply_excel_styles(worksheet, df, is_sms=True)
             
@@ -739,7 +777,6 @@ def download_sms_excel():
     today_str = datetime.now().strftime('%Y%m%d')
     filename = f"{center_filter}_{today_str}_알림톡발송양식.xlsx" if center_filter else f"{today_str}_알림톡발송양식.xlsx"
     
-    # 💡 브라우저 환경에 따른 파일명 깨짐을 완벽히 방지
     encoded_filename = urllib.parse.quote(filename)
     return send_file(output, download_name=filename, as_attachment=True)
 

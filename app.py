@@ -192,6 +192,9 @@ def admin_logout():
     session.pop('is_admin', None)
     return redirect(url_for('admin_login'))
 
+# ==========================================
+# 💡 1. 데이터 입력 (Admin) - 날짜 필터 및 업로드 속도 최적화
+# ==========================================
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
     if not session.get('is_admin'): 
@@ -201,6 +204,10 @@ def admin():
         excel_text = request.form.get('excel_text', '')
         if excel_text:
             lines = excel_text.strip().split('\n')
+            
+            # 💡 [속도 개선 핵심] 주소 좌표를 임시 저장할 딕셔너리(캐시)
+            address_cache = {}
+            
             for line in lines:
                 cols = line.split('\t')
                 if len(cols) >= 12:
@@ -210,7 +217,22 @@ def admin():
                         d_date = datetime.now().date()
                         
                     address = cols[6].strip()
-                    c_x, c_y = get_kakao_coords(address)
+                    
+                    # 💡 카카오 API 호출 최소화 로직 (속도 수십 배 향상)
+                    if address in address_cache:
+                        # 1. 이번 업로드 엑셀 안에서 이미 변환한 적 있는 주소면 그대로 재사용
+                        c_x, c_y = address_cache[address]
+                    else:
+                        # 2. 이전에 동일한 주소로 배차된 적이 있는지 DB 검사
+                        existing = Dispatch.query.filter_by(store_address=address).filter(Dispatch.store_x != None).first()
+                        if existing:
+                            c_x, c_y = existing.store_x, existing.store_y
+                        else:
+                            # 3. 이번에 처음 등장한 '완전 신규 주소'일 때만 카카오 API 호출
+                            c_x, c_y = get_kakao_coords(address)
+                        
+                        # 찾은 좌표를 다음 반복을 위해 캐시에 저장
+                        address_cache[address] = (c_x, c_y)
                     
                     new_dispatch = Dispatch(
                         center_name=cols[0].strip(),
@@ -230,11 +252,12 @@ def admin():
                     db.session.add(new_dispatch)
             db.session.commit()
             
-            # 💡 엑셀 업로드 시 7일 지난 과거 데이터 자동 정리
+            # 엑셀 업로드 시 7일 지난 과거 데이터 자동 정리
             clean_old_dispatches()
             
         return redirect(url_for('admin'))
         
+    # GET 요청 시: 날짜 선택
     target_date_str = request.args.get('target_date')
     if target_date_str:
         target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
@@ -242,6 +265,7 @@ def admin():
         target_date = datetime.now().date()
         
     centers = Center.query.all()
+    # 선택한 날짜의 데이터만 불러옵니다.
     dispatches = Dispatch.query.filter_by(delivery_date=target_date).order_by(Dispatch.delivery_seq).all()
     
     return render_template('admin.html', centers=centers, dispatches=dispatches, target_date=target_date)

@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=1300">
     <title>통합 물류 현황판</title>
+    <form method="GET" style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; background: white; padding: 10px 15px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); width: fit-content; border: 1px solid #ced4da;">
+    <span style="font-weight: bold; color: #082c84;">📅 조회 일자:</span>
+    <input type="date" name="target_date" value="{{ target_date.strftime('%Y-%m-%d') }}" onchange="this.form.submit()" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: 'Binggrae-Two'; font-weight: bold;">
+</form>
     <style>
     @font-face {
         font-family: 'Binggrae-Two';

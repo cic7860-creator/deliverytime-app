@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>JETTE 배송 기사 앱</title>
+    <form method="GET" style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px; background: white; padding: 8px 12px; border-radius: 6px; border: 1px solid #ced4da;">
+    <input type="hidden" name="driver_name" value="{{ driver_name }}">
+    <span style="font-size: 14px; font-weight: bold; color: #082c84;">📅 날짜 변경:</span>
+    <input type="date" name="target_date" value="{{ target_date.strftime('%Y-%m-%d') }}" onchange="this.form.submit()" style="padding: 6px; border-radius: 4px; border: 1px solid #ccc; font-family: 'Binggrae-Two'; flex: 1;">
+</form>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <style>
     @font-face {

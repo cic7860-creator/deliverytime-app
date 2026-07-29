@@ -5,3 +5,4 @@ openpyxl
 requests
 urllib3
 gunicorn
+psycopg2-binary

@@ -169,9 +169,18 @@
                     </select>
                     <button type="submit" class="btn btn-danger" style="background-color: #ff9800;">선택 센터 일괄삭제</button>
                 </form>
-                <form action="/admin/delete_all" method="POST" onsubmit="return confirm('정말 모든 배차 데이터를 삭제하시겠습니까?');" style="margin: 0;">
-                    <button type="submit" class="btn btn-danger">🚨 전체 삭제 (초기화)</button>
-                </form>
+<form action="/delete_all_dispatches" method="POST" onsubmit="return confirm('선택하신 날짜의 배차 내역을 전부 삭제하시겠습니까?');">
+    <!-- 💡 서버로 현재 날짜 정보를 숨겨서 함께 보냅니다! -->
+    <input type="hidden" name="target_date" value="{{ target_date.strftime('%Y-%m-%d') if target_date else '' }}">
+    
+    <button type="submit" class="btn-danger">해당 일자 전체 삭제</button>
+</form>
+                <form action="/delete_dispatch/{{ d.id }}" method="POST" style="display:inline-block;" onsubmit="return confirm('이 배차 내역을 삭제하시겠습니까?');">
+    <!-- 💡 서버로 현재 날짜 정보를 숨겨서 함께 보냅니다! -->
+    <input type="hidden" name="target_date" value="{{ target_date.strftime('%Y-%m-%d') if target_date else '' }}">
+    
+    <button type="submit" class="btn-sm btn-danger">삭제</button>
+</form>
             </div>
         </div>
 

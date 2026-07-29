@@ -345,18 +345,48 @@ def delete_by_center():
         db.session.commit()
     return redirect(url_for('admin'))
 
-@app.route('/admin/delete_all', methods=['POST'])
-def delete_all():
-    db.session.query(Dispatch).delete()
+# ==========================================
+# 💡 [수정] 1. 선택한 날짜의 배차내역만 '전체 삭제'
+# ==========================================
+@app.route('/delete_all_dispatches', methods=['POST'])  # 기존 전체삭제 라우트 이름에 맞게 수정하세요 (예: /delete_all 등)
+def delete_all_dispatches():
+    if not session.get('is_admin'): 
+        return redirect(url_for('admin_login'))
+    
+    # HTML에서 숨겨서 보낸 날짜 값을 받습니다.
+    target_date_str = request.form.get('target_date')
+    
+    if target_date_str:
+        target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
+        # 💡 [핵심] DB 전체를 지우는 게 아니라, '해당 날짜'의 데이터만 골라서 지웁니다!
+        Dispatch.query.filter_by(delivery_date=target_date).delete()
+    else:
+        # 혹시 날짜가 안 넘어왔을 때 전체가 날아가는 참사를 막기 위한 안전장치
+        return "날짜가 지정되지 않아 삭제할 수 없습니다.", 400
+        
     db.session.commit()
-    return redirect(url_for('admin'))
+    
+    # 삭제 후 원래 보던 날짜 페이지로 되돌아갑니다.
+    return redirect(url_for('admin', target_date=target_date_str))
 
-@app.route('/admin/delete/<int:dispatch_id>', methods=['POST'])
-def delete_dispatch(dispatch_id):
-    d = Dispatch.query.get(dispatch_id)
-    if d:
-        db.session.delete(d)
+
+# ==========================================
+# 💡 [수정] 2. 개별 배차내역 삭제 (원래 날짜 화면 유지)
+# ==========================================
+@app.route('/delete_dispatch/<int:id>', methods=['POST']) # 기존 개별삭제 라우트 이름 확인
+def delete_dispatch(id):
+    if not session.get('is_admin'): 
+        return redirect(url_for('admin_login'))
+    
+    target_date_str = request.form.get('target_date')
+    dispatch = Dispatch.query.get(id)
+    if dispatch:
+        db.session.delete(dispatch)
         db.session.commit()
+        
+    # 삭제 후 원래 보던 날짜 페이지로 튕기지 않게 되돌아갑니다.
+    if target_date_str:
+        return redirect(url_for('admin', target_date=target_date_str))
     return redirect(url_for('admin'))
 
 @app.route('/admin/update_address/<int:dispatch_id>', methods=['POST'])

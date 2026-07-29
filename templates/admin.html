@@ -162,10 +162,15 @@
         </div>
 
         <div class="section-title">
-            <h3 style="margin: 0;">📋 금일 배차 내역 <span style="color:#6c757d; font-size:16px;">(총 {{ dispatches|length }} 건)</span></h3>
+            <!-- 💡 [수정] "금일" 대신 선택한 target_date의 연/월/일과 요일이 동적으로 표시되도록 변경 -->
+            {% set weekdays = ['월', '화', '수', '목', '금', '토', '일'] %}
+            <h3 style="margin: 0;">
+                📋 {{ target_date.strftime('%y.%m.%d') }}({{ weekdays[target_date.weekday()] }}) 배차 내역 
+                <span style="color:#6c757d; font-size:16px;">(총 {{ dispatches|length }} 건)</span>
+            </h3>
+            
             <div style="display: flex; gap: 10px;">
                 <form action="/admin/delete_by_center" method="POST" onsubmit="return confirm('선택한 센터의 해당 일자 배차 데이터를 모두 삭제하시겠습니까?');" style="margin: 0; display: flex; gap: 5px;">
-                    <!-- 💡 날짜 데이터 추가 -->
                     <input type="hidden" name="target_date" value="{{ target_date.strftime('%Y-%m-%d') if target_date else '' }}">
                     <select name="center_name" required style="padding: 8px; border-radius: 4px; border: 1px solid #ced4da; font-family: 'Binggrae-Two';">
                         <option value="">센터 선택</option>
@@ -175,7 +180,6 @@
                 </form>
                 
                 <form action="/admin/delete_all" method="POST" onsubmit="return confirm('정말 해당 일자의 모든 배차 데이터를 삭제하시겠습니까?');" style="margin: 0;">
-                    <!-- 💡 날짜 데이터 추가 -->
                     <input type="hidden" name="target_date" value="{{ target_date.strftime('%Y-%m-%d') if target_date else '' }}">
                     <button type="submit" class="btn btn-danger">🚨 전체 삭제 (초기화)</button>
                 </form>

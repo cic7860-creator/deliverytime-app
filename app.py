@@ -295,14 +295,14 @@ def admin():
             db.session.rollback()
             return f"오류 발생: {str(e)} <br><br><a href='/admin'>돌아가기</a>"
             
-    # 💡 [추가 기능] GET 요청 시 일자별 조회 기능
+# GET 요청 시: 날짜 선택 또는 DB 최근 일자
     target_date_str = request.args.get('target_date')
     if target_date_str:
         target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
     else:
-        target_date = datetime.now().date()
+        latest = Dispatch.query.order_by(Dispatch.delivery_date.desc()).first()
+        target_date = latest.delivery_date if latest else datetime.now().date()
         
-    # 지정한 날짜의 데이터만 필터링하여 출력
     filtered_data = Dispatch.query.filter_by(delivery_date=target_date).order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
     centers = Center.query.all()
     
@@ -597,14 +597,14 @@ def update_order():
 
 @app.route('/dashboard')
 def dashboard():
-    if not session.get('is_admin'): 
-        return redirect(url_for('admin_login'))
+    if not session.get('is_admin'): return redirect(url_for('admin_login'))
     
     target_date_str = request.args.get('target_date')
     if target_date_str:
         target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
     else:
-        target_date = datetime.now().date()
+        latest = Dispatch.query.order_by(Dispatch.delivery_date.desc()).first()
+        target_date = latest.delivery_date if latest else datetime.now().date()
         
     dispatches = Dispatch.query.filter_by(delivery_date=target_date).order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
     
@@ -709,14 +709,14 @@ def download_template():
 
 @app.route('/sms')
 def sms_page():
-    if not session.get('is_admin'): 
-        return redirect(url_for('admin_login'))
+    if not session.get('is_admin'): return redirect(url_for('admin_login'))
     
     target_date_str = request.args.get('target_date')
     if target_date_str:
         target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
     else:
-        target_date = datetime.now().date()
+        latest = Dispatch.query.order_by(Dispatch.delivery_date.desc()).first()
+        target_date = latest.delivery_date if latest else datetime.now().date()
         
     templates = SmsTemplate.query.all()
     dispatches = Dispatch.query.filter(Dispatch.center_depart_time != None, Dispatch.delivery_date == target_date).order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
@@ -764,8 +764,7 @@ def delete_template(template_id):
 
 @app.route('/download_sms_excel')
 def download_sms_excel():
-    if not session.get('is_admin'): 
-        return redirect(url_for('admin_login'))
+    if not session.get('is_admin'): return redirect(url_for('admin_login'))
     
     center_filter = request.args.get('center_name', '')
     filter_past = request.args.get('filter_past', 'true') == 'true'
@@ -775,7 +774,8 @@ def download_sms_excel():
     if target_date_str:
         target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
     else:
-        target_date = now.date()
+        latest = Dispatch.query.order_by(Dispatch.delivery_date.desc()).first()
+        target_date = latest.delivery_date if latest else now.date()
 
     query = Dispatch.query.filter(Dispatch.center_depart_time != None, Dispatch.delivery_date == target_date)
     if center_filter: 

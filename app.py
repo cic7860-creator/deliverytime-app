@@ -55,9 +55,22 @@ def get_kakao_coords(address):
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.secret_key = 'jette_super_secret_admin_key' 
+
+# 기존코드
+### app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
+
+# 1. Render에 설정한 환경변수를 불러오고, 만약 못 찾으면 뒤에 적힌 기본 주소(Supabase)를 사용합니다.
+db_url = os.environ.get('DATABASE_URL', 'postgresql://postgres:rkawk58112!@db.iqxikzuymvioovkonpqd.supabase.co:5432/postgres')
+
+# 2. Render 환경변수에 'postgres://'로 등록되었을 경우 에러 방지를 위해 'postgresql://'로 자동 치환합니다.
+if db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+# 3. 최종 주소 적용
+app.config['SQLALCHEMY_DATABASE_URI'] = db_url
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
 
 # 💡 [신규] 이미지 업로드용 서버 설정 추가
 UPLOAD_FOLDER = 'static/uploads'

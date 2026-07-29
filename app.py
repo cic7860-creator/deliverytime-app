@@ -340,24 +340,37 @@ def delete_center(center_id):
 @app.route('/admin/delete_by_center', methods=['POST'])
 def delete_by_center():
     center_name = request.form.get('center_name')
-    if center_name:
-        Dispatch.query.filter_by(center_name=center_name).delete()
+    target_date_str = request.form.get('target_date') # html에서 보낸 날짜 받기
+    
+    if center_name and target_date_str:
+        target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
+        # 💡 선택한 날짜 + 선택한 센터 데이터만 삭제
+        Dispatch.query.filter_by(center_name=center_name, delivery_date=target_date).delete()
         db.session.commit()
-    return redirect(url_for('admin'))
+        
+    return redirect(url_for('admin', target_date=target_date_str))
 
 @app.route('/admin/delete_all', methods=['POST'])
 def delete_all():
-    db.session.query(Dispatch).delete()
-    db.session.commit()
-    return redirect(url_for('admin'))
+    target_date_str = request.form.get('target_date') # html에서 보낸 날짜 받기
+    
+    if target_date_str:
+        target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
+        # 💡 DB 전체가 아니라 선택한 날짜 데이터만 삭제
+        Dispatch.query.filter_by(delivery_date=target_date).delete()
+        db.session.commit()
+        
+    return redirect(url_for('admin', target_date=target_date_str))
 
 @app.route('/admin/delete/<int:dispatch_id>', methods=['POST'])
 def delete_dispatch(dispatch_id):
+    target_date_str = request.form.get('target_date') # html에서 보낸 날짜 받기
     d = Dispatch.query.get(dispatch_id)
     if d:
         db.session.delete(d)
         db.session.commit()
-    return redirect(url_for('admin'))
+        
+    return redirect(url_for('admin', target_date=target_date_str))
 
 @app.route('/admin/update_address/<int:dispatch_id>', methods=['POST'])
 def update_address(dispatch_id):
@@ -1027,8 +1040,9 @@ def optimize_route():
 def bulk_update():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
     
-    # 폼에 숨겨진 전체 dispatch ID 목록을 가져옵니다.
+    target_date_str = request.form.get('target_date') # html에서 보낸 날짜 받기
     dispatch_ids_str = request.form.get('dispatch_ids', '')
+    
     if dispatch_ids_str:
         dispatch_ids = dispatch_ids_str.split(',')
         for did in dispatch_ids:
@@ -1037,7 +1051,7 @@ def bulk_update():
             if d:
                 new_address = request.form.get(f'address_{did}', d.store_address).strip()
                 
-                # 💡 [핵심 수정] 주소가 기존과 달라졌거나, 기존에 좌표(x, y)가 없던 경우 카카오 API로 좌표 재탐색!
+                # 주소가 기존과 달라졌거나, 기존에 좌표(x, y)가 없던 경우 카카오 API로 좌표 재탐색
                 if new_address != d.store_address or not d.store_x or not d.store_y:
                     d.store_address = new_address
                     c_x, c_y = get_kakao_coords(new_address)
@@ -1045,7 +1059,6 @@ def bulk_update():
                         d.store_x = c_x
                         d.store_y = c_y
                     else:
-                        # 변환 실패 시 None 처리하여 관리자에게 다시 경고가 뜨도록 유지
                         d.store_x = None
                         d.store_y = None
                 
@@ -1062,7 +1075,8 @@ def bulk_update():
                 
         db.session.commit()
         
-    return redirect(url_for('admin'))
+    # 저장이 끝난 후 원래 작업하던 날짜로 리다이렉트
+    return redirect(url_for('admin', target_date=target_date_str))
 
 if __name__ == '__main__':
     with app.app_context():

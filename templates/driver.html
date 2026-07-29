@@ -4,11 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>JETTE 배송 기사 앱</title>
-    <form method="GET" style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px; background: white; padding: 8px 12px; border-radius: 6px; border: 1px solid #ced4da;">
-    <input type="hidden" name="driver_name" value="{{ driver_name }}">
-    <span style="font-size: 14px; font-weight: bold; color: #082c84;">📅 날짜 변경:</span>
-    <input type="date" name="target_date" value="{{ target_date.strftime('%Y-%m-%d') }}" onchange="this.form.submit()" style="padding: 6px; border-radius: 4px; border: 1px solid #ccc; font-family: 'Binggrae-Two'; flex: 1;">
-</form>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <style>
     @font-face {
@@ -142,9 +137,17 @@
         <div class="header-container">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <h3 style="color: #333; margin: 0; font-size: 17px; letter-spacing: -0.5px;">🚚 {{ date_str }} {{ driver_name }} 기사님 배차내역</h3>
-                <!-- 💡 [수정] 로그아웃 버튼 클릭 시 로컬스토리지 삭제 -->
+                <!-- 로그아웃 버튼 -->
                 <a href="#" onclick="localStorage.removeItem('jette_driver_name'); window.location.href='/driver'; return false;" style="font-size: 12px; color: #666; text-decoration: none; font-weight: bold; padding: 5px; border: 1px solid #ccc; border-radius: 4px; background: white;">로그아웃</a>
             </div>
+
+            <!-- 💡 [수정] 날짜 변경 폼을 로그인 성공 후 화면 안쪽(타이틀 밑)으로 이동 -->
+            <form method="GET" style="display: flex; gap: 10px; align-items: center; margin-top: 5px; margin-bottom: 5px; background: white; padding: 8px 12px; border-radius: 6px; border: 1px solid #ced4da;">
+                <input type="hidden" name="driver_name" value="{{ driver_name }}">
+                <span style="font-size: 14px; font-weight: bold; color: #082c84;">📅 날짜 변경:</span>
+                <input type="date" name="target_date" value="{{ target_date.strftime('%Y-%m-%d') }}" onchange="this.form.submit()" style="padding: 6px; border-radius: 4px; border: 1px solid #ccc; font-family: 'Binggrae-Two'; flex: 1;">
+            </form>
+
             {% if route_chunks %}
             <div style="display: flex; gap: 5px; flex-wrap: wrap; width: 100%;">
                 {% for chunk in route_chunks %}

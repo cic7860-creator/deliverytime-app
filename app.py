@@ -212,7 +212,7 @@ def admin_logout():
 def admin():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
     
-    if request.method == 'POST':
+if request.method == 'POST':
         excel_text = request.form.get('excel_text')
         if not excel_text or excel_text.strip() == '': return "입력된 데이터가 없습니다.", 400
         
@@ -222,25 +222,23 @@ def admin():
             driver_seq_counter = {}
             address_cache = {}
             
+            # 💡 [속도 개선] 센터 정보를 미리 메모리에 딕셔너리로 로드 (반복문 내 DB 쿼리 제거)
+            centers_map = {c.name: c.address for c in Center.query.all()}
+            
             if '매장주소' in df.columns:
                 unique_addresses = df['매장주소'].dropna().astype(str).str.strip().unique()
                 unique_addresses = [addr for addr in unique_addresses if addr]
                 
-                # 🚀 [업로드 속도 초고속 개선] 
-                # 1. DB에 이미 저장된 적이 있는 주소인지 한 번에 검색해서 가져옵니다 (API 호출 방지)
                 existing_dispatches = Dispatch.query.filter(
                     Dispatch.store_address.in_(unique_addresses),
                     Dispatch.store_x != None
                 ).all()
                 
-                # DB에서 찾은 좌표를 캐시(메모리)에 미리 다 넣어둡니다.
                 for ed in existing_dispatches:
                     address_cache[ed.store_address] = (ed.store_x, ed.store_y)
                 
-                # 2. 캐시에 없는, 즉 DB에도 없는 "진짜 처음 등장한 신규 매장 주소"만 골라냅니다.
                 missing_addresses = [addr for addr in unique_addresses if addr not in address_cache]
                 
-                # 3. 신규 매장 주소에 대해서만 카카오 API 호출 (멀티스레딩)
                 if missing_addresses:
                     def fetch_coord(addr): return addr, get_coords(addr)
                     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
@@ -266,13 +264,12 @@ def admin():
                     driver_seq_counter[driver_name] += 1
 
                 center_name_val = str(row.get('센터명', '')).strip()
-                center_obj = Center.query.filter_by(name=center_name_val).first()
-                center_addr_val = center_obj.address if center_obj else ''
+                # 💡 DB 조회 없이 메모리 맵에서 즉시 가져옴
+                center_addr_val = centers_map.get(center_name_val, '')
 
                 store_address_val = str(row.get('매장주소', '')).strip()
                 buffer_time_val = int(row['상하차시간(분)']) if '상하차시간(분)' in df.columns and pd.notna(row['상하차시간(분)']) else 10
                 
-                # 방금 전 채워둔 캐시(DB + API결과)에서 좌표를 0.1초만에 꺼내옵니다.
                 sx, sy = address_cache.get(store_address_val, (None, None))
 
                 dispatch_entry = Dispatch(
@@ -286,11 +283,8 @@ def admin():
                 db.session.add(dispatch_entry)
                 
             db.session.commit()
-            
-            # 💡 [추가 기능] 엑셀 업로드 시 7일 지난 과거 데이터 자동 정리
             clean_old_dispatches()
-            
-            return redirect(url_for('admin'))
+            return redirect(url_for('admin', target_date=request.args.get('target_date')))
         except Exception as e:
             db.session.rollback()
             return f"오류 발생: {str(e)} <br><br><a href='/admin'>돌아가기</a>"
@@ -1040,42 +1034,83 @@ def optimize_route():
 def bulk_update():
     if not session.get('is_admin'): return redirect(url_for('admin_login'))
     
-    target_date_str = request.form.get('target_date') # html에서 보낸 날짜 받기
+    target_date_str = request.form.get('target_date')
     dispatch_ids_str = request.form.get('dispatch_ids', '')
     
-    if dispatch_ids_str:
-        dispatch_ids = dispatch_ids_str.split(',')
-        for did in dispatch_ids:
-            if not did.strip(): continue
-            d = Dispatch.query.get(did)
-            if d:
-                new_address = request.form.get(f'address_{did}', d.store_address).strip()
-                
-                # 주소가 기존과 달라졌거나, 기존에 좌표(x, y)가 없던 경우 카카오 API로 좌표 재탐색
-                if new_address != d.store_address or not d.store_x or not d.store_y:
-                    d.store_address = new_address
-                    c_x, c_y = get_kakao_coords(new_address)
-                    if c_x and c_y:
-                        d.store_x = c_x
-                        d.store_y = c_y
-                    else:
-                        d.store_x = None
-                        d.store_y = None
-                
-                # 나머지 데이터 업데이트
-                buffer_val = request.form.get(f'buffer_{did}')
-                if buffer_val and buffer_val.isdigit():
-                    d.buffer_time = int(buffer_val)
-                    
-                d.driver_phone = request.form.get(f'driver_phone_{did}', d.driver_phone or '').strip()
-                d.store_phone = request.form.get(f'store_phone_{did}', d.store_phone or '').strip()
-                d.driver_name = request.form.get(f'driver_name_{did}', d.driver_name).strip()
-                d.vehicle_num = request.form.get(f'vehicle_num_{did}', d.vehicle_num).strip()
-                d.template_name = request.form.get(f'template_{did}', d.template_name or '').strip()
-                
-        db.session.commit()
+    if not dispatch_ids_str:
+        return redirect(url_for('admin', target_date=target_date_str))
         
-    # 저장이 끝난 후 원래 작업하던 날짜로 리다이렉트
+    dispatch_ids = [int(did.strip()) for did in dispatch_ids_str.split(',') if did.strip()]
+    if not dispatch_ids:
+        return redirect(url_for('admin', target_date=target_date_str))
+        
+    # 1. 💡 수정할 모든 데이터를 DB에서 '한 번의 쿼리'로 일괄 조회 (개별 조회로 인한 네트워크 지연 차단)
+    dispatches = Dispatch.query.filter(Dispatch.id.in_(dispatch_ids)).all()
+    dispatch_map = {d.id: d for d in dispatches}
+    
+    changed_addresses = set()
+    updates_data = {}
+    
+    # 2. 변경된 폼 데이터 수집 및 주소 변경 여부 파악
+    for did in dispatch_ids:
+        d = dispatch_map.get(did)
+        if not d: continue
+        
+        new_address = request.form.get(f'address_{did}', d.store_address).strip()
+        buffer_val = request.form.get(f'buffer_{did}')
+        driver_phone = request.form.get(f'driver_phone_{did}', d.driver_phone or '').strip()
+        store_phone = request.form.get(f'store_phone_{did}', d.store_phone or '').strip()
+        driver_name = request.form.get(f'driver_name_{did}', d.driver_name).strip()
+        vehicle_num = request.form.get(f'vehicle_num_{did}', d.vehicle_num).strip()
+        template_name = request.form.get(f'template_{did}', d.template_name or '').strip()
+        
+        updates_data[did] = {
+            'address': new_address,
+            'buffer': int(buffer_val) if buffer_val and buffer_val.isdigit() else d.buffer_time,
+            'driver_phone': driver_phone,
+            'store_phone': store_phone,
+            'driver_name': driver_name,
+            'vehicle_num': vehicle_num,
+            'template_name': template_name
+        }
+        
+        # 주소가 바뀌었거나 좌표가 없는 경우 카카오 API 조회 대상에 추가
+        if new_address != d.store_address or not d.store_x or not d.store_y:
+            changed_addresses.add(new_address)
+            
+    # 3. 💡 새로 바뀐 주소들의 좌표를 '멀티스레딩'으로 동시에 빠르게 조회
+    coord_cache = {}
+    if changed_addresses:
+        def fetch_coord(addr):
+            sx, sy = get_coords(addr)
+            return addr, (sx, sy)
+            
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            results = executor.map(fetch_coord, list(changed_addresses))
+            for addr, (sx, sy) in results:
+                coord_cache[addr] = (sx, sy)
+                
+    # 4. 메모리상에서 데이터를 빠르게 갱신한 뒤 '한 번에' DB 반영 (Commit)
+    for did, data in updates_data.items():
+        d = dispatch_map.get(did)
+        if not d: continue
+        
+        d.driver_phone = data['driver_phone']
+        d.store_phone = data['store_phone']
+        d.driver_name = data['driver_name']
+        d.vehicle_num = data['vehicle_num']
+        d.template_name = data['template_name']
+        d.buffer_time = data['buffer']
+        
+        new_address = data['address']
+        if new_address != d.store_address or not d.store_x or not d.store_y:
+            d.store_address = new_address
+            sx, sy = coord_cache.get(new_address, (None, None))
+            d.store_x = sx
+            d.store_y = sy
+            
+    db.session.commit()
+    
     return redirect(url_for('admin', target_date=target_date_str))
 
 if __name__ == '__main__':

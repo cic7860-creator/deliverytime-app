@@ -210,11 +210,13 @@ def admin_logout():
 # ==========================================
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
-    if not session.get('is_admin'): return redirect(url_for('admin_login'))
+    if not session.get('is_admin'): 
+        return redirect(url_for('admin_login'))
     
-if request.method == 'POST':
+    if request.method == 'POST':
         excel_text = request.form.get('excel_text')
-        if not excel_text or excel_text.strip() == '': return "입력된 데이터가 없습니다.", 400
+        if not excel_text or excel_text.strip() == '': 
+            return "입력된 데이터가 없습니다.", 400
         
         try:
             df = pd.read_csv(io.StringIO(excel_text), sep='\t')
@@ -222,7 +224,7 @@ if request.method == 'POST':
             driver_seq_counter = {}
             address_cache = {}
             
-            # 💡 [속도 개선] 센터 정보를 미리 메모리에 딕셔너리로 로드 (반복문 내 DB 쿼리 제거)
+            # 센터 정보를 미리 메모리에 딕셔너리로 로드
             centers_map = {c.name: c.address for c in Center.query.all()}
             
             if '매장주소' in df.columns:
@@ -240,7 +242,8 @@ if request.method == 'POST':
                 missing_addresses = [addr for addr in unique_addresses if addr not in address_cache]
                 
                 if missing_addresses:
-                    def fetch_coord(addr): return addr, get_coords(addr)
+                    def fetch_coord(addr): 
+                        return addr, get_coords(addr)
                     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
                         results = executor.map(fetch_coord, missing_addresses)
                         for addr, (sx, sy) in results: 
@@ -249,12 +252,16 @@ if request.method == 'POST':
             for index, row in df.iterrows():
                 raw_date = str(row.get('배송일자', '')).strip()
                 clean_date = raw_date.replace('년', '-').replace('월', '-').replace('일', '').replace(' ', '')
-                if len(clean_date.split('-')) == 2: clean_date = f"{datetime.now().year}-{clean_date}"
-                try: delivery_date = pd.to_datetime(clean_date).date()
-                except: delivery_date = datetime.now().date()
+                if len(clean_date.split('-')) == 2: 
+                    clean_date = f"{datetime.now().year}-{clean_date}"
+                try: 
+                    delivery_date = pd.to_datetime(clean_date).date()
+                except: 
+                    delivery_date = datetime.now().date()
                 
                 driver_name = str(row.get('기사명', '')).strip()
-                if driver_name not in driver_seq_counter: driver_seq_counter[driver_name] = 1
+                if driver_name not in driver_seq_counter: 
+                    driver_seq_counter[driver_name] = 1
 
                 if '배송순서' in df.columns and pd.notna(row['배송순서']):
                     seq_value = int(row['배송순서'])
@@ -264,7 +271,6 @@ if request.method == 'POST':
                     driver_seq_counter[driver_name] += 1
 
                 center_name_val = str(row.get('센터명', '')).strip()
-                # 💡 DB 조회 없이 메모리 맵에서 즉시 가져옴
                 center_addr_val = centers_map.get(center_name_val, '')
 
                 store_address_val = str(row.get('매장주소', '')).strip()
@@ -273,23 +279,33 @@ if request.method == 'POST':
                 sx, sy = address_cache.get(store_address_val, (None, None))
 
                 dispatch_entry = Dispatch(
-                    delivery_date=delivery_date, center_name=center_name_val, center_address=center_addr_val, 
-                    vehicle_num=str(row.get('차량번호', '')).strip(), driver_name=driver_name, 
-                    store_code=str(row.get('매장코드', '')).strip(), store_name=str(row.get('매장명', '')).strip(),
-                    store_address=store_address_val, delivery_seq=seq_value, buffer_time=buffer_time_val, 
-                    store_x=sx, store_y=sy, driver_phone=str(row.get('기사전화번호', '')).strip(),
-                    store_phone=str(row.get('매장전화번호', '')).strip(), template_name=str(row.get('템플릿양식', '')).strip()
+                    delivery_date=delivery_date, 
+                    center_name=center_name_val, 
+                    center_address=center_addr_val, 
+                    vehicle_num=str(row.get('차량번호', '')).strip(), 
+                    driver_name=driver_name, 
+                    store_code=str(row.get('매장코드', '')).strip(), 
+                    store_name=str(row.get('매장명', '')).strip(),
+                    store_address=store_address_val, 
+                    delivery_seq=seq_value, 
+                    buffer_time=buffer_time_val, 
+                    store_x=sx, 
+                    store_y=sy, 
+                    driver_phone=str(row.get('기사전화번호', '')).strip(),
+                    store_phone=str(row.get('매장전화번호', '')).strip(), 
+                    template_name=str(row.get('템플릿양식', '')).strip()
                 )
                 db.session.add(dispatch_entry)
                 
             db.session.commit()
             clean_old_dispatches()
             return redirect(url_for('admin', target_date=request.args.get('target_date')))
+            
         except Exception as e:
             db.session.rollback()
             return f"오류 발생: {str(e)} <br><br><a href='/admin'>돌아가기</a>"
             
-# GET 요청 시: 날짜 선택 또는 DB 최근 일자
+    # GET 요청 시: 날짜 선택 또는 DB 최근 일자
     target_date_str = request.args.get('target_date')
     if target_date_str:
         target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()

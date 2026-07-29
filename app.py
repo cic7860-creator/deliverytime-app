@@ -1065,4 +1065,10 @@ def bulk_update():
     return redirect(url_for('admin'))
 
 if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()  # 💡 이게 있어야 새 DB(Supabase)에 테이블이 자동으로 생성됩니다.
+        
+        # 관리자 계정 생성 (선택 사항)
+        # create_admin() 
     app.run(host='0.0.0.0', port=5000, debug=True)
+    

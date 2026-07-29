@@ -96,7 +96,9 @@
     </script>
 </head>
 <body>
-    <form id="deleteForm" method="POST" style="display:none;"></form>
+<form id="deleteForm" method="POST" style="display:none;">
+        <input type="hidden" name="target_date" value="{{ target_date.strftime('%Y-%m-%d') if target_date else '' }}">
+    </form>
 
     <div class="container">
         <div class="top-nav">
@@ -162,14 +164,19 @@
         <div class="section-title">
             <h3 style="margin: 0;">📋 금일 배차 내역 <span style="color:#6c757d; font-size:16px;">(총 {{ dispatches|length }} 건)</span></h3>
             <div style="display: flex; gap: 10px;">
-                <form action="/admin/delete_by_center" method="POST" onsubmit="return confirm('선택한 센터의 배차 데이터를 모두 삭제하시겠습니까?');" style="margin: 0; display: flex; gap: 5px;">
+                <form action="/admin/delete_by_center" method="POST" onsubmit="return confirm('선택한 센터의 해당 일자 배차 데이터를 모두 삭제하시겠습니까?');" style="margin: 0; display: flex; gap: 5px;">
+                    <!-- 💡 날짜 데이터 추가 -->
+                    <input type="hidden" name="target_date" value="{{ target_date.strftime('%Y-%m-%d') if target_date else '' }}">
                     <select name="center_name" required style="padding: 8px; border-radius: 4px; border: 1px solid #ced4da; font-family: 'Binggrae-Two';">
                         <option value="">센터 선택</option>
                         {% for c in centers %} <option value="{{ c.name }}">{{ c.name }}</option> {% endfor %}
                     </select>
                     <button type="submit" class="btn btn-danger" style="background-color: #ff9800;">선택 센터 일괄삭제</button>
                 </form>
-                <form action="/admin/delete_all" method="POST" onsubmit="return confirm('정말 모든 배차 데이터를 삭제하시겠습니까?');" style="margin: 0;">
+                
+                <form action="/admin/delete_all" method="POST" onsubmit="return confirm('정말 해당 일자의 모든 배차 데이터를 삭제하시겠습니까?');" style="margin: 0;">
+                    <!-- 💡 날짜 데이터 추가 -->
+                    <input type="hidden" name="target_date" value="{{ target_date.strftime('%Y-%m-%d') if target_date else '' }}">
                     <button type="submit" class="btn btn-danger">🚨 전체 삭제 (초기화)</button>
                 </form>
             </div>
@@ -190,7 +197,10 @@
         </div>
 
         <div class="table-responsive">
+            <!-- 기존 폼 교체 -->
             <form id="bulkUpdateForm" action="/admin/bulk_update" method="POST">
+                <!-- 💡 날짜 데이터 추가 -->
+                <input type="hidden" name="target_date" value="{{ target_date.strftime('%Y-%m-%d') if target_date else '' }}">
                 <input type="hidden" name="dispatch_ids" value="{{ dispatches | map(attribute='id') | join(',') }}">
                 
                 <table id="dispatchTable">

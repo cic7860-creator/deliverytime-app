@@ -4,10 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=1300">
     <title>문자 발송 관리 - JETTE</title>
-    <form method="GET" style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; background: white; padding: 10px 15px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); width: fit-content; border: 1px solid #ced4da;">
-    <span style="font-weight: bold; color: #082c84;">📅 조회 일자:</span>
-    <input type="date" name="target_date" value="{{ target_date.strftime('%Y-%m-%d') }}" onchange="this.form.submit()" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: 'Binggrae-Two'; font-weight: bold;">
-</form>
     <style>
     @font-face {
         font-family: 'Binggrae-Two';
@@ -68,11 +64,17 @@
             }
         }
 
-        // 💡 [수정] 엑셀 다운로드 시 토글(체크박스)의 ON/OFF 상태를 함께 전송합니다.
         function downloadSmsExcel() {
             let center = document.getElementById("smsCenterFilter").value;
             let filterPast = document.getElementById("filterPastArrivals").checked;
-            window.location.href = "/download_sms_excel?center_name=" + encodeURIComponent(center) + "&filter_past=" + filterPast;
+            let targetDate = document.querySelector('input[name="target_date"]').value;
+            window.location.href = "/download_sms_excel?center_name=" + encodeURIComponent(center) + "&filter_past=" + filterPast + "&target_date=" + targetDate;
+        }
+
+        function downloadPreDispatchExcel() {
+            let center = document.getElementById("smsCenterFilter").value;
+            let targetDate = document.querySelector('input[name="target_date"]').value;
+            window.location.href = "/download_pre_dispatch_sms_excel?center_name=" + encodeURIComponent(center) + "&target_date=" + targetDate;
         }
 
         function editTemplate(id, name, subject, sender, content) {
@@ -104,6 +106,11 @@
     </script>
 </head>
 <body>
+    <form method="GET" style="display: flex; gap: 10px; align-items: center; margin: 20px auto; background: white; padding: 10px 15px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); width: fit-content; border: 1px solid #ced4da;">
+        <span style="font-weight: bold; color: #082c84;">📅 조회 일자:</span>
+        <input type="date" name="target_date" value="{{ target_date.strftime('%Y-%m-%d') }}" onchange="this.form.submit()" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: 'Binggrae-Two'; font-weight: bold;">
+    </form>
+
     <div class="container">
         <div class="top-nav">
             <div>
@@ -173,9 +180,7 @@
                 <p>다중 연락처('/')가 있는 경우 여러 줄로 자동 분할되어 엑셀이 생성됩니다.</p>
             </div>
             
-            <!-- 💡 [신규] 우측 정렬된 필터 및 다운로드 그룹 -->
             <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: flex-end;">
-                <!-- ON/OFF 체크박스 -->
                 <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: bold; color: #198754; background: #e8f5e9; padding: 13px 15px; border-radius: 6px; cursor: pointer; border: 1px solid #c8e6c9;">
                     <input type="checkbox" id="filterPastArrivals" checked style="width: 18px; height: 18px; cursor: pointer; accent-color: #198754;">
                     현시점 이후 매장만 (완료 제외)
@@ -187,7 +192,11 @@
                     <option value="{{ center }}">{{ center }}</option>
                     {% endfor %}
                 </select>
-                <button onclick="downloadSmsExcel()" class="btn-download">📥 선택 센터 양식 다운로드</button>
+                
+                <div style="display: flex; gap: 8px;">
+                    <button onclick="downloadSmsExcel()" class="btn-download">📥 도착안내 문자 다운</button>
+                    <button onclick="downloadPreDispatchExcel()" class="btn-download" style="background-color: #198754;">📋 배차정보 문자 다운</button>
+                </div>
             </div>
         </div>
 

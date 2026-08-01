@@ -197,39 +197,55 @@
 
         {% if dispatches %}
 
-<!-- 💡 [수정] 관리자 강제 출발처리 기능 (다중 선택 + 완료 기사 숨기기 추가) -->
+<!-- 💡 [수정] 관리자 강제 출발처리 기능 (센터 필터 + 기사명 타이핑 검색 + 완료 숨기기 통합) -->
         {% set unique_drivers = dispatches | map(attribute='driver_name') | unique | list %}
         {% set departed_drivers = dispatches | selectattr('center_depart_time') | map(attribute='driver_name') | list %}
         
         {% if unique_drivers %}
         <div style="margin-bottom: 15px; background: #e3f2fd; padding: 12px 20px; border-radius: 8px; border: 1px solid #90caf9; display: flex; align-items: flex-start; flex-direction: column; gap: 10px;">
-            <div style="font-size: 15px; font-weight: bold; color: #082c84;">
-                🚀 관리자 임의 출발 일괄 지정 <span style="font-size: 12px; color: #555; font-weight: normal;">(체크박스로 여러 명을 동시에 선택할 수 있습니다)</span>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 10px;">
+                <div style="font-size: 15px; font-weight: bold; color: #082c84;">
+                    🚀 관리자 임의 출발 일괄 지정 <span style="font-size: 12px; color: #555; font-weight: normal;">(조건 검색 후 다중 선택 가능)</span>
+                </div>
+                
+                <!-- 💡 신규: 센터 필터 및 텍스트 검색 컨트롤 -->
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <select id="departCenterFilter" onchange="applyDriverFilters()" style="padding: 6px; border-radius: 4px; border: 1px solid #ced4da; font-family: 'Binggrae-Two';">
+                        <option value="">🏢 전체 센터</option>
+                        {% for c in centers %}
+                        <option value="{{ c.name }}">{{ c.name }}</option>
+                        {% endfor %}
+                    </select>
+                    
+                    <input type="text" id="departDriverSearch" onkeyup="applyDriverFilters()" placeholder="🔍 기사명 검색..." style="padding: 6px; border-radius: 4px; border: 1px solid #ced4da; font-family: 'Binggrae-Two'; width: 140px;">
+                    
+                    <label style="cursor: pointer; font-weight: bold; color: #17a2b8; font-size: 13px;">
+                        <input type="checkbox" id="hideDepartedChk" onchange="applyDriverFilters()" checked style="vertical-align: middle;"> 출발한 기사 숨기기
+                    </label>
+                </div>
             </div>
             
             <form action="/admin/force_depart" method="POST" style="margin: 0; width: 100%; display: flex; gap: 10px; align-items: stretch; flex-wrap: wrap;" onsubmit="if(document.querySelectorAll('.drv-chk:checked').length === 0) { alert('출발 처리할 기사님을 최소 1명 이상 선택해주세요.'); return false; }">
                 <input type="hidden" name="target_date" value="{{ target_date.strftime('%Y-%m-%d') if target_date else '' }}">
                 
                 <!-- 💡 기사님 다중 선택 체크박스 영역 -->
-                <div style="flex: 1; background: white; border: 1px solid #ced4da; border-radius: 4px; padding: 10px; display: flex; gap: 12px; flex-wrap: wrap; min-width: 250px; max-height: 85px; overflow-y: auto;">
+                <div style="flex: 1; background: white; border: 1px solid #ced4da; border-radius: 4px; padding: 10px; display: flex; gap: 12px; flex-wrap: wrap; min-width: 250px; max-height: 120px; overflow-y: auto;">
                     
-                    <!-- 💡 [신규] 완료된 기사 숨기기 토글 (기본값: 체크됨) -->
-                    <label style="cursor: pointer; font-weight: bold; color: #17a2b8; font-size: 14px; border-right: 2px solid #eee; padding-right: 12px;">
-                        <input type="checkbox" id="hideDepartedChk" onchange="toggleDeparted(this.checked)" checked> 출발한 기사 숨기기
-                    </label>
-
                     <!-- 💡 전체선택 토글 -->
-                    <label style="cursor: pointer; font-weight: bold; color: #d63384; font-size: 14px; border-right: 2px solid #eee; padding-right: 12px;">
-                        <input type="checkbox" onchange="toggleSelectAll(this.checked)"> 전체선택
+                    <label style="cursor: pointer; font-weight: bold; color: #d63384; font-size: 14px; border-right: 2px solid #eee; padding-right: 12px; height: fit-content;">
+                        <input type="checkbox" id="selectAllChk" onchange="toggleSelectAll(this.checked)"> 전체선택
                     </label>
                     
                     {% for driver in unique_drivers %}
                     {% set is_departed = driver in departed_drivers %}
-                    <!-- 이미 출발한 기사님은 is-departed 클래스를 붙이고 기본적으로 숨김 처리 -->
-                    <label class="drv-label {{ 'is-departed' if is_departed else '' }}" style="cursor: pointer; font-size: 14px; color: {{ '#adb5bd; text-decoration: line-through;' if is_departed else '#333;' }} display: {{ 'none' if is_departed else 'inline-flex' }}; align-items: center; gap: 4px;">
+                    {% set d_center = (dispatches | selectattr('driver_name', 'equalto', driver) | first).center_name %}
+                    
+                    <!-- data-center 와 data-name 속성을 심어서 자바스크립트가 쉽게 검색하도록 함 -->
+                    <label class="drv-label {{ 'is-departed' if is_departed else '' }}" data-center="{{ d_center }}" data-name="{{ driver | lower }}" style="cursor: pointer; font-size: 14px; color: {{ '#adb5bd; text-decoration: line-through;' if is_departed else '#333;' }} display: {{ 'none' if is_departed else 'inline-flex' }}; align-items: center; gap: 4px;">
                         <input type="checkbox" name="driver_names" value="{{ driver }}" class="drv-chk"> 
-                        {{ driver }}
-                        {% if is_departed %}<span style="font-size: 11px;">(완료)</span>{% endif %}
+                        {{ driver }} <span style="font-size: 11px; color: #999;">({{ d_center }})</span>
+                        {% if is_departed %}<span style="font-size: 11px; color: #adb5bd;">(완료)</span>{% endif %}
                     </label>
                     {% endfor %}
                 </div>
@@ -241,24 +257,45 @@
                 </div>
             </form>
 
-            <!-- 💡 체크박스 스마트 조작을 위한 자바스크립트 -->
+            <!-- 💡 통합 필터링 및 검색 자바스크립트 -->
             <script>
-                // 완료된 기사 숨기기/보이기 기능
-                function toggleDeparted(isHide) {
-                    const departedLabels = document.querySelectorAll('.drv-label.is-departed');
-                    departedLabels.forEach(label => {
-                        label.style.display = isHide ? 'none' : 'inline-flex';
-                        // 숨길 때는 안전하게 체크도 함께 해제
-                        if (isHide) {
+                function applyDriverFilters() {
+                    const centerFilter = document.getElementById('departCenterFilter').value;
+                    const searchText = document.getElementById('departDriverSearch').value.toLowerCase();
+                    const hideDeparted = document.getElementById('hideDepartedChk').checked;
+                    
+                    const labels = document.querySelectorAll('.drv-label');
+                    
+                    labels.forEach(label => {
+                        const center = label.getAttribute('data-center');
+                        const name = label.getAttribute('data-name');
+                        const isDeparted = label.classList.contains('is-departed');
+                        
+                        let show = true;
+                        
+                        // 1. 센터 필터가 선택되었고, 일치하지 않으면 숨김
+                        if (centerFilter && center !== centerFilter) show = false;
+                        // 2. 검색어가 입력되었고, 이름에 포함되지 않으면 숨김
+                        if (searchText && !name.includes(searchText)) show = false;
+                        // 3. 완료 기사 숨기기가 켜져있고, 이미 완료된 기사면 숨김
+                        if (hideDeparted && isDeparted) show = false;
+                        
+                        label.style.display = show ? 'inline-flex' : 'none';
+                        
+                        // 화면에서 숨겨지는 기사님은 안전하게 체크 상태를 강제로 해제
+                        if (!show) {
                             label.querySelector('.drv-chk').checked = false;
                         }
                     });
+                    
+                    // 필터 조건이 바뀔 때마다 '전체선택' 체크박스를 초기화합니다
+                    document.getElementById('selectAllChk').checked = false;
                 }
 
-                // 화면에 "보이는" 기사님만 전체 선택/해제 기능
                 function toggleSelectAll(isChecked) {
                     const allLabels = document.querySelectorAll('.drv-label');
                     allLabels.forEach(label => {
+                        // 현재 화면에 "보이는" 기사님들만 체크/해제 처리
                         if (label.style.display !== 'none') {
                             label.querySelector('.drv-chk').checked = isChecked;
                         }
@@ -266,7 +303,7 @@
                 }
             </script>
         </div>
-        {% endif %} 
+        {% endif %}
         
 <!-- 💡 기존 검색창 & 일괄 저장 버튼 감싸는 div 블록을 찾아 교체해주세요 -->
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; background: #e9ecef; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6; gap: 15px; flex-wrap: wrap;">

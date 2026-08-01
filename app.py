@@ -1102,6 +1102,31 @@ def admin_force_depart():
         db.session.commit()
         
     return redirect(url_for('admin', target_date=target_date_str))
+    
+# ==========================================
+# 💡 [신규] 관리자 권한 기사님 강제 출발 일괄 취소 (초기화)
+# ==========================================
+@app.route('/admin/cancel_force_depart', methods=['POST'])
+def admin_cancel_force_depart():
+    if not session.get('is_admin'): 
+        return redirect(url_for('admin_login'))
+    
+    target_date_str = request.form.get('target_date')
+    driver_names = request.form.getlist('driver_names') 
+    
+    if target_date_str and driver_names:
+        target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
+        
+        # 💡 선택한 모든 기사님들의 출발 시간과 예상 도착 시간을 다시 'None(비어있음)'으로 초기화
+        for driver_name in driver_names:
+            dispatches = Dispatch.query.filter_by(driver_name=driver_name, delivery_date=target_date).all()
+            for d in dispatches:
+                d.center_depart_time = None
+                d.estimated_arrival = None
+                
+        db.session.commit()
+        
+    return redirect(url_for('admin', target_date=target_date_str))
 
 @app.route('/admin/bulk_update', methods=['POST'])
 def bulk_update():

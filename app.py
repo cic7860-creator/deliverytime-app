@@ -1072,7 +1072,7 @@ def upload_completion():
     return redirect(url_for('notice_page'))
 
 # ==========================================
-# 💡 [신규] 관리자 권한 기사님 강제 출발 지정 (ETA 계산 연동)
+# 💡 [수정] 관리자 권한 기사님 강제 출발 지정 (다중 선택 일괄 적용)
 # ==========================================
 @app.route('/admin/force_depart', methods=['POST'])
 def admin_force_depart():
@@ -1080,24 +1080,25 @@ def admin_force_depart():
         return redirect(url_for('admin_login'))
     
     target_date_str = request.form.get('target_date')
-    driver_name = request.form.get('driver_name')
+    # 💡 getlist를 사용하여 체크된 여러 명의 기사님 이름을 한 번에 배열(리스트)로 받습니다.
+    driver_names = request.form.getlist('driver_names') 
     depart_time_str = request.form.get('depart_time')
     
-    if target_date_str and driver_name and depart_time_str:
+    if target_date_str and driver_names and depart_time_str:
         target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
         time_obj = datetime.strptime(depart_time_str, '%H:%M').time()
-        
-        # 선택한 날짜와 입력한 시간을 합체!
         depart_dt = datetime.combine(target_date, time_obj)
         
-        # 해당 일자, 해당 기사님의 모든 배차 내역을 가져와 출발 시간을 세팅
-        dispatches = Dispatch.query.filter_by(driver_name=driver_name, delivery_date=target_date).order_by(Dispatch.delivery_seq).all()
-        for d in dispatches:
-            d.center_depart_time = depart_dt
-        db.session.commit()
-        
-        # 💡 [핵심] 출발 시간이 생겼으므로, 카카오 길찾기를 돌려 즉시 예상 도착시간(ETA)을 생성합니다.
-        update_etas_for_driver(driver_name, target_date)
+        # 💡 선택한 모든 기사님들을 반복하면서 일괄적으로 출발시간 세팅 & ETA 계산
+        for driver_name in driver_names:
+            dispatches = Dispatch.query.filter_by(driver_name=driver_name, delivery_date=target_date).order_by(Dispatch.delivery_seq).all()
+            for d in dispatches:
+                d.center_depart_time = depart_dt
+            db.session.commit()
+            
+            # 각 기사님별 카카오 내비게이션 도착 시간 계산
+            update_etas_for_driver(driver_name, target_date)
+            
         db.session.commit()
         
     return redirect(url_for('admin', target_date=target_date_str))

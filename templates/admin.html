@@ -196,6 +196,30 @@
         </div>
 
         {% if dispatches %}
+
+<!-- 💡 [신규] 관리자 강제 출발처리 기능 -->
+        {% set unique_drivers = dispatches | map(attribute='driver_name') | unique | list %}
+        {% if unique_drivers %}
+        <div style="margin-bottom: 15px; background: #e3f2fd; padding: 12px 20px; border-radius: 8px; border: 1px solid #90caf9; display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+            <div style="font-size: 15px; font-weight: bold; color: #082c84;">
+                🚀 관리자 임의 출발 지정 <span style="font-size: 12px; color: #555; font-weight: normal;">(문자 발송용 ETA 미리 계산)</span>
+            </div>
+            <form action="/admin/force_depart" method="POST" style="margin: 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <!-- 현재 조회 중인 날짜 몰래 전달 -->
+                <input type="hidden" name="target_date" value="{{ target_date.strftime('%Y-%m-%d') if target_date else '' }}">
+                
+                <select name="driver_name" required style="padding: 8px; border-radius: 4px; border: 1px solid #ced4da; font-family: 'Binggrae-Two';">
+                    <option value="">기사님 선택</option>
+                    {% for driver in unique_drivers %}
+                    <option value="{{ driver }}">{{ driver }}</option>
+                    {% endfor %}
+                </select>
+                <input type="time" name="depart_time" required style="padding: 8px; border-radius: 4px; border: 1px solid #ced4da; font-family: 'Binggrae-Two';">
+                <button type="submit" class="btn btn-primary" style="padding: 8px 15px; background-color: #0d6efd; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">출발 시간 적용</button>
+            </form>
+        </div>
+        {% endif %}        
+        
 <!-- 💡 기존 검색창 & 일괄 저장 버튼 감싸는 div 블록을 찾아 교체해주세요 -->
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; background: #e9ecef; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6; gap: 15px; flex-wrap: wrap;">
     <div class="search-container" style="margin: 0; flex: 1; display: flex; gap: 10px; min-width: 280px;">

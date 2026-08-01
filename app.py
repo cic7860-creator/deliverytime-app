@@ -123,12 +123,18 @@ def get_driving_time(start_x, start_y, end_x, end_y):
     except Exception: pass
     return 25 * 60 
 
-def update_etas_for_driver(driver_name):
-    dispatches = Dispatch.query.filter_by(driver_name=driver_name).order_by(Dispatch.delivery_seq).all()
+    def update_etas_for_driver(driver_name, target_date=None):
+    if not target_date:
+        latest = Dispatch.query.filter_by(driver_name=driver_name).order_by(Dispatch.delivery_date.desc()).first()
+        if not latest: return
+        target_date = latest.delivery_date
+        
+    # 💡 과거 기록과 섞이지 않도록 선택된 '해당 날짜'의 배차만 불러옴
+    dispatches = Dispatch.query.filter_by(driver_name=driver_name, delivery_date=target_date).order_by(Dispatch.delivery_seq).all()
     if not dispatches: return
     base_depart_time = dispatches[0].center_depart_time
     if not base_depart_time: return 
-        
+    
     routes_to_fetch = []
     current_x, current_y = get_coords(dispatches[0].center_address if dispatches[0].center_address else dispatches[0].store_address)
     for d in dispatches:
@@ -260,15 +266,17 @@ def admin():
                     delivery_date = datetime.now().date()
                 
                 driver_name = str(row.get('기사명', '')).strip()
-                if driver_name not in driver_seq_counter: 
-                    driver_seq_counter[driver_name] = 1
+                
+                # 💡 [핵심] 엑셀에서 순서를 매길 때 "기사명 + 배송일자"를 묶어서 독립적으로 계산
+                if (driver_name, delivery_date) not in driver_seq_counter: 
+                    driver_seq_counter[(driver_name, delivery_date)] = 1
 
                 if '배송순서' in df.columns and pd.notna(row['배송순서']):
                     seq_value = int(row['배송순서'])
-                    driver_seq_counter[driver_name] = seq_value + 1
+                    driver_seq_counter[(driver_name, delivery_date)] = seq_value + 1
                 else:
-                    seq_value = driver_seq_counter[driver_name]
-                    driver_seq_counter[driver_name] += 1
+                    seq_value = driver_seq_counter[(driver_name, delivery_date)]
+                    driver_seq_counter[(driver_name, delivery_date)] += 1
 
                 center_name_val = str(row.get('센터명', '')).strip()
                 center_addr_val = centers_map.get(center_name_val, '')
@@ -550,27 +558,37 @@ def update_phones(dispatch_id):
 def depart_center():
     driver_name = request.form.get('driver_name')
     manual_time_str = request.form.get('manual_time') 
-    dispatches = Dispatch.query.filter_by(driver_name=driver_name).order_by(Dispatch.delivery_seq).all()
+    
+    latest = Dispatch.query.filter_by(driver_name=driver_name).order_by(Dispatch.delivery_date.desc()).first()
+    target_date = latest.delivery_date if latest else datetime.now().date()
+    
+    # 💡 오늘(혹은 지정한 날짜) 배차 내역만 업데이트
+    dispatches = Dispatch.query.filter_by(driver_name=driver_name, delivery_date=target_date).order_by(Dispatch.delivery_seq).all()
     if not dispatches: return "데이터 없음", 404
+    
     depart_dt = datetime.now() 
     if manual_time_str:
         today = datetime.now().date()
         time_obj = datetime.strptime(manual_time_str, '%H:%M').time()
         depart_dt = datetime.combine(today, time_obj)
+        
     for d in dispatches: d.center_depart_time = depart_dt
     db.session.commit()
-    update_etas_for_driver(driver_name)
+    update_etas_for_driver(driver_name, target_date)
     db.session.commit()
-    return redirect(url_for('driver', driver_name=driver_name))
+    return redirect(url_for('driver', driver_name=driver_name, target_date=target_date.strftime('%Y-%m-%d')))
 
 @app.route('/cancel_depart', methods=['POST'])
 def cancel_depart():
     driver_name = request.form.get('driver_name')
-    for d in Dispatch.query.filter_by(driver_name=driver_name).all():
+    latest = Dispatch.query.filter_by(driver_name=driver_name).order_by(Dispatch.delivery_date.desc()).first()
+    target_date = latest.delivery_date if latest else datetime.now().date()
+    
+    for d in Dispatch.query.filter_by(driver_name=driver_name, delivery_date=target_date).all():
         d.center_depart_time = None
         d.estimated_arrival = None
     db.session.commit()
-    return redirect(url_for('driver', driver_name=driver_name))
+    return redirect(url_for('driver', driver_name=driver_name, target_date=target_date.strftime('%Y-%m-%d')))
 
 @app.route('/complete/<int:dispatch_id>', methods=['POST'])
 def complete_delivery(dispatch_id):
@@ -579,9 +597,9 @@ def complete_delivery(dispatch_id):
         dispatch.is_departed = True
         dispatch.departure_time = datetime.now()
         db.session.commit()
-        update_etas_for_driver(dispatch.driver_name) 
+        update_etas_for_driver(dispatch.driver_name, dispatch.delivery_date) 
         db.session.commit()
-        return redirect(url_for('driver', driver_name=dispatch.driver_name))
+        return redirect(url_for('driver', driver_name=dispatch.driver_name, target_date=dispatch.delivery_date.strftime('%Y-%m-%d')))
     return "데이터 없음", 404
 
 @app.route('/update_seq/<int:dispatch_id>', methods=['POST'])
@@ -590,33 +608,96 @@ def update_seq(dispatch_id):
     if dispatch:
         new_seq = request.form.get('new_seq', type=int)
         if new_seq:
-            completed_count = Dispatch.query.filter_by(driver_name=dispatch.driver_name, is_departed=True).count()
+            target_date = dispatch.delivery_date
+            # 💡 [핵심] 어제 기록을 무시하고 '오늘' 완료된 갯수만 카운트!
+            completed_count = Dispatch.query.filter_by(driver_name=dispatch.driver_name, delivery_date=target_date, is_departed=True).count()
             if new_seq <= completed_count: new_seq = completed_count + 1
             dispatch.delivery_seq = new_seq
             db.session.commit()
-            update_etas_for_driver(dispatch.driver_name)
+            update_etas_for_driver(dispatch.driver_name, target_date)
             db.session.commit()
-        return redirect(url_for('driver', driver_name=dispatch.driver_name))
+        return redirect(url_for('driver', driver_name=dispatch.driver_name, target_date=dispatch.delivery_date.strftime('%Y-%m-%d')))
     return "데이터 없음", 404
 
 @app.route('/update_order', methods=['POST'])
 def update_order():
     order_data = request.json
     driver_name = None
+    target_date = None
     if order_data:
         first_dispatch = Dispatch.query.get(int(order_data[0]))
         if first_dispatch:
             driver_name = first_dispatch.driver_name
-            completed_count = Dispatch.query.filter_by(driver_name=driver_name, is_departed=True).count()
+            target_date = first_dispatch.delivery_date
+            
+            # 💡 [핵심] 드래그 앤 드롭 정렬 시에도 '오늘' 완료된 갯수만 카운트!
+            completed_count = Dispatch.query.filter_by(driver_name=driver_name, delivery_date=target_date, is_departed=True).count()
             for index, item_id in enumerate(order_data):
                 dispatch = Dispatch.query.get(int(item_id))
                 if dispatch and not dispatch.is_departed:
                     dispatch.delivery_seq = completed_count + index + 1
         db.session.commit()
-        if driver_name:
-            update_etas_for_driver(driver_name)
+        if driver_name and target_date:
+            update_etas_for_driver(driver_name, target_date)
             db.session.commit()
     return {"status": "success"}
+
+@app.route('/optimize_route', methods=['POST'])
+def optimize_route():
+    driver_name = request.form.get('driver_name')
+    if not driver_name:
+        return redirect(url_for('driver'))
+
+    latest = Dispatch.query.filter_by(driver_name=driver_name).order_by(Dispatch.delivery_date.desc()).first()
+    target_date = latest.delivery_date if latest else datetime.now().date()
+
+    # 💡 [핵심] AI 최적화 시에도 '해당 날짜' 데이터만 가져옴
+    dispatches = Dispatch.query.filter_by(driver_name=driver_name, delivery_date=target_date).order_by(Dispatch.delivery_seq).all()
+    if not dispatches:
+        return redirect(url_for('driver', driver_name=driver_name, target_date=target_date.strftime('%Y-%m-%d')))
+
+    completed = [d for d in dispatches if d.is_departed]
+    uncompleted = [d for d in dispatches if not d.is_departed and d.store_x and d.store_y]
+    uncompleted_no_coords = [d for d in dispatches if not d.is_departed and (not d.store_x or not d.store_y)]
+
+    if not uncompleted:
+        return redirect(url_for('driver', driver_name=driver_name, target_date=target_date.strftime('%Y-%m-%d')))
+
+    driver_center = dispatches[0].center_name
+    
+    target_center_obj = Center.query.filter_by(name=driver_center).first()
+    if target_center_obj and target_center_obj.center_y and target_center_obj.center_x:
+        current_lat, current_lng = float(target_center_obj.center_y), float(target_center_obj.center_x)
+    else:
+        current_lat, current_lng = 37.5665, 126.9780
+    
+    if completed:
+        last_completed = completed[-1]
+        if last_completed.store_y and last_completed.store_x:
+            current_lat = float(last_completed.store_y)
+            current_lng = float(last_completed.store_x)
+
+    optimized_list = []
+    current_node = (current_lat, current_lng)
+    candidates = uncompleted.copy()
+    
+    while candidates:
+        closest = min(candidates, key=lambda d: haversine(current_node[0], current_node[1], float(d.store_y), float(d.store_x)))
+        optimized_list.append(closest)
+        candidates.remove(closest)
+        current_node = (float(closest.store_y), float(closest.store_x))
+
+    start_seq = len(completed) + 1
+    for idx, d in enumerate(optimized_list):
+        d.delivery_seq = start_seq + idx
+        
+    for idx, d in enumerate(uncompleted_no_coords):
+        d.delivery_seq = start_seq + len(optimized_list) + idx
+
+    db.session.commit()
+    update_etas_for_driver(driver_name, target_date)
+    db.session.commit()
+    return redirect(url_for('driver', driver_name=driver_name, target_date=target_date.strftime('%Y-%m-%d')))
 
 @app.route('/dashboard')
 def dashboard():
@@ -989,62 +1070,6 @@ def upload_completion():
         file.save(save_path)
         
     return redirect(url_for('notice_page'))
-
-# ==========================================
-# 💡 [수정] AI 최적 경로 정렬 (DB 센터 좌표 기준 탐색)
-# ==========================================
-@app.route('/optimize_route', methods=['POST'])
-def optimize_route():
-    driver_name = request.form.get('driver_name')
-    if not driver_name:
-        return redirect(url_for('driver'))
-
-    dispatches = Dispatch.query.filter_by(driver_name=driver_name).order_by(Dispatch.delivery_seq).all()
-    if not dispatches:
-        return redirect(url_for('driver', driver_name=driver_name))
-
-    completed = [d for d in dispatches if d.is_departed]
-    uncompleted = [d for d in dispatches if not d.is_departed and d.store_x and d.store_y]
-    uncompleted_no_coords = [d for d in dispatches if not d.is_departed and (not d.store_x or not d.store_y)]
-
-    if not uncompleted:
-        return redirect(url_for('driver', driver_name=driver_name))
-
-    driver_center = dispatches[0].center_name
-    
-    # 💡 DB에 저장된 센터 좌표 가져오기
-    target_center_obj = Center.query.filter_by(name=driver_center).first()
-    if target_center_obj and target_center_obj.center_y and target_center_obj.center_x:
-        current_lat, current_lng = float(target_center_obj.center_y), float(target_center_obj.center_x)
-    else:
-        current_lat, current_lng = 37.5665, 126.9780
-    
-    # 만약 이미 완료된 배송지가 있다면 마지막 완료지점을 기준으로 시작
-    if completed:
-        last_completed = completed[-1]
-        if last_completed.store_y and last_completed.store_x:
-            current_lat = float(last_completed.store_y)
-            current_lng = float(last_completed.store_x)
-
-    optimized_list = []
-    current_node = (current_lat, current_lng)
-    candidates = uncompleted.copy()
-    
-    while candidates:
-        closest = min(candidates, key=lambda d: haversine(current_node[0], current_node[1], float(d.store_y), float(d.store_x)))
-        optimized_list.append(closest)
-        candidates.remove(closest)
-        current_node = (float(closest.store_y), float(closest.store_x))
-
-    start_seq = len(completed) + 1
-    for idx, d in enumerate(optimized_list):
-        d.delivery_seq = start_seq + idx
-        
-    for idx, d in enumerate(uncompleted_no_coords):
-        d.delivery_seq = start_seq + len(optimized_list) + idx
-
-    db.session.commit()
-    return redirect(url_for('driver', driver_name=driver_name))
 
 @app.route('/admin/bulk_update', methods=['POST'])
 def bulk_update():

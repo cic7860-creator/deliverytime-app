@@ -123,7 +123,7 @@ def get_driving_time(start_x, start_y, end_x, end_y):
     except Exception: pass
     return 25 * 60 
 
-    def update_etas_for_driver(driver_name, target_date=None):
+def update_etas_for_driver(driver_name, target_date=None):
     if not target_date:
         latest = Dispatch.query.filter_by(driver_name=driver_name).order_by(Dispatch.delivery_date.desc()).first()
         if not latest: return

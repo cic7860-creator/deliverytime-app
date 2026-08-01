@@ -1211,6 +1211,92 @@ def bulk_update():
     
     return redirect(url_for('admin', target_date=target_date_str))
 
+# ==========================================
+# 💡 [신규] 배송 전날 배차정보 사전 안내 문자 엑셀 다운로드
+# ==========================================
+@app.route('/download_pre_dispatch_sms_excel')
+def download_pre_dispatch_sms_excel():
+    if not session.get('is_admin'): 
+        return redirect(url_for('admin_login'))
+    
+    center_filter = request.args.get('center_name', '')
+    target_date_str = request.args.get('target_date')
+    
+    if target_date_str:
+        target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
+    else:
+        latest = Dispatch.query.order_by(Dispatch.delivery_date.desc()).first()
+        target_date = latest.delivery_date if latest else datetime.now().date()
+
+    # 💡 도착 안내 문자와 달리, '출발 여부와 상관없이' 해당 일자의 모든 배차 데이터를 가져옵니다.
+    query = Dispatch.query.filter_by(delivery_date=target_date)
+    if center_filter: 
+        query = query.filter_by(center_name=center_filter)
+    dispatches = query.order_by(Dispatch.driver_name, Dispatch.delivery_seq).all()
+    
+    # 💡 관리자님이 만들어두신 "배차정보안내" 템플릿을 고정으로 가져옵니다.
+    t_obj = SmsTemplate.query.filter_by(name='배차정보안내').first()
+    
+    data_list = []
+    for d in dispatches:
+        if t_obj:
+            raw_subject = t_obj.subject
+            raw_content = t_obj.content
+            sender_num = t_obj.sender_phone if t_obj.sender_phone else '1668-3136'
+        else:
+            # 혹시 템플릿을 삭제했거나 못 찾을 경우를 대비한 안전 양식
+            raw_subject = "[(주)제때] {매장명} 배차정보 안내"
+            raw_content = "안녕하세요 {매장명} 점주님!\n배송을 담당할 기사님 정보입니다.\n기사명: {기사명}\n차량번호: {차량번호}\n연락처: {기사전화번호}"
+            sender_num = "1668-3136"
+
+        # 내용 치환
+        sms_subject = raw_subject.replace('{매장명}', d.store_name)\
+                                 .replace('{기사명}', d.driver_name)\
+                                 .replace('{차량번호}', d.vehicle_num)
+        
+        sms_content = raw_content.replace('{매장명}', d.store_name)\
+                                 .replace('{기사명}', d.driver_name)\
+                                 .replace('{차량번호}', d.vehicle_num)\
+                                 .replace('{기사전화번호}', d.driver_phone if d.driver_phone else "번호없음")\
+                                 .replace('{도착예정시간}', '내일') # 혹시 양식에 남아있을 경우 대비
+        
+        store_phone_raw = d.store_phone if d.store_phone else "번호없음"
+        phones = [p.strip() for p in store_phone_raw.replace(' / ', '/').split('/') if p.strip()]
+        
+        for phone in phones:
+            data_list.append({
+                '수신인': d.store_name, '연락처': phone,
+                '제목': sms_subject, '내용': sms_content, '발신번호': sender_num
+            })
+            
+    if not data_list:
+        data_list.append({
+            '수신인': '발송 대상 없음', '연락처': '',
+            '제목': '조건에 맞는 매장이 없습니다.', '내용': '', '발신번호': ''
+        })
+        
+    df = pd.DataFrame(data_list)
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='배차정보문자양식')
+        worksheet = writer.sheets['배차정보문자양식']
+        
+        if 'apply_excel_styles' in globals():
+            apply_excel_styles(worksheet, df, is_sms=True)
+            
+        worksheet.column_dimensions['A'].width = 25
+        worksheet.column_dimensions['B'].width = 20
+        worksheet.column_dimensions['C'].width = 35
+        worksheet.column_dimensions['D'].width = 50
+        worksheet.column_dimensions['E'].width = 15
+                
+    output.seek(0)
+    today_str = target_date.strftime('%Y%m%d')
+    filename = f"{center_filter}_{today_str}_배차정보문자.xlsx" if center_filter else f"{today_str}_배차정보문자.xlsx"
+    
+    encoded_filename = urllib.parse.quote(filename)
+    return send_file(output, download_name=filename, as_attachment=True)
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()  # 💡 이게 있어야 새 DB(Supabase)에 테이블이 자동으로 생성됩니다.

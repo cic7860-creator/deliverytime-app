@@ -26,11 +26,11 @@
         
         .btn { padding: 10px 20px; font-size: 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
         .btn-primary { background-color: #082c84; color: white; }
-        .btn-save-all { background-color: #198754; color: white; padding: 12px 25px; font-size: 16px; border-radius: 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: 0.2s; }
+        .btn-save-all { background-color: #198754; color: white; padding: 12px 25px; font-size: 16px; border-radius: 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: 0.2s; border: none; cursor: pointer; font-family: 'Binggrae-Two'; }
         .btn-save-all:hover { background-color: #146c43; transform: translateY(-2px); }
         .btn-outline { background-color: white; color: #082c84; border: 1px solid #082c84; text-decoration: none; display: inline-block; padding: 8px 15px; font-size: 14px; border-radius: 4px; font-weight: bold; transition: 0.2s; }
         .btn-outline:hover { background-color: #e3f2fd; }
-        .btn-danger { background-color: #dc3545; color: white; padding: 8px 15px; font-size: 14px; }
+        .btn-danger { background-color: #dc3545; color: white; padding: 8px 15px; font-size: 14px; border: none; cursor: pointer; font-family: 'Binggrae-Two'; border-radius: 4px;}
         
         .section-title { margin-top: 40px; border-bottom: 2px solid #dee2e6; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
         .table-responsive { overflow-x: auto; margin-top: 15px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05); }
@@ -45,17 +45,7 @@
         .search-container { margin-top: 15px; display: flex; gap: 10px; align-items: center; width: 100%; }
         .search-container select { padding: 12px; font-size: 15px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; }
         
-        /* 💡 검색창 사이즈를 아주 시원하게 넓혔습니다. */
-        .search-container input { 
-        flex: 1; 
-        width: 100%; 
-        padding: 12px; 
-        font-size: 15px; 
-        border: 1px solid #ced4da; 
-        border-radius: 4px; 
-        font-family: 'Binggrae-Two'; 
-        transition: border-color 0.2s; 
-        }
+        .search-container input { flex: 1; width: 100%; padding: 12px; font-size: 15px; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Binggrae-Two'; transition: border-color 0.2s; }
         .search-container input:focus { outline: none; border-color: #082c84; box-shadow: 0 0 5px rgba(8, 44, 132, 0.3); }
         
         .info-box { background-color: #e3f2fd; color: #082c84; padding: 15px 20px; border-radius: 6px; margin-bottom: 15px; border-left: 5px solid #082c84; font-weight: bold; font-size: 15px; }
@@ -73,14 +63,17 @@
             for (let i = 1; i < tr.length; i++) {
                 let tds = tr[i].getElementsByTagName("td");
                 let rowText = ""; 
-                let rowCenter = tds[0] ? tds[0].innerText.trim() : ""; 
+                // 💡 [수정] 체크박스가 0번째 인덱스가 되면서 센터명은 1번째 인덱스로 변경됨
+                let rowCenter = tds[1] ? tds[1].innerText.trim() : ""; 
                 
                 for (let j = 0; j < tds.length; j++) { 
                     if (tds[j]) {
                         rowText += tds[j].innerText.toLowerCase() + " "; 
                         let inputs = tds[j].getElementsByTagName('input');
                         for(let k=0; k<inputs.length; k++) {
-                            rowText += inputs[k].value.toLowerCase() + " ";
+                            if(inputs[k].type !== 'checkbox') {
+                                rowText += inputs[k].value.toLowerCase() + " ";
+                            }
                         }
                     }
                 }
@@ -110,6 +103,7 @@
     </form>
 
     <div class="container">
+        <!-- 💡 상단 네비게이션 메뉴 반영 -->
         <div class="top-nav">
             <div>
                 <a href="/admin" style="color: #ffe812;">🖥️ 데이터 입력 (홈)</a>
@@ -117,7 +111,6 @@
                 <a href="/dashboard">📊 실시간 대시보드</a>
                 <a href="/sms">✉️ 도착안내 문자 발송</a>
                 <a href="/notice">📢 공지사항 관리</a>
-                <!-- 💡 [신규] 야간 특이사항 관리 버튼 추가 (새 창으로 열림) -->
                 <a href="https://work-innovation.onrender.com" target="_blank">🌙 야간 특이사항 관리</a>
             </div>
             <a href="/admin_logout" style="color: #ff6b6b;">🚪 로그아웃</a>
@@ -173,13 +166,11 @@
         </div>
 
         <div class="section-title">
-            <!-- 💡 [수정] "금일" 대신 선택한 target_date의 연/월/일과 요일이 동적으로 표시되도록 변경 -->
             {% set weekdays = ['월', '화', '수', '목', '금', '토', '일'] %}
             <h3 style="margin: 0;">
                 📋 {{ target_date.strftime('%y.%m.%d') }}({{ weekdays[target_date.weekday()] }}) 배차 내역 
                 <span style="color:#6c757d; font-size:16px;">(총 {{ dispatches|length }} 건)</span>
             </h3>
-            
             <div style="display: flex; gap: 10px;">
                 <form action="/admin/delete_by_center" method="POST" onsubmit="return confirm('선택한 센터의 해당 일자 배차 데이터를 모두 삭제하시겠습니까?');" style="margin: 0; display: flex; gap: 5px;">
                     <input type="hidden" name="target_date" value="{{ target_date.strftime('%Y-%m-%d') if target_date else '' }}">
@@ -198,20 +189,18 @@
         </div>
 
         {% if dispatches %}
-
-<!-- 💡 [수정] 관리자 강제 출발처리 기능 (센터 필터 + 기사명 타이핑 검색 + 완료 숨기기 통합) -->
+        
+        <!-- 💡 관리자 임의 출발 일괄 지정 박스 -->
         {% set unique_drivers = dispatches | map(attribute='driver_name') | unique | list %}
         {% set departed_drivers = dispatches | selectattr('center_depart_time') | map(attribute='driver_name') | list %}
         
         {% if unique_drivers %}
         <div style="margin-bottom: 15px; background: #e3f2fd; padding: 12px 20px; border-radius: 8px; border: 1px solid #90caf9; display: flex; align-items: flex-start; flex-direction: column; gap: 10px;">
-            
             <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 10px;">
                 <div style="font-size: 15px; font-weight: bold; color: #082c84;">
                     🚀 관리자 임의 출발 일괄 지정 <span style="font-size: 12px; color: #555; font-weight: normal;">(조건 검색 후 다중 선택 가능)</span>
                 </div>
                 
-                <!-- 💡 신규: 센터 필터 및 텍스트 검색 컨트롤 -->
                 <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                     <select id="departCenterFilter" onchange="applyDriverFilters()" style="padding: 6px; border-radius: 4px; border: 1px solid #ced4da; font-family: 'Binggrae-Two';">
                         <option value="">🏢 전체 센터</option>
@@ -223,27 +212,23 @@
                     <input type="text" id="departDriverSearch" onkeyup="applyDriverFilters()" placeholder="🔍 기사명 검색..." style="padding: 6px; border-radius: 4px; border: 1px solid #ced4da; font-family: 'Binggrae-Two'; width: 140px;">
                     
                     <label style="cursor: pointer; font-weight: bold; color: #17a2b8; font-size: 13px;">
-                        <input type="checkbox" id="hideDepartedChk" onchange="applyDriverFilters()" checked style="vertical-align: middle;"> 출발한 기사 숨기기
+                        <input type="checkbox" id="hideDepartedChk" onchange="applyDriverFilters()" checked style="vertical-align: middle;"> 완료 기사 숨기기
                     </label>
                 </div>
             </div>
             
-            <form action="/admin/force_depart" method="POST" style="margin: 0; width: 100%; display: flex; gap: 10px; align-items: stretch; flex-wrap: wrap;" onsubmit="if(document.querySelectorAll('.drv-chk:checked').length === 0) { alert('출발 처리할 기사님을 최소 1명 이상 선택해주세요.'); return false; }">
+            <form action="/admin/force_depart" method="POST" style="margin: 0; width: 100%; display: flex; gap: 10px; align-items: stretch; flex-wrap: wrap;" onsubmit="if(document.activeElement.getAttribute('formaction') !== '/admin/cancel_force_depart' && document.querySelectorAll('.drv-chk:checked').length === 0) { alert('출발 처리할 기사님을 최소 1명 이상 선택해주세요.'); return false; }">
                 <input type="hidden" name="target_date" value="{{ target_date.strftime('%Y-%m-%d') if target_date else '' }}">
                 
-                <!-- 💡 기사님 다중 선택 체크박스 영역 -->
                 <div style="flex: 1; background: white; border: 1px solid #ced4da; border-radius: 4px; padding: 10px; display: flex; gap: 12px; flex-wrap: wrap; min-width: 250px; max-height: 120px; overflow-y: auto;">
-                    
-                    <!-- 💡 전체선택 토글 -->
                     <label style="cursor: pointer; font-weight: bold; color: #d63384; font-size: 14px; border-right: 2px solid #eee; padding-right: 12px; height: fit-content;">
-                        <input type="checkbox" id="selectAllChk" onchange="toggleSelectAll(this.checked)"> 전체선택
+                        <input type="checkbox" id="selectAllChk" onchange="toggleSelectAllDrivers(this.checked)"> 전체선택
                     </label>
                     
                     {% for driver in unique_drivers %}
                     {% set is_departed = driver in departed_drivers %}
                     {% set d_center = (dispatches | selectattr('driver_name', 'equalto', driver) | first).center_name %}
                     
-                    <!-- data-center 와 data-name 속성을 심어서 자바스크립트가 쉽게 검색하도록 함 -->
                     <label class="drv-label {{ 'is-departed' if is_departed else '' }}" data-center="{{ d_center }}" data-name="{{ driver | lower }}" style="cursor: pointer; font-size: 14px; color: {{ '#adb5bd; text-decoration: line-through;' if is_departed else '#333;' }} display: {{ 'none' if is_departed else 'inline-flex' }}; align-items: center; gap: 4px;">
                         <input type="checkbox" name="driver_names" value="{{ driver }}" class="drv-chk"> 
                         {{ driver }} <span style="font-size: 11px; color: #999;">({{ d_center }})</span>
@@ -252,19 +237,13 @@
                     {% endfor %}
                 </div>
                 
-            <!-- 시간 지정 및 버튼 -->
                 <div style="display: flex; gap: 10px; align-items: center;">
                     <input type="time" name="depart_time" required style="padding: 10px; border-radius: 4px; border: 1px solid #ced4da; font-family: 'Binggrae-Two';">
-                    
-                    <!-- 💡 출발 적용 버튼 -->
                     <button type="submit" formaction="/admin/force_depart" class="btn btn-primary" style="padding: 10px 20px; background-color: #0d6efd; box-shadow: 0 2px 4px rgba(0,0,0,0.1); white-space: nowrap;">출발 일괄적용</button>
-                    
-                    <!-- 💡 [신규] 출발 취소 버튼 -->
                     <button type="submit" formaction="/admin/cancel_force_depart" formnovalidate class="btn btn-danger" style="padding: 10px 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); white-space: nowrap;" onclick="return confirm('선택한 기사님들의 출발 처리를 초기화(취소) 하시겠습니까?');">출발 일괄취소</button>
                 </div>
             </form>
 
-            <!-- 💡 통합 필터링 및 검색 자바스크립트 -->
             <script>
                 function applyDriverFilters() {
                     const centerFilter = document.getElementById('departCenterFilter').value;
@@ -272,37 +251,25 @@
                     const hideDeparted = document.getElementById('hideDepartedChk').checked;
                     
                     const labels = document.querySelectorAll('.drv-label');
-                    
                     labels.forEach(label => {
                         const center = label.getAttribute('data-center');
                         const name = label.getAttribute('data-name');
                         const isDeparted = label.classList.contains('is-departed');
                         
                         let show = true;
-                        
-                        // 1. 센터 필터가 선택되었고, 일치하지 않으면 숨김
                         if (centerFilter && center !== centerFilter) show = false;
-                        // 2. 검색어가 입력되었고, 이름에 포함되지 않으면 숨김
                         if (searchText && !name.includes(searchText)) show = false;
-                        // 3. 완료 기사 숨기기가 켜져있고, 이미 완료된 기사면 숨김
                         if (hideDeparted && isDeparted) show = false;
                         
                         label.style.display = show ? 'inline-flex' : 'none';
-                        
-                        // 화면에서 숨겨지는 기사님은 안전하게 체크 상태를 강제로 해제
-                        if (!show) {
-                            label.querySelector('.drv-chk').checked = false;
-                        }
+                        if (!show) label.querySelector('.drv-chk').checked = false;
                     });
-                    
-                    // 필터 조건이 바뀔 때마다 '전체선택' 체크박스를 초기화합니다
                     document.getElementById('selectAllChk').checked = false;
                 }
 
-                function toggleSelectAll(isChecked) {
+                function toggleSelectAllDrivers(isChecked) {
                     const allLabels = document.querySelectorAll('.drv-label');
                     allLabels.forEach(label => {
-                        // 현재 화면에 "보이는" 기사님들만 체크/해제 처리
                         if (label.style.display !== 'none') {
                             label.querySelector('.drv-chk').checked = isChecked;
                         }
@@ -311,33 +278,40 @@
             </script>
         </div>
         {% endif %}
-        
-<!-- 💡 기존 검색창 & 일괄 저장 버튼 감싸는 div 블록을 찾아 교체해주세요 -->
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; background: #e9ecef; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6; gap: 15px; flex-wrap: wrap;">
-    <div class="search-container" style="margin: 0; flex: 1; display: flex; gap: 10px; min-width: 280px;">
-        <select id="adminCenterFilter" onchange="filterTable('dispatchTable', 'adminSearchInput', 'adminCenterFilter')">
-            <option value="">🏢 전체 센터</option>
-            {% for c in centers %} <option value="{{ c.name }}">{{ c.name }}</option> {% endfor %}
-        </select>
-        <input type="text" id="adminSearchInput" onkeyup="filterTable('dispatchTable', 'adminSearchInput', 'adminCenterFilter')" placeholder="🔍 매장코드, 매장명, 기사명, 주소, 연락처 등 통합 검색...">
-    </div>
-    
-    <button type="submit" form="bulkUpdateForm" class="btn btn-save-all" style="white-space: nowrap; padding: 12px 30px; font-size: 16px;">💾 변경사항 일괄 저장</button>
-</div>
+
+        <!-- 💡 표 상단 검색 및 버튼 영역 -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; background: #e9ecef; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6; gap: 15px; flex-wrap: wrap;">
+            <div class="search-container" style="margin: 0; flex: 1; display: flex; gap: 10px; min-width: 280px;">
+                <select id="adminCenterFilter" onchange="filterTable('dispatchTable', 'adminSearchInput', 'adminCenterFilter')">
+                    <option value="">🏢 전체 센터</option>
+                    {% for c in centers %} <option value="{{ c.name }}">{{ c.name }}</option> {% endfor %}
+                </select>
+                <input type="text" id="adminSearchInput" onkeyup="filterTable('dispatchTable', 'adminSearchInput', 'adminCenterFilter')" placeholder="🔍 매장코드, 매장명, 기사명, 주소, 연락처 등 통합 검색...">
+            </div>
+            
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <!-- 💡 [신규] 기사정보 일괄변경 팝업 오픈 버튼 -->
+                <button type="button" onclick="openDriverBulkModal()" class="btn" style="background-color: #6f42c1; color: white; border: none; padding: 12px 20px; font-size: 16px; font-weight: bold; border-radius: 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; white-space: nowrap;">🚚 기사정보 일괄변경</button>
+                
+                <!-- 기존 폼 연동 저장 버튼 -->
+                <button type="submit" form="bulkUpdateForm" class="btn btn-save-all" style="white-space: nowrap; padding: 12px 30px; font-size: 16px;">💾 변경사항 일괄 저장</button>
+            </div>
+        </div>
 
         <div class="table-responsive">
-            <!-- 기존 폼 교체 -->
             <form id="bulkUpdateForm" action="/admin/bulk_update" method="POST">
-                <!-- 💡 날짜 데이터 추가 -->
                 <input type="hidden" name="target_date" value="{{ target_date.strftime('%Y-%m-%d') if target_date else '' }}">
                 <input type="hidden" name="dispatch_ids" value="{{ dispatches | map(attribute='id') | join(',') }}">
                 
                 <table id="dispatchTable">
                     <thead>
                         <tr>
-                            <th style="width: 7%;">센터명</th>
-                            <th style="width: 12%;">기사명 / 차량</th>
-                            <!-- 💡 헤더에 코드 명시 -->
+                            <!-- 💡 매장별 다중 선택 체크박스 컬럼 추가 -->
+                            <th style="width: 3%; text-align: center;">
+                                <input type="checkbox" onchange="toggleAllDispatch(this.checked)" style="transform: scale(1.3); cursor: pointer;">
+                            </th>
+                            <th style="width: 6%;">센터명</th>
+                            <th style="width: 10%;">기사명 / 차량</th>
                             <th style="width: 14%;">매장코드 / 매장명</th>
                             <th style="width: 5%;">순서</th>
                             <th style="width: 25%;">주소 (오류 시 직접 수정)</th>
@@ -350,6 +324,11 @@
                     <tbody>
                         {% for d in dispatches %}
                         <tr>
+                            <!-- 💡 각 매장별 체크박스 -->
+                            <td class="text-center">
+                                <input type="checkbox" class="dispatch-chk" value="{{ d.id }}" style="transform: scale(1.3); cursor: pointer;">
+                            </td>
+                            
                             <td class="text-center" style="font-weight: bold; color: #6c757d;">{{ d.center_name }}</td>
                             
                             <td class="text-center">
@@ -357,7 +336,6 @@
                                 <input type="text" name="vehicle_num_{{ d.id }}" value="{{ d.vehicle_num }}" class="table-input" style="text-align:center;" title="차량번호">
                             </td>
                             
-                            <!-- 💡 매장명 위에 매장코드를 함께 노출시켜 검색이 가능하게 만들었습니다. -->
                             <td>
                                 <div style="font-size: 11px; color: #6c757d; font-weight: bold; margin-bottom: 2px;">{{ d.store_code or '코드없음' }}</div>
                                 <div style="font-weight: bold; color: #333;">{{ d.store_name }}</div>
@@ -396,6 +374,90 @@
                 </table>
             </form>
         </div>
+        
+        <!-- 💡 [신규] 기사 정보 일괄 변경 모달(팝업창) -->
+        <div id="driverBulkModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+            <div style="background:white; padding:30px; border-radius:10px; width:400px; box-shadow:0 5px 15px rgba(0,0,0,0.3);">
+                <h3 style="margin-top:0; color:#082c84;">🚚 배차 기사 일괄 변경</h3>
+                <p style="font-size:14px; color:#555; margin-bottom:20px; line-height:1.5;">체크하신 매장들의 기사 정보를 한 번에 변경합니다.<br>변경할 항목만 입력하셔도 됩니다.</p>
+                
+                <label style="font-weight:bold; font-size:14px; display:block; margin-bottom:5px;">새 기사명</label>
+                <input type="text" id="bulkDriverName" class="table-input" style="margin-bottom:15px; font-size:15px; padding:10px;">
+                
+                <label style="font-weight:bold; font-size:14px; display:block; margin-bottom:5px;">새 차량번호</label>
+                <input type="text" id="bulkVehicleNum" class="table-input" style="margin-bottom:15px; font-size:15px; padding:10px;">
+                
+                <label style="font-weight:bold; font-size:14px; display:block; margin-bottom:5px;">새 기사 연락처</label>
+                <input type="text" id="bulkDriverPhone" class="table-input" style="margin-bottom:25px; font-size:15px; padding:10px;" placeholder="예) 010-1234-5678">
+                
+                <div style="display:flex; gap:10px; justify-content:flex-end;">
+                    <button type="button" onclick="closeDriverBulkModal()" class="btn btn-outline" style="padding:10px 20px;">취소</button>
+                    <button type="button" onclick="applyDriverBulkChange()" class="btn btn-primary" style="padding:10px 20px;">화면에 변경 적용</button>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            // 표에 있는 전체 체크박스 선택/해제 로직
+            function toggleAllDispatch(isChecked) {
+                const trs = document.querySelectorAll('#dispatchTable tbody tr');
+                trs.forEach(tr => {
+                    if (tr.style.display !== 'none') {
+                        const chk = tr.querySelector('.dispatch-chk');
+                        if(chk) chk.checked = isChecked;
+                    }
+                });
+            }
+
+            // 모달 열기
+            function openDriverBulkModal() {
+                const checked = document.querySelectorAll('.dispatch-chk:checked');
+                if(checked.length === 0) {
+                    alert('기사 정보를 변경할 매장을 표 안의 체크박스로 최소 1개 이상 선택해주세요.');
+                    return;
+                }
+                document.getElementById('driverBulkModal').style.display = 'flex';
+            }
+
+            // 모달 닫기
+            function closeDriverBulkModal() {
+                document.getElementById('driverBulkModal').style.display = 'none';
+            }
+
+            // 입력된 정보를 표의 각 인풋창에 일괄 덮어쓰기
+            function applyDriverBulkChange() {
+                const name = document.getElementById('bulkDriverName').value;
+                const vehicle = document.getElementById('bulkVehicleNum').value;
+                const phone = document.getElementById('bulkDriverPhone').value;
+                
+                if(!name && !vehicle && !phone) {
+                    alert('변경할 기사명, 차량번호, 연락처 중 최소 한 가지 이상은 입력해주세요.');
+                    return;
+                }
+                
+                const checked = document.querySelectorAll('.dispatch-chk:checked');
+                checked.forEach(chk => {
+                    const id = chk.value;
+                    if(name) document.querySelector(`input[name="driver_name_${id}"]`).value = name;
+                    if(vehicle) document.querySelector(`input[name="vehicle_num_${id}"]`).value = vehicle;
+                    if(콜) document.querySelector(`input[name="driver_phone_${id}"]`).value = phone;
+                    
+                    // 어떤 매장이 변경되었는지 알기 쉽게 표의 배경색을 연한 초록색으로 칠해줌
+                    chk.closest('tr').style.backgroundColor = '#e8f5e9';
+                    
+                    // 적용 후 체크박스는 해제
+                    chk.checked = false;
+                });
+                
+                // 모달 닫고 입력창 깨끗하게 비우기
+                closeDriverBulkModal();
+                document.getElementById('bulkDriverName').value = '';
+                document.getElementById('bulkVehicleNum').value = '';
+                document.getElementById('bulkDriverPhone').value = '';
+                
+                alert(`총 ${checked.length}개 매장의 기사 정보가 화면에 임시 적용되었습니다.\n\n⚠️ 주의: 아직 완전히 저장된 것이 아닙니다!\n반드시 우측 상단의 초록색 [💾 변경사항 일괄 저장] 버튼을 눌러야 최종 저장됩니다.`);
+            }
+        </script>
         {% endif %}
     </div>
 </body>
